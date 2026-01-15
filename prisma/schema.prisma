@@ -1,0 +1,111 @@
+// --------------------------------------------------------------------------
+// NEXUS PLATFORM SCHEMA - PRISMA 7 COMPLIANT
+// --------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPER_USER
+  ADMIN
+  ASSISTANT
+  SALES_REP
+}
+
+model User {
+  id               String        @id @default(cuid())
+  name             String
+  email            String        @unique
+  password         String
+  role             Role          @default(SALES_REP)
+  staffId          String?       @unique
+  shopId           String?
+  shop             Shop?         @relation(fields: [shopId], references: [id])
+  isSuspended      Boolean       @default(false)
+  isOnLeave        Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  sales            Sale[]
+  reports          DailyReport[]
+  expenses         Expense[]
+  sentMessages     ChatMessage[] @relation("SentMessages")
+  receivedMessages ChatMessage[] @relation("ReceivedMessages")
+}
+
+model Shop {
+  id               String        @id @default(cuid())
+  name             String
+  location         String?
+  latitude         Float
+  longitude        Float
+  radius           Float         @default(100)
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  inventory        Inventory[]
+  users            User[]
+  sales            Sale[]
+}
+
+model Inventory {
+  id               String        @id @default(cuid())
+  productId        String
+  productName      String
+  quantity         Int           @default(0)
+  priceGHS         Float
+  shopId           String
+  shop             Shop          @relation(fields: [shopId], references: [id])
+}
+
+model Sale {
+  id               String        @id @default(cuid())
+  shopId           String
+  userId           String
+  totalAmount      Float
+  items            Json
+  paymentMethod    String        @default("CASH")
+  latitude         Float?
+  longitude        Float?
+  createdAt        DateTime      @default(now())
+  shop             Shop          @relation(fields: [shopId], references: [id])
+  user             User          @relation(fields: [userId], references: [id])
+}
+
+model DailyReport {
+  id               String        @id @default(cuid())
+  userId           String
+  walkIns          Int
+  buyers           Int
+  nonBuyers        Int
+  conversionRate   Float
+  notes            String?
+  createdAt        DateTime      @default(now())
+  user             User          @relation(fields: [userId], references: [id])
+}
+
+model Expense {
+  id               String        @id @default(cuid())
+  userId           String
+  amount           Float
+  category         String
+  description      String
+  status           String        @default("PENDING")
+  createdAt        DateTime      @default(now())
+  user             User          @relation(fields: [userId], references: [id])
+}
+
+model ChatMessage {
+  id               String        @id @default(cuid())
+  content          String
+  senderId         String
+  receiverId       String
+  isRead           Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  sender           User          @relation("SentMessages", fields: [senderId], references: [id])
+  receiver         User          @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}

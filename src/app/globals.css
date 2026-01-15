@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+/* NEXUS PROFESSIONAL THEME: SLATE & COBALT 
+  Optimized for Stormglide Logistics Operations
+*/
+
+:root {
+  --foreground-rgb: 15, 23, 42; /* Slate 900 */
+  --background-start-rgb: 248, 250, 252; /* Slate 50 */
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: #f8fafc;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  transition: background-color 0.4s ease;
+}
+
+/* --- PROFESSIONAL SCROLLBAR --- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9; /* Slate 100 */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* Slate 300 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2563eb; /* Cobalt Blue */
+}
+
+/* --- MAP FIXES: PROFESSIONAL OVERRIDES --- */
+.leaflet-container {
+  background: #f1f5f9 !important; /* Matches Slate 100 */
+  outline: 0;
+  font-family: inherit;
+}
+
+/* Professional Tooltips and Popups */
+.leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  color: #1e293b !important; /* Slate 800 */
+  border-radius: 12px !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+  border: 1px solid #e2e8f0;
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+}
+
+.leaflet-popup-tip {
+  background: #ffffff !important;
+}
+
+/* --- CUSTOM ANIMATIONS --- */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.animate-status-online {
+  animation: pulse-soft 2s infinite ease-in-out;
+}
+
+/* Clean UI utility for the Pulse Feed */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+}
