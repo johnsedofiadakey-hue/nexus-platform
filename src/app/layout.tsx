@@ -67,11 +67,14 @@ function AuthShield({ children }: { children: ReactNode }) {
 // --- 3. MAIN ROOT LAYOUT ---
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning={true}>
       <head>
         <title>Nexus Enterprise | Stormglide</title>
       </head>
-      <body className="antialiased selection:bg-blue-100">
+      <body 
+        className="antialiased selection:bg-blue-100" 
+        suppressHydrationWarning={true}
+      >
         <NexusErrorBoundary>
           <SessionProvider>
             <AuthShield>

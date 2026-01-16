@@ -1,195 +1,693 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { 
-  ChevronLeft, Power, MapPin, TrendingUp, Gavel, 
-  MessageSquare, Calendar, ShieldAlert, BadgeCheck, 
-  Clock, Navigation, Activity, Wallet, AlertCircle,
-  ShoppingBag, ShieldCheck
+  ArrowLeft, MapPin, Phone, Mail, ShieldCheck, 
+  Clock, Activity, Send, Lock, FileText, CheckCircle, 
+  AlertTriangle, Move, Calendar, Download, History, 
+  DollarSign, Users, Briefcase, Save, X, Edit2, 
+  TrendingUp, UserCheck, Building2, Smartphone, 
+  Percent, Layers, ChevronRight, Hash, Ban, Wifi, WifiOff
 } from "lucide-react";
 
-export default function PersonnelPortal({ params }: { params: { id: string } }) {
-  const [isLocked, setIsLocked] = useState(false);
-  const [activeTab, setActiveTab] = useState("ACTIVITY");
-  
-  // Personnel Logic: Reflects the new Prisma 7 Category/Shop structure
-  const staff = {
-    id: params.id,
+// 🗺️ MAP ENGINE (Dynamic Import to prevent SSR errors)
+const LiveMap = dynamic(() => import("@/components/LiveMap"), { 
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full flex items-center justify-center bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-widest">
+      <Satellite className="w-5 h-5 animate-spin mr-2" /> Initializing Satellite Link...
+    </div>
+  )
+});
+
+// Helper for Lucide icon not imported above
+function Satellite({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.5 10.5L21 3m-5 0h5v5m0 6v5a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h5" /></svg>
+  );
+}
+
+type Params = Promise<{ id: string }>;
+
+export default function PersonnelPortal({ params }: { params: Params }) {
+  const resolvedParams = use(params);
+  const staffId = resolvedParams.id; 
+
+  // --- 1. STATE MANAGEMENT ---
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'LEAVE' | 'HISTORY' | 'REPORTS' | 'CHAT' | 'MAP'>('OVERVIEW');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingTargets, setIsEditingTargets] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [reportFilter, setReportFilter] = useState("Weekly");
+
+  // --- 2. PROFILE DATA (Editable) ---
+  const [profile, setProfile] = useState({
     name: "Kojo Bonsu",
-    staffId: "LG-ACC-401",
-    role: "Senior Sales Rep",
-    shop: "Melcom Accra Mall",
-    status: isLocked ? "LOCKED" : "ACTIVE",
-    compliance: "98.2%",
-    totalSales: "GHS 84,025.00",
-    phone: "+233 24 123 4567",
-    email: "k.bonsu@lgghana.com",
-    lastSeen: "2 mins ago"
+    email: "kojo.bonsu@nexus.com",
+    phone: "+233 54 123 4567",
+    status: "Active", // Active, On Leave, Suspended
+    role: "Sales Representative",
+    assignedShopId: "shop_1"
+  });
+
+  // --- 3. ADMIN CONFIGURATION (New Valuable Settings) ---
+  const [adminSettings, setAdminSettings] = useState({
+    commissionRate: 5.0, // Percentage
+    shiftType: "Full Day (08:00 - 17:00)",
+    deviceId: "IOS-GH-2291", // Linked Device for GPS Lock
+    contractType: "Full-Time"
+  });
+
+  // --- 4. SHOP DATABASE (Enhanced) ---
+  const shops = [
+    { id: "shop_1", name: "Melcom Accra Mall", manager: "Sarah Mensah", contact: "+233 20 999 8888", hours: "09:00 AM - 09:00 PM", location: "Accra" },
+    { id: "shop_2", name: "Game Kumasi Mall", manager: "Kwame Osei", contact: "+233 24 555 4444", hours: "09:00 AM - 08:00 PM", location: "Kumasi" },
+    { id: "shop_3", name: "Palace Hypermarket", manager: "Abena Koomson", contact: "+233 27 111 2222", hours: "08:00 AM - 10:00 PM", location: "Labone" },
+  ];
+
+  // Derived Manager Info
+  const currentShop = shops.find(s => s.id === profile.assignedShopId) || shops[0];
+
+  // --- 5. DUAL TARGET ENGINE (Value & Volume) ---
+  const [targets, setTargets] = useState({
+    revenueTarget: 20000,
+    revenueCurrent: 12450,
+    volumeTarget: 50, // e.g., Sell 50 Units
+    volumeCurrent: 18
+  });
+
+  // Temporary state for editing inputs
+  const [editTargetsInput, setEditTargetsInput] = useState({
+    rev: "20000",
+    vol: "50"
+  });
+
+  const saveTargets = () => {
+    setTargets(prev => ({
+      ...prev,
+      revenueTarget: parseInt(editTargetsInput.rev),
+      volumeTarget: parseInt(editTargetsInput.vol)
+    }));
+    setIsEditingTargets(false);
+  };
+
+  const revProgress = Math.min(100, Math.round((targets.revenueCurrent / targets.revenueTarget) * 100));
+  const volProgress = Math.min(100, Math.round((targets.volumeCurrent / targets.volumeTarget) * 100));
+
+  // --- 6. LEAVE DATA & LOGIC (Now Functional!) ---
+  const [leaveRequests, setLeaveRequests] = useState([
+    { id: 1, type: "Sick Leave", dates: "Feb 2 - Feb 4", days: 3, status: "Pending", reason: "Malaria treatment" },
+    { id: 2, type: "Casual Leave", dates: "Feb 10", days: 1, status: "Pending", reason: "Personal family matter" },
+  ]);
+
+  const [leaveHistory, setLeaveHistory] = useState([
+    { id: 101, type: "Annual Leave", dates: "Dec 20 - Dec 28", days: 8, status: "Approved", reason: "Yearly Break" },
+  ]);
+
+  // FUNCTION: Approve Leave
+  const handleApproveLeave = (id: number) => {
+    const request = leaveRequests.find(r => r.id === id);
+    if (!request) return;
+
+    // 1. Add to History with 'Approved' status
+    setLeaveHistory(prev => [{ ...request, status: "Approved" }, ...prev]);
+    // 2. Remove from Pending Requests
+    setLeaveRequests(prev => prev.filter(r => r.id !== id));
+    
+    // Optional: Update profile status if leave is starting today
+    // setProfile(prev => ({ ...prev, status: "On Leave" }));
+  };
+
+  // FUNCTION: Reject Leave
+  const handleRejectLeave = (id: number) => {
+    const request = leaveRequests.find(r => r.id === id);
+    if (!request) return;
+
+    // 1. Add to History with 'Rejected' status
+    setLeaveHistory(prev => [{ ...request, status: "Rejected" }, ...prev]);
+    // 2. Remove from Pending Requests
+    setLeaveRequests(prev => prev.filter(r => r.id !== id));
+  };
+
+  // --- 7. DAILY METRICS (Footfall & Funnel) ---
+  const dailyMetrics = {
+    walkIns: 142,      // Total customers entered
+    inquiries: 45,     // Asked about price/specs
+    purchases: 18,     // Actually bought
+    turnover: 12450.00 // Total Revenue
+  };
+
+  // --- 8. MOCK GPS & CHAT ---
+  const [gpsData, setGpsData] = useState({ lat: 5.6226, lng: -0.1736, speed: 0, battery: 87, status: "Stationary", connection: "Online" });
+  const [messages, setMessages] = useState([
+    { id: 1, sender: "REP", text: "Good morning. I have arrived at the hub.", time: "08:05 AM" },
+    { id: 2, sender: "ADMIN", text: "Noted. Please update the TV display prices by 10 AM.", time: "08:15 AM" },
+  ]);
+
+  useEffect(() => {
+    if (activeTab === 'MAP') {
+      const interval = setInterval(() => {
+        // Simulate occasional signal loss
+        const isOnline = Math.random() > 0.1; 
+        
+        if (isOnline) {
+          setGpsData(prev => ({
+            ...prev,
+            lat: prev.lat + (Math.random() * 0.0002 - 0.0001),
+            lng: prev.lng + (Math.random() * 0.0002 - 0.0001),
+            speed: Math.floor(Math.random() * 5),
+            battery: Math.max(10, prev.battery - 0.05),
+            status: Math.random() > 0.5 ? "In Transit" : "Stationary",
+            connection: "Online"
+          }));
+        } else {
+           setGpsData(prev => ({ ...prev, connection: "Offline", status: "Signal Lost" }));
+        }
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatMessage.trim()) return;
+    setMessages([...messages, { id: Date.now(), sender: "ADMIN", text: chatMessage, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+    setChatMessage("");
   };
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+    <div className="min-h-screen bg-slate-50 p-6 lg:p-10 font-sans text-slate-900 animate-in fade-in duration-500">
       
-      {/* --- CRITICAL NAVIGATION & LOCK SWITCH --- */}
-      <div className="flex items-center justify-between mb-10">
-        <Link 
-          href="/dashboard/hr/enrollment" 
-          className="flex items-center gap-3 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm group"
-        >
-          <ChevronLeft className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" /> 
-          Return to Personnel Grid
+      {/* 🔙 TOP NAVIGATION */}
+      <div className="flex items-center justify-between mb-8">
+        <Link href="/dashboard/hr/enrollment" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Back to Personnel Grid
         </Link>
         
-        <div className="flex items-center gap-4">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:block">Terminal Access Status:</span>
-          <button 
-            onClick={() => setIsLocked(!isLocked)}
-            className={`flex items-center gap-3 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
-              isLocked 
-              ? "bg-red-600 text-white shadow-red-200" 
-              : "bg-emerald-500 text-white shadow-emerald-200"
-            }`}
-          >
-            <Power className="w-4 h-4" />
-            {isLocked ? "System Locked" : "System Active"}
-          </button>
+        {/* EDIT / SAVE CONTROLS */}
+        <div className="flex gap-3">
+          {isEditing ? (
+            <>
+              <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-300">
+                Cancel
+              </button>
+              <button onClick={() => setIsEditing(false)} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-emerald-700">
+                <Save className="w-4 h-4" /> Save Profile
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+               <Edit2 className="w-3.5 h-3.5" /> Edit Settings
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-8">
+      {/* 👤 PROFILE HEADER CARD */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-8 mb-8 shadow-sm flex flex-col md:flex-row gap-8 items-start relative overflow-hidden transition-all">
+        {/* Avatar */}
+        <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-xl shrink-0">
+          {profile.name.charAt(0)}
+        </div>
         
-        {/* --- LEFT: BIO & AUTHORITY HUB --- */}
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-          <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8">
-               <BadgeCheck className="w-6 h-6 text-blue-600" />
+        <div className="flex-1 w-full">
+          {/* Header Row */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div>
+              {isEditing ? (
+                <input 
+                  value={profile.name}
+                  onChange={(e) => setProfile({...profile, name: e.target.value})}
+                  className="text-2xl font-bold text-slate-900 border-b-2 border-blue-500 outline-none bg-transparent w-full md:w-auto"
+                />
+              ) : (
+                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                  {profile.name}
+                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    profile.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 
+                    profile.status === 'On Leave' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {profile.status}
+                  </span>
+                </h1>
+              )}
+              
+              <div className="flex items-center gap-2 mt-1">
+                 {isEditing ? (
+                   <select 
+                      value={profile.assignedShopId}
+                      onChange={(e) => setProfile({...profile, assignedShopId: e.target.value})}
+                      className="text-sm font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none"
+                   >
+                     {shops.map(shop => <option key={shop.id} value={shop.id}>{shop.name} ({shop.location})</option>)}
+                   </select>
+                 ) : (
+                   <p className="text-sm text-slate-500 font-medium flex items-center gap-2">
+                     <Building2 className="w-3.5 h-3.5" />
+                     {profile.role} at <span className="text-slate-900 font-bold">{currentShop.name}</span>
+                   </p>
+                 )}
+              </div>
+            </div>
+
+            {/* Status Toggle (Edit Mode Only) */}
+            {isEditing && (
+              <div className="flex gap-2">
+                 {['Active', 'On Leave', 'Suspended'].map(s => (
+                   <button 
+                     key={s}
+                     onClick={() => setProfile({...profile, status: s})}
+                     className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${
+                       profile.status === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200'
+                     }`}
+                   >
+                     {s}
+                   </button>
+                 ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Contact & Admin Config Details */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6 pt-6 border-t border-slate-100">
+            <div className="flex items-center gap-3">
+              <Phone className="w-4 h-4 text-slate-400" />
+              {isEditing ? (
+                <input value={profile.phone} onChange={(e) => setProfile({...profile, phone: e.target.value})} className="text-xs font-semibold bg-slate-50 border-b border-slate-300 w-full" />
+              ) : (
+                <span className="text-xs font-semibold text-slate-600">{profile.phone}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <Mail className="w-4 h-4 text-slate-400" />
+              {isEditing ? (
+                <input value={profile.email} onChange={(e) => setProfile({...profile, email: e.target.value})} className="text-xs font-semibold bg-slate-50 border-b border-slate-300 w-full" />
+              ) : (
+                <span className="text-xs font-semibold text-slate-600">{profile.email}</span>
+              )}
             </div>
             
-            <div className="flex flex-col items-center text-center">
-              <div className="w-28 h-28 rounded-3xl bg-slate-100 border-4 border-white shadow-2xl mb-6 flex items-center justify-center overflow-hidden">
-                <span className="text-3xl font-black text-slate-300">KB</span>
-              </div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{staff.name}</h2>
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em] mt-1 underline decoration-blue-200 underline-offset-4">{staff.staffId}</p>
-              
-              <div className="grid grid-cols-2 gap-4 w-full mt-10">
-                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Grid Compliance</p>
-                    <p className="text-sm font-black text-emerald-600 tabular-nums">{staff.compliance}</p>
+            {/* New Valuable Settings Display */}
+            <div className="flex items-center gap-3">
+              <Percent className="w-4 h-4 text-blue-400" />
+              {isEditing ? (
+                 <div className="flex items-center text-xs">
+                   <input 
+                      type="number"
+                      value={adminSettings.commissionRate} 
+                      onChange={(e) => setAdminSettings({...adminSettings, commissionRate: parseFloat(e.target.value)})} 
+                      className="text-xs font-semibold bg-slate-50 border-b border-slate-300 w-12" 
+                   />
+                   <span>% Comm.</span>
                  </div>
-                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Account State</p>
-                    <p className={`text-sm font-black ${isLocked ? 'text-red-600' : 'text-slate-900'}`}>{staff.status}</p>
-                 </div>
-              </div>
+              ) : (
+                <span className="text-xs font-semibold text-slate-600">{adminSettings.commissionRate}% Commission</span>
+              )}
             </div>
-
-            <div className="mt-10 pt-10 border-t border-slate-50 space-y-4">
-               <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Digital Contact</span>
-                  <span className="text-[11px] font-bold text-slate-900 tabular-nums">{staff.phone}</span>
-               </div>
-               <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Active Retail Hub</span>
-                  <span className="text-[11px] font-bold text-slate-900 uppercase">{staff.shop}</span>
-               </div>
+            <div className="flex items-center gap-3">
+              <Smartphone className="w-4 h-4 text-slate-400" />
+              <span className="text-xs font-semibold text-slate-600 truncate" title={adminSettings.deviceId}>Device: {adminSettings.deviceId}</span>
             </div>
-          </div>
-
-          <div className="bg-slate-900 rounded-[2.5rem] p-8 space-y-3 shadow-2xl">
-             <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-[0.3em] mb-4 px-2">Authority Shortcuts</h3>
-             <button className="w-full flex items-center justify-between px-6 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all group">
-                Log Conduct Warning <Gavel className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
-             </button>
-             <button className="w-full flex items-center justify-between px-6 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all group">
-                Comms History <MessageSquare className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform" />
-             </button>
-             <button className="w-full flex items-center justify-between px-6 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all group">
-                Wage Settlements <Wallet className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
-             </button>
-          </div>
-        </div>
-
-        {/* --- RIGHT: TELEMETRY FEED & PERFORMANCE --- */}
-        <div className="col-span-12 lg:col-span-8 space-y-8 flex flex-col">
-          
-          <div className="grid grid-cols-3 gap-6">
-             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className="p-3 bg-blue-50 rounded-2xl text-blue-600"><TrendingUp className="w-5 h-5" /></div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">MTD Revenue</p>
-                   <p className="text-xl font-black text-slate-900 tabular-nums">{staff.totalSales}</p>
-                </div>
-             </div>
-             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600"><ShieldCheck className="w-5 h-5" /></div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Site Presence</p>
-                   <p className="text-xl font-black text-slate-900 tabular-nums">142.5h</p>
-                </div>
-             </div>
-             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className="p-3 bg-amber-50 rounded-2xl text-amber-600"><MapPin className="w-5 h-5" /></div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Real-time GPS</p>
-                   <p className="text-xl font-black text-slate-900 uppercase">On-Site</p>
-                </div>
-             </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-[2.5rem] flex-1 flex flex-col overflow-hidden shadow-sm">
-             <div className="flex border-b border-slate-100 px-8 shrink-0 bg-slate-50/50">
-                {["ACTIVITY LOG", "GEOSPATIAL", "LEAVE HISTORY"].map(tab => (
-                  <button 
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-6 py-5 text-[9px] font-black uppercase tracking-widest transition-all border-b-2 ${
-                      activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-             </div>
-
-             <div className="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar">
-                {activeTab === "ACTIVITY LOG" ? (
-                  <div className="space-y-4">
-                    {[
-                      { type: 'SALE', desc: 'Sold LG InstaView Fridge (Sub: REFRIGERATOR)', time: '14:20', val: 'GHS 18,400', color: 'blue' },
-                      { type: 'INTEL', desc: 'Samsung Competitor Promo Reported', time: '11:05', val: 'High Alert', color: 'slate' },
-                      { type: 'CHECK', desc: 'Geofence Verification: Accra Mall Hub', time: '08:32', val: 'Success', color: 'emerald' },
-                      { type: 'WARN', desc: 'GHA Card Identity Check: Verified', time: 'Yesterday', val: 'Audit Pass', color: 'blue' },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl hover:border-blue-200 transition-all group">
-                         <div className="flex items-center gap-4">
-                            <div className={`p-2.5 rounded-xl ${
-                              item.type === 'SALE' ? 'bg-blue-50 text-blue-600' : 
-                              item.type === 'WARN' ? 'bg-amber-50 text-amber-600' : 
-                              'bg-slate-50 text-slate-500'
-                            }`}>
-                               {item.type === 'SALE' ? <ShoppingBag className="w-4 h-4" /> : item.type === 'WARN' ? <ShieldAlert className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                            </div>
-                            <div>
-                               <p className="text-[11px] font-bold text-slate-900 leading-tight">{item.desc}</p>
-                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{item.time}</p>
-                            </div>
-                         </div>
-                         <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{item.val}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-3 italic">
-                    <AlertCircle className="w-8 h-8 opacity-20" />
-                    <p className="text-[10px] uppercase font-black tracking-widest">Telemetry Module Initializing...</p>
-                  </div>
-                )}
-             </div>
           </div>
         </div>
       </div>
+
+      {/* 🧭 NAVIGATION TABS */}
+      <div className="flex items-center gap-1 mb-8 border-b border-slate-200 overflow-x-auto scrollbar-hide">
+        {[
+          { id: 'OVERVIEW', label: 'Dashboard' },
+          { id: 'LEAVE', label: 'Leave & Absence' },
+          { id: 'HISTORY', label: 'Work History' },
+          { id: 'REPORTS', label: 'Sales Reports' },
+          { id: 'CHAT', label: 'Messages' },
+          { id: 'MAP', label: 'Live GPS' },
+        ].map((tab) => (
+          <button 
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-6 py-4 text-xs font-bold uppercase tracking-wider transition-all border-b-2 whitespace-nowrap ${
+              activeTab === tab.id 
+                ? 'border-blue-600 text-blue-600 bg-blue-50/50' 
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* --- TAB CONTENT AREA --- */}
+
+      {/* 📊 OVERVIEW: DUAL TARGETS & STORE LINK */}
+      {activeTab === 'OVERVIEW' && (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            
+            {/* 1. DUAL TARGET SYSTEM (Value & Volume) */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm md:col-span-2 relative group">
+               <div className="flex items-center justify-between mb-6">
+                 <div>
+                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                     <TrendingUp className="w-4 h-4" /> Monthly Performance Targets
+                   </p>
+                 </div>
+                 {!isEditingTargets ? (
+                   <button onClick={() => setIsEditingTargets(true)} className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors">
+                     Adjust Goals
+                   </button>
+                 ) : (
+                   <button onClick={saveTargets} className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg hover:bg-emerald-100 transition-colors">
+                     Save Targets
+                   </button>
+                 )}
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Revenue Target */}
+                  <div>
+                    <div className="flex justify-between items-end mb-2">
+                      <span className="text-xs font-semibold text-slate-400">Revenue Goal</span>
+                      {isEditingTargets ? (
+                        <div className="flex items-center border-b border-blue-500">
+                           <span className="text-sm font-bold text-slate-400 mr-1">₵</span>
+                           <input 
+                             type="number" 
+                             value={editTargetsInput.rev} 
+                             onChange={(e) => setEditTargetsInput({...editTargetsInput, rev: e.target.value})}
+                             className="w-20 font-bold text-slate-900 outline-none"
+                           />
+                        </div>
+                      ) : (
+                        <span className="text-sm font-black text-slate-900">₵ {targets.revenueTarget.toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                       <div className={`h-full rounded-full ${revProgress >= 100 ? 'bg-emerald-500' : 'bg-blue-600'}`} style={{ width: `${revProgress}%` }} />
+                    </div>
+                    <div className="flex justify-between mt-2 text-[10px] font-bold uppercase">
+                       <span className="text-slate-500">Current: ₵ {targets.revenueCurrent.toLocaleString()}</span>
+                       <span className={revProgress >= 100 ? "text-emerald-600" : "text-blue-600"}>{revProgress}%</span>
+                    </div>
+                  </div>
+
+                  {/* Volume Target */}
+                  <div>
+                    <div className="flex justify-between items-end mb-2">
+                      <span className="text-xs font-semibold text-slate-400">Volume Goal (Units)</span>
+                      {isEditingTargets ? (
+                        <div className="flex items-center border-b border-blue-500">
+                           <input 
+                             type="number" 
+                             value={editTargetsInput.vol} 
+                             onChange={(e) => setEditTargetsInput({...editTargetsInput, vol: e.target.value})}
+                             className="w-16 font-bold text-slate-900 outline-none"
+                           />
+                           <span className="text-[10px] font-bold text-slate-400 ml-1">Units</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-black text-slate-900">{targets.volumeTarget} Units</span>
+                      )}
+                    </div>
+                    <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                       <div className={`h-full rounded-full ${volProgress >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${volProgress}%` }} />
+                    </div>
+                    <div className="flex justify-between mt-2 text-[10px] font-bold uppercase">
+                       <span className="text-slate-500">Sold: {targets.volumeCurrent}</span>
+                       <span className={volProgress >= 100 ? "text-emerald-600" : "text-indigo-600"}>{volProgress}%</span>
+                    </div>
+                  </div>
+               </div>
+            </div>
+
+            {/* 2. STORE CONNECTION INTEL (Auto-Updates based on assignment) */}
+            <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-sm text-white flex flex-col justify-between">
+               <div>
+                 <div className="flex items-center gap-3 mb-6 opacity-70">
+                   <Building2 className="w-4 h-4" />
+                   <span className="text-xs font-bold uppercase tracking-wider">Assigned Store Link</span>
+                 </div>
+                 <p className="text-lg font-bold mb-1">{currentShop.name}</p>
+                 <p className="text-xs opacity-50 mb-1">{currentShop.location}</p>
+                 <p className="text-xs text-emerald-400 font-mono mb-4">Open: {currentShop.hours}</p>
+               </div>
+               
+               <div className="pt-4 border-t border-white/10">
+                 <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Branch Manager</p>
+                 <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold">{currentShop.manager}</span>
+                    <a href={`tel:${currentShop.contact}`} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                       <Phone className="w-3 h-3" />
+                    </a>
+                 </div>
+               </div>
+            </div>
+          </div>
+
+          {/* 3. DAILY SALES FUNNEL & FOOTFALL (Collected Data) */}
+          <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm mb-6">
+             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-6 flex items-center gap-2">
+               <Activity className="w-4 h-4 text-blue-600" /> Daily Interaction Funnel
+             </h3>
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
+               <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                 <p className="text-3xl font-black text-slate-900">{dailyMetrics.walkIns}</p>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Walk-In Customers</p>
+               </div>
+               <div className="hidden md:block self-center"><ChevronRight className="w-6 h-6 text-slate-300 mx-auto" /></div>
+               <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                 <p className="text-3xl font-black text-blue-600">{dailyMetrics.inquiries}</p>
+                 <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mt-2">Product Inquiries</p>
+               </div>
+               <div className="hidden md:block self-center"><ChevronRight className="w-6 h-6 text-slate-300 mx-auto" /></div>
+               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                 <p className="text-3xl font-black text-emerald-600">{dailyMetrics.purchases}</p>
+                 <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mt-2">Closed Sales</p>
+               </div>
+             </div>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-bold text-slate-500 uppercase mb-2">Shift Schedule</p>
+                <p className="text-sm font-black text-slate-900">{adminSettings.shiftType}</p>
+             </div>
+             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-bold text-slate-500 uppercase mb-2">On-Site Hours</p>
+                <p className="text-2xl font-bold text-emerald-600">8h 15m</p>
+             </div>
+             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-bold text-slate-500 uppercase mb-2">Daily Turnover</p>
+                <p className="text-2xl font-bold text-slate-900">₵ {dailyMetrics.turnover.toLocaleString()}</p>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🌴 LEAVE MANAGEMENT (Functional!) */}
+      {activeTab === 'LEAVE' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+           {/* Pending Requests */}
+           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="p-6 border-b border-slate-100 bg-amber-50/50 flex justify-between items-center">
+                 <h3 className="text-sm font-bold text-amber-900 uppercase tracking-wide flex items-center gap-2">
+                   <AlertTriangle className="w-4 h-4" /> Pending Requests
+                 </h3>
+              </div>
+              {leaveRequests.length > 0 ? (
+                <div className="divide-y divide-slate-100">
+                  {leaveRequests.map(req => (
+                    <div key={req.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{req.type} • {req.days} Days</p>
+                        <p className="text-xs text-slate-500 mt-1">{req.dates}</p>
+                        <p className="text-xs text-slate-400 mt-2 italic">"{req.reason}"</p>
+                      </div>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={() => handleRejectLeave(req.id)}
+                          className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-red-100 hover:text-red-700 transition-colors"
+                        >
+                          Reject
+                        </button>
+                        <button 
+                          onClick={() => handleApproveLeave(req.id)}
+                          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm transition-colors"
+                        >
+                          Approve Request
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-slate-400 text-sm italic">No pending leave requests.</div>
+              )}
+           </div>
+
+           {/* Leave History */}
+           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Leave History</h3>
+              </div>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Leave Type</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Duration</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Dates</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {leaveHistory.map(leave => (
+                    <tr key={leave.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{leave.type}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{leave.days} Days</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{leave.dates}</td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                           leave.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {leave.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+           </div>
+        </div>
+      )}
+
+      {/* 🕒 WORK HISTORY */}
+      {activeTab === 'HISTORY' && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Date</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Shift Time</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">On-Site</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Total Sales</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {[1,2,3].map((_, i) => (
+                <tr key={i} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 text-sm font-bold text-slate-700">Jan {14-i}, 2026</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">08:00 AM - 05:00 PM</td>
+                  <td className="px-6 py-4 text-sm font-bold text-emerald-600">8h 15m</td>
+                  <td className="px-6 py-4 text-sm font-bold text-slate-900">₵ 2,400</td>
+                  <td className="px-6 py-4 text-right"><span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold uppercase">Present</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 📄 REPORTS */}
+      {activeTab === 'REPORTS' && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex items-center justify-between p-6 bg-slate-900 text-white rounded-xl shadow-lg">
+            <div>
+              <h3 className="text-lg font-bold">Generate Report</h3>
+              <p className="text-xs text-slate-400 mt-1">Download detailed breakdown of sales and metrics.</p>
+            </div>
+            <div className="flex gap-4">
+               <select 
+                 value={reportFilter} 
+                 onChange={(e) => setReportFilter(e.target.value)}
+                 className="bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-4 py-2 outline-none"
+               >
+                 <option>Daily</option>
+                 <option>Weekly</option>
+                 <option>Monthly</option>
+               </select>
+               <button className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-lg">
+                 <Download className="w-4 h-4" /> Export
+               </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             {[1, 2, 3].map((item) => (
+               <div key={item} className="bg-white p-6 rounded-xl border border-slate-200 flex items-center justify-between hover:border-blue-300 transition-colors cursor-pointer shadow-sm">
+                 <div className="flex items-center gap-4">
+                   <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-blue-600"><FileText className="w-5 h-5" /></div>
+                   <div><p className="text-sm font-bold text-slate-900">Weekly Summary</p><p className="text-xs text-slate-500">Jan {10 + item}, 2026</p></div>
+                 </div>
+                 <Download className="w-4 h-4 text-slate-300" />
+               </div>
+             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 💬 CHAT */}
+      {activeTab === 'CHAT' && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm h-[600px] flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+             <div className="flex items-center gap-3">
+               <div className={`w-2 h-2 rounded-full ${gpsData.connection === 'Online' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+               <span className="text-xs font-bold text-slate-600 uppercase">Status: {gpsData.connection}</span>
+             </div>
+             <Lock className="w-4 h-4 text-slate-300" />
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.sender === 'ADMIN' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[75%] p-4 rounded-2xl text-sm shadow-sm ${
+                  msg.sender === 'ADMIN' ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'
+                }`}>
+                  <p className="mb-1">{msg.text}</p>
+                  <p className={`text-[10px] font-medium text-right ${msg.sender === 'ADMIN' ? 'text-blue-200' : 'text-slate-400'}`}>{msg.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex gap-4">
+            <input 
+              value={chatMessage}
+              onChange={(e) => setChatMessage(e.target.value)}
+              placeholder="Type message..." 
+              className="flex-1 bg-slate-100 border-none rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+            />
+            <button type="submit" className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
+              <Send className="w-5 h-5" />
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* 📍 LIVE MAP */}
+      {activeTab === 'MAP' && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm h-[600px] flex animate-in fade-in slide-in-from-bottom-2 duration-300 relative">
+          <div className="flex-1 relative z-0">
+             <LiveMap lat={gpsData.lat} lng={gpsData.lng} speed={gpsData.speed} />
+          </div>
+          <div className="absolute top-4 left-4 z-[1000] bg-white/90 backdrop-blur border border-slate-200 p-4 rounded-xl shadow-lg w-64">
+             <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Live Telemetry</h4>
+             <div className="space-y-3">
+               <div className="flex justify-between text-sm"><span className="text-slate-600">Status</span><span className="font-bold text-slate-900">{gpsData.status}</span></div>
+               <div className="flex justify-between text-sm"><span className="text-slate-600">Speed</span><span className="font-bold text-slate-900">{gpsData.speed} km/h</span></div>
+               <div className="flex justify-between text-sm"><span className="text-slate-600">Battery</span><span className="font-bold text-slate-900">{Math.floor(gpsData.battery)}%</span></div>
+               <div className="flex justify-between text-sm items-center pt-2 border-t border-slate-200">
+                  <span className="text-slate-600 text-[10px] uppercase font-bold">Signal</span>
+                  {gpsData.connection === 'Online' 
+                    ? <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-bold uppercase"><Wifi className="w-3 h-3"/> Online</span>
+                    : <span className="flex items-center gap-1 text-red-600 text-[10px] font-bold uppercase"><WifiOff className="w-3 h-3"/> Offline</span>
+                  }
+               </div>
+             </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
