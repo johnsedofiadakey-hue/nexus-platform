@@ -1,30 +1,51 @@
+// path: /src/app/api/operations/pulse-feed/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // Use the singleton we just made
+import { prisma } from "@/lib/prisma"; // This named import is now valid!
 
 export async function GET() {
   try {
-    // 1. Handshake check
+    // Check connection first to prevent silent crashes
     await prisma.$connect();
 
-    // 2. Fetch data
-    const recentSales = await prisma.sale.findMany({
+    // Fetch the 10 most recent transactions from our Geographical Nodes (Accra/Kumasi)
+    const pulses = await prisma.sale.findMany({
       take: 10,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { 
+        createdAt: 'desc' 
+      },
       include: {
-        shop: { select: { name: true } },
-        user: { select: { name: true } }
+        shop: {
+          select: {
+            name: true,
+            location: true,
+          }
+        },
+        user: {
+          select: {
+            name: true,
+            role: true,
+          }
+        }
       }
     });
 
-    // 3. Return JSON
-    return NextResponse.json(recentSales);
+    return NextResponse.json({
+      success: true,
+      count: pulses.length,
+      data: pulses,
+      timestamp: new Date().toISOString()
+    }, { status: 200 });
+
   } catch (error: any) {
-    // This logs the REAL error to your terminal (Check your VS Code terminal!)
-    console.error("DATABASE_ERROR_LOG:", error);
+    console.error("📡 [NEXUS PULSE ERROR]:", error.message);
     
-    return NextResponse.json(
-      { error: "Database Link Failure", details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: "Strategic Data Feed Interrupted",
+      detail: process.env.NODE_ENV === "development" ? error.message : undefined
+    }, { status: 500 });
+  } finally {
+    // In serverless/API routes, we usually don't disconnect, 
+    // but we ensure the connection pool is managed by the singleton.
   }
 }

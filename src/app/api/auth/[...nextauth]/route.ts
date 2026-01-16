@@ -1,75 +1,60 @@
+// path: /src/app/api/auth/[...nextauth]/route.ts
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaClient } from "@prisma/client";
-import { compare } from "bcryptjs";
-
-// Initialize Prisma
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma"; // Switched to named import
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/login", // Custom login page
-  },
   providers: [
     CredentialsProvider({
-      name: "Sign in",
+      name: "Nexus Commander Portal",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
-        }
+        if (!credentials?.email || !credentials?.password) return null;
 
-        // Find user in database
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email }
         });
 
-        if (!user) {
-          throw new Error("User not found");
-        }
+        if (!user || !user.password) return null;
 
-        // Check password
-        const isPasswordValid = await compare(credentials.password, user.password);
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isPasswordValid) return null;
 
-        if (!isPasswordValid) {
-          throw new Error("Invalid password");
-        }
-
-        // Return user info (excluding password)
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
         };
-      },
-    }),
+      }
+    })
   ],
   callbacks: {
-    async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          role: token.role,
-        },
-      };
-    },
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
         token.role = (user as any).role;
+        token.id = user.id;
       }
       return token;
     },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).role = token.role;
+        (session.user as any).id = token.id;
+      }
+      return session;
+    }
   },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  session: { strategy: "jwt" }
 };
 
 const handler = NextAuth(authOptions);
