@@ -1,166 +1,314 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
-  Package, Layers, Plus, Search, Filter, 
-  ChevronRight, ArrowUpRight, Monitor, Refrigerator, 
-  Wind, Zap, Trash2, Edit3, Save, Database
+  Package, Search, Plus, Filter, AlertTriangle, 
+  Building2, ArrowRight, Wallet, LayoutGrid, ArrowLeft 
 } from "lucide-react";
 
-export default function InventoryTerminal() {
-  const [activeView, setActiveView] = useState("STOCK"); // STOCK or CATEGORIES
+// --- TYPES ---
+interface ShopSummary {
+  id: string;
+  name: string;
+  location: string;
+  itemCount: number;
+  totalValue: number;
+}
+
+interface Product {
+  id: string;
+  productName: string;
+  sku: string;
+  category: string;
+  quantity: number;
+  priceGHS: number;
+  minStock: number;
+}
+
+export default function AdminInventoryPage() {
+  // VIEW STATE: null = Overview Mode, string = Shop ID (Detail Mode)
+  const [selectedShop, setSelectedShop] = useState<ShopSummary | null>(null);
+  const [shops, setShops] = useState<ShopSummary[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  return (
-    <div className="p-8 max-w-[1700px] mx-auto animate-in fade-in duration-700">
-      
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Inventory Grid</h1>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-1">Global SKU Management & Taxonomy</p>
-        </div>
-        <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-200">
-          <button 
-            onClick={() => setActiveView("STOCK")}
-            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'STOCK' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-900'}`}
-          >
-            Stock Levels
-          </button>
-          <button 
-            onClick={() => setActiveView("CATEGORIES")}
-            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'CATEGORIES' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-900'}`}
-          >
-            Categories
-          </button>
-        </div>
-      </div>
+  // MODAL STATE
+  const [isAdding, setIsAdding] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "", sku: "", category: "Electronics", price: "", quantity: "", minStock: "5"
+  });
 
-      <div className="grid grid-cols-12 gap-8">
+  // --- 1. INITIAL LOAD (OVERVIEW) ---
+  useEffect(() => {
+    fetchHubs();
+  }, []);
+
+  const fetchHubs = async () => {
+    setLoading(true);
+    try {
+      // In a real API, we would ask the server for these calculated stats.
+      // For now, we fetch shops and calculate client-side or use mock data structure if API is simple.
+      const res = await fetch("/api/shops");
+      if (res.ok) {
+        const data = await res.json();
+        // Transform the raw shop data into summaries (Mocking value calculation for now)
+        const summaries = data.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          location: s.location,
+          itemCount: s._count?.inventory || 0,
+          totalValue: 0 // In V2, API should return this sum
+        }));
+        setShops(summaries);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 2. FETCH SPECIFIC SHOP INVENTORY ---
+  const openShopInventory = async (shop: ShopSummary) => {
+    setSelectedShop(shop);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/inventory?shopId=${shop.id}`);
+      if (res.ok) {
+        setProducts(await res.json());
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 3. ADD STOCK TO SELECTED SHOP ---
+  const handleAddStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedShop) return;
+
+    const payload = { ...formData, shopId: selectedShop.id };
+
+    const res = await fetch("/api/inventory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      alert("Stock Added Successfully");
+      setIsAdding(false);
+      openShopInventory(selectedShop); // Refresh the table
+      setFormData({ name: "", sku: "", category: "Electronics", price: "", quantity: "", minStock: "5" });
+    } else {
+      alert("Failed to add stock");
+    }
+  };
+
+  // ==================================================================================
+  // VIEW 1: NETWORK OVERVIEW (THE DASHBOARD)
+  // ==================================================================================
+  if (!selectedShop) {
+    return (
+      <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4">
         
-        {/* LEFT COLUMN (8): MAIN WORKSPACE */}
-        <div className="col-span-12 lg:col-span-8 space-y-6">
-          {activeView === "STOCK" ? (
-            <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm">
-              <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <div className="relative w-72">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input placeholder="SEARCH SKUs..." className="w-full bg-white border border-slate-200 pl-12 pr-4 py-2.5 rounded-xl text-[10px] font-black uppercase outline-none focus:border-blue-500" />
-                </div>
-                <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">
-                  <Plus className="w-4 h-4" /> Add New SKU
-                </button>
-              </div>
+        {/* HEADER */}
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Inventory Hubs</h1>
+          <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Select a retail node to manage stock</p>
+        </div>
 
-              <table className="w-full text-left">
-                <thead className="bg-slate-50/50 border-b border-slate-100">
-                  <tr>
-                    <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">LG Product Description</th>
-                    <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Sub-Category</th>
-                    <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Hub Location</th>
-                    <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Units</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 text-[11px] font-bold text-slate-700 uppercase">
-                  {[
-                    { name: "OLED65C3 Smart TV", cat: "TV", hub: "Accra Mall", qty: 12, status: 'GOOD' },
-                    { name: "InstaView Refrigerator", cat: "FRIDGE", hub: "Kumasi Mall", qty: 3, status: 'LOW' },
-                    { name: "Dual Inverter AC 1.5HP", cat: "AIR CON", hub: "Palace Labone", qty: 45, status: 'GOOD' }
-                  ].map((item, i) => (
-                    <tr key={i} className="hover:bg-slate-50/80 transition-all">
-                      <td className="px-8 py-6 text-slate-900 font-black tracking-tight">{item.name}</td>
-                      <td className="px-6 py-6"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-[9px]">{item.cat}</span></td>
-                      <td className="px-6 py-6">{item.hub}</td>
-                      <td className="px-6 py-6 text-right tabular-nums">
-                        <span className={item.qty < 5 ? "text-red-500" : "text-slate-900"}>{item.qty}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* HIGH-LEVEL STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl shadow-blue-900/10 relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-6 opacity-10"><Wallet className="w-16 h-16" /></div>
+             <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Total Network Value</p>
+             {/* This would be a real calculation in production */}
+             <h2 className="text-4xl font-black tracking-tight">₵ 2.4M</h2>
+             <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs font-bold">
+               <span className="bg-emerald-500/20 px-2 py-1 rounded-md">+12%</span>
+               <span>vs last month</span>
+             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-blue-200 transition-colors">
+             <div className="absolute top-0 right-0 p-6 text-slate-100 group-hover:text-blue-50 transition-colors"><Building2 className="w-16 h-16" /></div>
+             <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Active Hubs</p>
+             <h2 className="text-4xl font-black text-slate-900 tracking-tight">{shops.length}</h2>
+             <p className="mt-4 text-xs font-bold text-slate-400">Retail Locations</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-amber-200 transition-colors">
+             <div className="absolute top-0 right-0 p-6 text-slate-100 group-hover:text-amber-50 transition-colors"><AlertTriangle className="w-16 h-16" /></div>
+             <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Low Stock Alerts</p>
+             <h2 className="text-4xl font-black text-slate-900 tracking-tight">8</h2>
+             <p className="mt-4 text-xs font-bold text-amber-500">Items requiring restock</p>
+          </div>
+        </div>
+
+        {/* HUBS GRID */}
+        <div>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4 text-blue-600" /> Available Shops
+          </h3>
+          
+          {loading ? (
+             <div className="flex items-center justify-center h-40"><div className="animate-spin w-8 h-8 border-4 border-blue-600 rounded-full border-t-transparent"></div></div>
           ) : (
-            <div className="grid grid-cols-2 gap-6">
-              {/* CATEGORY EDITOR */}
-              <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8">
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-6 text-slate-400 flex justify-between">
-                   Primary Categories <Layers className="w-4 h-4" />
-                 </h3>
-                 <div className="space-y-3">
-                    {["HOME APPLIANCE", "HOME ENTERTAINMENT"].map(cat => (
-                      <div key={cat} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group">
-                         <span className="text-xs font-black tracking-tight">{cat}</span>
-                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                            <button className="p-2 bg-white rounded-lg border border-slate-200"><Edit3 className="w-3.5 h-3.5 text-slate-400" /></button>
-                            <button className="p-2 bg-white rounded-lg border border-slate-200 text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
-                         </div>
-                      </div>
-                    ))}
-                    <button className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:border-blue-400 hover:text-blue-600 transition-all">
-                      + Add Global Category
-                    </button>
-                 </div>
-              </div>
-
-              {/* SUB-CATEGORY EDITOR */}
-              <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8">
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-6 text-slate-400 flex justify-between">
-                   Sub-Category Logic <Database className="w-4 h-4" />
-                 </h3>
-                 <div className="space-y-2 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
-                    {["AIR CONDITION", "REFRIGERATOR", "FREEZER", "MICROWAVE", "WASHING MACHINE", "TV", "AUDIO"].map(sub => (
-                      <div key={sub} className="p-4 border border-slate-100 rounded-2xl flex items-center justify-between hover:border-blue-200">
-                         <span className="text-[10px] font-bold text-slate-600 tracking-widest">{sub}</span>
-                         <div className="text-[8px] font-black bg-slate-100 px-2 py-1 rounded">MODIFIABLE</div>
-                      </div>
-                    ))}
-                 </div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {shops.map((shop) => (
+                <button 
+                  key={shop.id}
+                  onClick={() => openShopInventory(shop)}
+                  className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-left group"
+                >
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-black text-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      {shop.name.charAt(0)}
+                    </div>
+                    <div className="px-3 py-1 bg-slate-50 rounded-full text-[10px] font-black uppercase text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                      Open
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-xl font-black text-slate-900 mb-1">{shop.name}</h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-6">{shop.location}</p>
+                  
+                  <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+                     <div>
+                       <p className="text-[10px] font-bold text-slate-300 uppercase">Stock Level</p>
+                       <p className="font-black text-slate-700">{shop.itemCount} Units</p>
+                     </div>
+                     <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                       <ArrowRight className="w-4 h-4" />
+                     </div>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>
+      </div>
+    );
+  }
 
-        {/* RIGHT COLUMN (4): ANALYTICS & HUB STOCK */}
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
-             <div className="relative z-10">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-6">Stock Health by Hub</h3>
-                <div className="space-y-4">
-                   {[
-                     { hub: "Melcom Accra Mall", health: 92, status: "Optimum" },
-                     { hub: "Game Kumasi Mall", health: 64, status: "Check Stock" },
-                     { hub: "Palace Labone", health: 88, status: "Optimum" }
-                   ].map((node, i) => (
-                     <div key={i} className="space-y-2">
-                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                           <span>{node.hub}</span>
-                           <span className={node.health < 70 ? "text-amber-400" : "text-emerald-400"}>{node.health}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                           <div className={`h-full rounded-full ${node.health < 70 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${node.health}%` }} />
-                        </div>
-                     </div>
-                   ))}
-                </div>
-             </div>
-             <Package className="absolute -right-6 -bottom-6 w-32 h-32 text-white/5 opacity-10" />
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6">Regional Distribution</h3>
-             <div className="flex flex-col gap-4">
-                <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between">
-                   <span className="text-[10px] font-black text-slate-500 uppercase">Accra Region</span>
-                   <span className="text-sm font-black text-slate-900 tabular-nums">842 Units</span>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between">
-                   <span className="text-[10px] font-black text-slate-500 uppercase">Ashanti Region</span>
-                   <span className="text-sm font-black text-slate-900 tabular-nums">362 Units</span>
-                </div>
-             </div>
+  // ==================================================================================
+  // VIEW 2: SHOP DRILL-DOWN (THE DETAILS)
+  // ==================================================================================
+  return (
+    <div className="p-6 space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
+      
+      {/* HEADER WITH BACK BUTTON */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setSelectedShop(null)}
+            className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{selectedShop.name}</h1>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Inventory Management</p>
           </div>
         </div>
-
+        
+        <button 
+          onClick={() => setIsAdding(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
+        >
+          <Plus className="w-4 h-4" /> Add Stock
+        </button>
       </div>
+
+      {/* ADD STOCK FORM OVERLAY */}
+      {isAdding && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xl animate-in fade-in slide-in-from-top-4">
+           <div className="flex justify-between items-center mb-4">
+              <h3 className="font-black text-lg">Add to {selectedShop.name}</h3>
+              <button onClick={() => setIsAdding(false)} className="text-slate-400 hover:text-slate-900 font-bold text-xs uppercase">Close</button>
+           </div>
+           
+           <form onSubmit={handleAddStock} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Product Name</label>
+                    <input className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, name: e.target.value})} required />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">SKU / Code</label>
+                    <input className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, sku: e.target.value})} required />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Category</label>
+                    <input className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, category: e.target.value})} required />
+                 </div>
+              </div>
+
+              <div className="md:col-span-3 grid grid-cols-3 gap-4">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Price (GHS)</label>
+                    <input type="number" className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, price: e.target.value})} required />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity</label>
+                    <input type="number" className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, quantity: e.target.value})} required />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Min Alert</label>
+                    <input type="number" className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, minStock: e.target.value})} />
+                 </div>
+              </div>
+
+              <div className="md:col-span-3 pt-2">
+                 <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-sm shadow-lg hover:bg-blue-700 transition-all">
+                    Confirm Inbound Stock
+                 </button>
+              </div>
+           </form>
+        </div>
+      )}
+
+      {/* PRODUCTS TABLE */}
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        {loading ? (
+           <div className="p-12 flex justify-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 rounded-full border-t-transparent"></div></div>
+        ) : products.length === 0 ? (
+           <div className="p-12 text-center">
+             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><Package className="w-8 h-8" /></div>
+             <p className="text-slate-900 font-bold">No inventory found</p>
+             <p className="text-slate-400 text-xs mt-1">Add items to start tracking stock for this hub.</p>
+           </div>
+        ) : (
+          <table className="w-full text-left">
+             <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest pl-6">Product</th>
+                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
+                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">SKU</th>
+                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right pr-6">Price</th>
+                </tr>
+             </thead>
+             <tbody className="divide-y divide-slate-100">
+                {products.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                     <td className="p-4 pl-6 font-bold text-slate-900">{item.productName}</td>
+                     <td className="p-4 text-xs font-bold text-slate-500 uppercase">{item.category || "General"}</td>
+                     <td className="p-4 text-xs font-mono text-slate-400 text-center">{item.sku}</td>
+                     <td className="p-4 text-right">
+                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
+                          item.quantity <= item.minStock ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"
+                        }`}>
+                          {item.quantity} Units
+                        </span>
+                     </td>
+                     <td className="p-4 text-right pr-6 font-bold text-slate-700">₵ {item.priceGHS.toLocaleString()}</td>
+                  </tr>
+                ))}
+             </tbody>
+          </table>
+        )}
+      </div>
+
     </div>
   );
 }

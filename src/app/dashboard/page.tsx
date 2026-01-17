@@ -7,22 +7,20 @@ import {
   Users, 
   Map as MapIcon, 
   Loader2, 
-  ArrowUpRight, 
   Activity, 
   ShieldCheck,
   Globe,
   RefreshCw,
-  BarChart3,
   Building2,
   Gavel,
   Wallet,
   ShieldAlert,
   UserCheck,
-  ChevronRight,
   ShoppingBag,
-  Package,
-  Layers
+  Package
 } from "lucide-react";
+
+// Existing Components (Keeping your structure)
 import PulseFeed from "@/components/dashboard/PulseFeed";
 import SalesAnalysis from "@/components/dashboard/SalesAnalysis";
 
@@ -33,31 +31,49 @@ const OperationsMap = dynamic(
     loading: () => (
       <div className="h-full w-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 gap-3 border border-dashed border-slate-200 rounded-xl">
         <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-        <span className="text-[10px] font-bold uppercase tracking-widest text-center">Initialising Global Node Grid...<br/>LG Ghana Infrastructure</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-center">Loading Map Grid...</span>
       </div>
     )
   }
 );
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState({ revenue: 0, staff: 0, shops: 0, inventoryAlerts: 5 });
+  // 1. STATE: Connected to Real Data Structure
+  const [stats, setStats] = useState({ 
+    revenue: 0, 
+    activeStaff: 0, 
+    salesCount: 0,
+    activeShops: 0,
+    lowStockCount: 0 
+  });
+  
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState("stable");
 
+  // 2. FETCH REAL DATA
   useEffect(() => {
     async function fetchStats() {
       try {
         setSyncStatus("syncing");
-        const res = await fetch("/api/operations/map-data");
-        if (!res.ok) throw new Error("Link Failure");
+        
+        // Fetch from the API we just built
+        const res = await fetch("/api/dashboard/stats");
+        
+        if (!res.ok) throw new Error("Connection failed");
+        
         const data = await res.json();
         
-        const totalRev = data.reduce((acc: number, curr: any) => acc + (curr.sales || 0), 0);
-        const totalStaff = data.reduce((acc: number, curr: any) => acc + (curr.staffCount || 0), 0);
-        
-        setStats(prev => ({ ...prev, revenue: totalRev, staff: totalStaff, shops: data.length }));
+        setStats({
+          revenue: data.revenue || 0,
+          activeStaff: data.activeStaff || 0,
+          salesCount: data.salesCount || 0,
+          activeShops: data.leaderboard?.length || 0, // Using leaderboard count as proxy for active shops
+          lowStockCount: data.lowStockCount || 0
+        });
+
         setSyncStatus("stable");
       } catch (e) {
+        console.error(e);
         setSyncStatus("error");
       } finally {
         setLoading(false);
@@ -65,37 +81,39 @@ export default function DashboardPage() {
     }
 
     fetchStats();
-    const interval = setInterval(fetchStats, 60000);
+    // Auto-refresh every 30 seconds for live updates
+    const interval = setInterval(fetchStats, 30000); 
     return () => clearInterval(interval);
   }, []);
 
+  // 3. METRICS CARDS (Top Row)
   const kpiCards = useMemo(() => [
     { 
-      label: "Gross Revenue", 
-      value: `GHS ${stats.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
+      label: "Total Revenue", 
+      value: `₵ ${stats.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
       icon: TrendingUp, 
       color: "text-blue-600", 
       bg: "bg-blue-50",
-      trend: "+14.2%",
-      sub: "Aggregated Retail Flow"
+      trend: `+${stats.salesCount} Sales`, // Shows transaction count
+      sub: "Today's Earnings"
     },
     { 
-      label: "Active Personnel", 
-      value: `${stats.staff} Field Reps`, 
+      label: "Active Staff", 
+      value: `${stats.activeStaff} Online`, 
       icon: Users, 
       color: "text-slate-600", 
       bg: "bg-slate-100",
       trend: "Live",
-      sub: "Personnel On-Site"
+      sub: "Field Reps Clocked In"
     },
     { 
-      label: "Operational Hubs", 
-      value: `${stats.shops} Nodes`, 
+      label: "Active Shops", 
+      value: `${stats.activeShops} Hubs`, 
       icon: MapIcon, 
       color: "text-slate-600", 
       bg: "bg-slate-100",
       trend: "Online",
-      sub: "Retail Locations Active"
+      sub: "Locations Reporting Data"
     }
   ], [stats]);
 
@@ -103,7 +121,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-100 antialiased pb-12">
       <div className="max-w-[1800px] mx-auto px-6 py-6">
         
-        {/* --- COMMAND CENTER HEADER --- */}
+        {/* --- HEADER --- */}
         <div className="flex items-center justify-between mb-8 border-b border-slate-200 pb-6">
           <div className="flex items-center gap-4">
             <div className="bg-slate-900 p-2.5 rounded-lg shadow-lg shadow-slate-200">
@@ -111,21 +129,21 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-sm font-black tracking-tight uppercase leading-none mb-1">Nexus Terminal</h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.15em]">Strategic Operations Control • LG Ghana Grid</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.15em]">LG Ghana • Operations Center</p>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            {/* AUTHORITY QUICK-NAV */}
+            {/* QUICK NAVIGATION */}
             <div className="hidden lg:flex items-center gap-2 bg-white border border-slate-200 p-1.5 rounded-xl shadow-sm">
                <button onClick={() => window.location.href='/dashboard/shops'} className="px-4 py-2 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-                  <Building2 className="w-3.5 h-3.5" /> Hubs
+                  <Building2 className="w-3.5 h-3.5" /> Shops
                </button>
                <button onClick={() => window.location.href='/dashboard/inventory'} className="px-4 py-2 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
                   <Package className="w-3.5 h-3.5" /> Inventory
                </button>
                <button onClick={() => window.location.href='/dashboard/hr/enrollment'} className="px-4 py-2 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-                  <UserCheck className="w-3.5 h-3.5" /> Personnel
+                  <UserCheck className="w-3.5 h-3.5" /> Staff
                </button>
                <button onClick={() => window.location.href='/dashboard/hr/disciplinary'} className="px-4 py-2 hover:bg-slate-50 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all text-red-600">
                   <Gavel className="w-3.5 h-3.5" /> Conduct
@@ -134,17 +152,18 @@ export default function DashboardPage() {
 
             <div className="h-4 w-px bg-slate-200 mx-2" />
 
+            {/* SYNC STATUS */}
             <div className="flex items-center gap-3 px-4 py-2 bg-white border border-slate-200 rounded-lg shadow-sm">
               <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'stable' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
               <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                {syncStatus}
+                {syncStatus === 'stable' ? "System Ready" : "Updating..."}
               </span>
               <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin text-blue-500' : 'text-slate-300'}`} />
             </div>
           </div>
         </div>
 
-        {/* --- STRATEGIC KPI SECTION --- */}
+        {/* --- KPI CARDS --- */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {kpiCards.map((card, i) => (
             <div key={i} className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm hover:border-blue-300 hover:shadow-md transition-all group">
@@ -172,23 +191,25 @@ export default function DashboardPage() {
         {/* --- MAIN WORKSPACE --- */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-[750px]">
           
-          {/* LEFT COLUMN (8): MAP & AUTHORITY PULSE */}
+          {/* LEFT COLUMN (8): MAP & ALERTS */}
           <div className="lg:col-span-8 space-y-8 flex flex-col">
             
-            {/* GEOSPATIAL TELEMETRY */}
+            {/* MAP SECTION */}
             <div className="h-[520px] bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden relative shadow-sm group">
               <div className="absolute top-6 left-6 z-20 space-y-2">
                 <div className="bg-slate-900/90 backdrop-blur-md px-5 py-2.5 rounded-xl border border-white/10 shadow-2xl flex items-center gap-3">
                   <Globe className="w-4 h-4 text-blue-400 animate-pulse" />
-                  <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Regional Node Telemetry</span>
+                  <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Live Map Overview</span>
                 </div>
               </div>
+              {/* Note: Ensure OperationsMap component exists or replace with placeholder */}
               <OperationsMap />
             </div>
 
-            {/* AUTHORITY PULSE: CONDUCT, WAGES, & INVENTORY TAXONOMY */}
+            {/* ACTION CARDS (Bottom Row) */}
             <div className="grid grid-cols-3 gap-6">
-              {/* Conduct Alert Card */}
+              
+              {/* 1. HR / Conduct */}
               <div className="bg-white border border-slate-200 p-6 rounded-[2rem] shadow-sm hover:border-red-200 transition-all group cursor-pointer" onClick={() => window.location.href='/dashboard/hr/disciplinary'}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-red-50 p-3 rounded-2xl text-red-600 group-hover:bg-red-600 group-hover:text-white transition-all">
@@ -198,11 +219,11 @@ export default function DashboardPage() {
                     <p className="text-[11px] font-black text-red-600 uppercase">3 Alerts</p>
                   </div>
                 </div>
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Conduct Monitor</h4>
-                <p className="text-[11px] font-bold text-slate-900 leading-tight">Geofence violations flagged at Accra Mall Hub.</p>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">HR Alerts</h4>
+                <p className="text-[11px] font-bold text-slate-900 leading-tight">View disciplinary reports and geofence violations.</p>
               </div>
 
-              {/* Wage Settlement Card */}
+              {/* 2. Payroll */}
               <div className="bg-white border border-slate-200 p-6 rounded-[2rem] shadow-sm hover:border-blue-200 transition-all group cursor-pointer" onClick={() => window.location.href='/dashboard/hr/wages'}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
@@ -212,34 +233,40 @@ export default function DashboardPage() {
                     <p className="text-[11px] font-black text-blue-600 uppercase">Pending</p>
                   </div>
                 </div>
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Wage Cycle</h4>
-                <p className="text-[11px] font-bold text-slate-900 leading-tight">GHS 42k Payouts awaiting authority commit.</p>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Payroll Status</h4>
+                <p className="text-[11px] font-bold text-slate-900 leading-tight">Review pending wage settlements and bonuses.</p>
               </div>
 
-              {/* Inventory Alert Card (New Requirement) */}
+              {/* 3. Inventory Health (Connected to Real Data) */}
               <div className="bg-white border border-slate-200 p-6 rounded-[2rem] shadow-sm hover:border-amber-200 transition-all group cursor-pointer" onClick={() => window.location.href='/dashboard/inventory'}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-amber-50 p-3 rounded-2xl text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all">
                     <ShoppingBag className="w-5 h-5" />
                   </div>
                   <div className="text-right">
-                    <p className="text-[11px] font-black text-amber-600 uppercase">{stats.inventoryAlerts} SKUs Low</p>
+                    <p className={`text-[11px] font-black uppercase ${stats.lowStockCount > 0 ? "text-amber-600" : "text-slate-400"}`}>
+                      {stats.lowStockCount} Items Low
+                    </p>
                   </div>
                 </div>
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Stock Taxonomy</h4>
-                <p className="text-[11px] font-bold text-slate-900 leading-tight">Home Appliance stock low in Kumasi Regional Hub.</p>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Inventory Health</h4>
+                <p className="text-[11px] font-bold text-slate-900 leading-tight">
+                  {stats.lowStockCount > 0 
+                    ? "Attention needed: Stock levels critical in some hubs." 
+                    : "All systems normal. Stock levels healthy."}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN (4): ANALYSIS & PULSE LEDGER */}
+          {/* RIGHT COLUMN (4): ANALYSIS & FEED */}
           <div className="lg:col-span-4 flex flex-col gap-8">
-            {/* Sales Mix Intelligence */}
+            {/* Sales Graph */}
             <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden flex-[0.8]">
               <SalesAnalysis />
             </div>
             
-            {/* Operational Ledger (Pulse) */}
+            {/* Live Feed */}
             <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden flex-1 min-h-0">
               <PulseFeed />
             </div>
@@ -247,21 +274,21 @@ export default function DashboardPage() {
 
         </div>
 
-        {/* --- TERMINAL FOOTER --- */}
+        {/* --- FOOTER --- */}
         <div className="mt-12 flex items-center justify-between text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] border-t border-slate-200 pt-8">
           <div className="flex items-center gap-6">
-            <span>© 2026 LG Ghana Strategic Hub</span>
+            <span>© 2026 LG Ghana Operations</span>
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-              <span>Gateway: Nexus-GHA-PRIME</span>
+              <span>System Online</span>
             </div>
           </div>
           <div className="flex gap-8">
             <div className="flex items-center gap-2">
                <Activity className="w-3 h-3 text-blue-500" />
-               <span>Latency: 09ms</span>
+               <span>Latency: 12ms</span>
             </div>
-            <span className="text-blue-500 border-b border-blue-500 pb-0.5">Tier-1 Encryption Active</span>
+            <span className="text-blue-500 border-b border-blue-500 pb-0.5">Secure Connection</span>
           </div>
         </div>
 

@@ -1,84 +1,233 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { 
-  ArrowLeft, MapPin, Phone, Mail, ShieldCheck, 
+  ArrowLeft, MapPin, Phone, Mail, 
   Clock, Activity, Send, Lock, FileText, CheckCircle, 
-  AlertTriangle, Move, Calendar, Download, History, 
-  DollarSign, Users, Briefcase, Save, X, Edit2, 
-  TrendingUp, UserCheck, Building2, Smartphone, 
-  Percent, Layers, ChevronRight, Hash, Ban, Wifi, WifiOff
+  AlertTriangle, Calendar, Download, 
+  Edit2, TrendingUp, Building2, Smartphone, 
+  Percent, ChevronRight, Save, Wifi, WifiOff,
+  Trash2, Loader2, UserX, PhoneIncoming, PhoneOff, Key
 } from "lucide-react";
 
-// 🗺️ MAP ENGINE (Dynamic Import to prevent SSR errors)
+// 🗺️ MAP ENGINE
 const LiveMap = dynamic(() => import("@/components/LiveMap"), { 
   ssr: false,
   loading: () => (
     <div className="h-full w-full flex items-center justify-center bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-widest">
-      <Satellite className="w-5 h-5 animate-spin mr-2" /> Initializing Satellite Link...
+      <div className="flex items-center gap-2">
+         <span className="w-2 h-2 bg-blue-500 rounded-full animate-ping" />
+         Connecting to Satellite...
+      </div>
     </div>
   )
 });
-
-// Helper for Lucide icon not imported above
-function Satellite({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.5 10.5L21 3m-5 0h5v5m0 6v5a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h5" /></svg>
-  );
-}
 
 type Params = Promise<{ id: string }>;
 
 export default function PersonnelPortal({ params }: { params: Params }) {
   const resolvedParams = use(params);
   const staffId = resolvedParams.id; 
+  const router = useRouter();
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // --- 1. STATE MANAGEMENT ---
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'LEAVE' | 'HISTORY' | 'REPORTS' | 'CHAT' | 'MAP'>('OVERVIEW');
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isEditingTargets, setIsEditingTargets] = useState(false);
+  
+  // Chat State
   const [chatMessage, setChatMessage] = useState("");
+  const [messages, setMessages] = useState<any[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(true);
+
   const [reportFilter, setReportFilter] = useState("Weekly");
 
-  // --- 2. PROFILE DATA (Editable) ---
-  const [profile, setProfile] = useState({
-    name: "Kojo Bonsu",
-    email: "kojo.bonsu@nexus.com",
-    phone: "+233 54 123 4567",
-    status: "Active", // Active, On Leave, Suspended
-    role: "Sales Representative",
-    assignedShopId: "shop_1"
-  });
+  // --- 2. DATA CONTAINERS ---
+  const [profile, setProfile] = useState<any>(null); 
+  const [shops, setShops] = useState<any[]>([]); 
+  
+  // ✅ NEW: Password Reset State
+  const [newPassword, setNewPassword] = useState("");
 
-  // --- 3. ADMIN CONFIGURATION (New Valuable Settings) ---
+  // --- 3. FETCH REAL DATA ---
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!staffId) return;
+      setIsLoading(true);
+      try {
+        // A. Fetch User Details
+        const userRes = await fetch(`/api/hr/staff/${staffId}?t=${Date.now()}`);
+        
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setProfile({
+            ...userData,
+            role: userData.role || "SALES_REP",
+            assignedShopId: userData.shopId || "", 
+            status: userData.status || 'Active',
+            phone: userData.phone || "",
+            email: userData.email || ""
+          });
+        } else {
+          alert("User not found in directory.");
+          router.push("/dashboard/hr/enrollment");
+          return;
+        }
+
+        // B. Fetch Shop List
+        const shopRes = await fetch("/api/shops");
+        if (shopRes.ok) setShops(await shopRes.json());
+
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [staffId, router]);
+
+  // --- 4. CHAT POLLING ---
+  useEffect(() => {
+    if (activeTab === 'CHAT' && staffId) {
+      fetchMessages();
+      const interval = setInterval(fetchMessages, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, staffId]);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const fetchMessages = async () => {
+    try {
+      const res = await fetch(`/api/messages?staffId=${staffId}`);
+      if (res.ok) setMessages(await res.json());
+    } catch (e) {
+      console.error("Failed to load messages");
+    }
+  };
+
+  // --- 5. ACTION HANDLERS ---
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to permanently remove this staff member? This cannot be undone.")) return;
+    
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/hr/staff/${staffId}`, { method: "DELETE" });
+      if (res.ok) {
+        alert("Staff member deleted successfully.");
+        router.push("/dashboard/hr/enrollment"); 
+      } else {
+        alert("Failed to delete record.");
+      }
+    } catch (e) {
+      alert("Network connection error.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const shopIdPayload = profile.assignedShopId === "" ? null : profile.assignedShopId;
+
+      // Prepare Payload (Including password ONLY if typed)
+      const payload: any = {
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        role: profile.role,
+        status: profile.status,
+        assignedShopId: shopIdPayload 
+      };
+
+      if (newPassword.trim() !== "") {
+        payload.password = newPassword;
+      }
+
+      const res = await fetch(`/api/hr/staff/${staffId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        setIsEditing(false);
+        setNewPassword(""); // Clear password field for security
+        alert("Profile updated successfully!");
+      } else {
+        const err = await res.json();
+        alert(`Update Failed: ${err.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      alert("Network Error: Could not reach server.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatMessage.trim()) return;
+    
+    setIsSending(true);
+    try {
+      const tempMsg = { id: Date.now(), content: chatMessage, senderId: "admin-hq-id", createdAt: new Date() };
+      setMessages(prev => [...prev, tempMsg]);
+      setChatMessage("");
+
+      await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: tempMsg.content,
+          receiverId: staffId,
+          senderId: "admin-hq-id" 
+        })
+      });
+      
+      fetchMessages();
+    } catch (err) {
+      alert("Message failed to send");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const toggleCallAbility = () => {
+    setIsCallActive(!isCallActive);
+  };
+
+  // --- 6. MOCK DATA & SETTINGS ---
   const [adminSettings, setAdminSettings] = useState({
-    commissionRate: 5.0, // Percentage
+    commissionRate: 5.0, 
     shiftType: "Full Day (08:00 - 17:00)",
-    deviceId: "IOS-GH-2291", // Linked Device for GPS Lock
+    deviceId: "IOS-GH-2291", 
     contractType: "Full-Time"
   });
 
-  // --- 4. SHOP DATABASE (Enhanced) ---
-  const shops = [
-    { id: "shop_1", name: "Melcom Accra Mall", manager: "Sarah Mensah", contact: "+233 20 999 8888", hours: "09:00 AM - 09:00 PM", location: "Accra" },
-    { id: "shop_2", name: "Game Kumasi Mall", manager: "Kwame Osei", contact: "+233 24 555 4444", hours: "09:00 AM - 08:00 PM", location: "Kumasi" },
-    { id: "shop_3", name: "Palace Hypermarket", manager: "Abena Koomson", contact: "+233 27 111 2222", hours: "08:00 AM - 10:00 PM", location: "Labone" },
-  ];
-
-  // Derived Manager Info
-  const currentShop = shops.find(s => s.id === profile.assignedShopId) || shops[0];
-
-  // --- 5. DUAL TARGET ENGINE (Value & Volume) ---
   const [targets, setTargets] = useState({
     revenueTarget: 20000,
-    revenueCurrent: 12450,
-    volumeTarget: 50, // e.g., Sell 50 Units
-    volumeCurrent: 18
+    revenueCurrent: profile?.totalRevenue || 0,
+    volumeTarget: 50,
+    volumeCurrent: profile?._count?.sales || 0
   });
 
-  // Temporary state for editing inputs
   const [editTargetsInput, setEditTargetsInput] = useState({
     rev: "20000",
     vol: "50"
@@ -93,65 +242,36 @@ export default function PersonnelPortal({ params }: { params: Params }) {
     setIsEditingTargets(false);
   };
 
-  const revProgress = Math.min(100, Math.round((targets.revenueCurrent / targets.revenueTarget) * 100));
-  const volProgress = Math.min(100, Math.round((targets.volumeCurrent / targets.volumeTarget) * 100));
-
-  // --- 6. LEAVE DATA & LOGIC (Now Functional!) ---
+  // Leave Logic
   const [leaveRequests, setLeaveRequests] = useState([
     { id: 1, type: "Sick Leave", dates: "Feb 2 - Feb 4", days: 3, status: "Pending", reason: "Malaria treatment" },
     { id: 2, type: "Casual Leave", dates: "Feb 10", days: 1, status: "Pending", reason: "Personal family matter" },
   ]);
-
   const [leaveHistory, setLeaveHistory] = useState([
     { id: 101, type: "Annual Leave", dates: "Dec 20 - Dec 28", days: 8, status: "Approved", reason: "Yearly Break" },
   ]);
 
-  // FUNCTION: Approve Leave
   const handleApproveLeave = (id: number) => {
     const request = leaveRequests.find(r => r.id === id);
     if (!request) return;
-
-    // 1. Add to History with 'Approved' status
     setLeaveHistory(prev => [{ ...request, status: "Approved" }, ...prev]);
-    // 2. Remove from Pending Requests
     setLeaveRequests(prev => prev.filter(r => r.id !== id));
-    
-    // Optional: Update profile status if leave is starting today
-    // setProfile(prev => ({ ...prev, status: "On Leave" }));
   };
 
-  // FUNCTION: Reject Leave
   const handleRejectLeave = (id: number) => {
     const request = leaveRequests.find(r => r.id === id);
     if (!request) return;
-
-    // 1. Add to History with 'Rejected' status
     setLeaveHistory(prev => [{ ...request, status: "Rejected" }, ...prev]);
-    // 2. Remove from Pending Requests
     setLeaveRequests(prev => prev.filter(r => r.id !== id));
   };
 
-  // --- 7. DAILY METRICS (Footfall & Funnel) ---
-  const dailyMetrics = {
-    walkIns: 142,      // Total customers entered
-    inquiries: 45,     // Asked about price/specs
-    purchases: 18,     // Actually bought
-    turnover: 12450.00 // Total Revenue
-  };
-
-  // --- 8. MOCK GPS & CHAT ---
+  const dailyMetrics = { walkIns: 142, inquiries: 45, purchases: 18, turnover: 12450.00 };
   const [gpsData, setGpsData] = useState({ lat: 5.6226, lng: -0.1736, speed: 0, battery: 87, status: "Stationary", connection: "Online" });
-  const [messages, setMessages] = useState([
-    { id: 1, sender: "REP", text: "Good morning. I have arrived at the hub.", time: "08:05 AM" },
-    { id: 2, sender: "ADMIN", text: "Noted. Please update the TV display prices by 10 AM.", time: "08:15 AM" },
-  ]);
 
   useEffect(() => {
     if (activeTab === 'MAP') {
       const interval = setInterval(() => {
-        // Simulate occasional signal loss
         const isOnline = Math.random() > 0.1; 
-        
         if (isOnline) {
           setGpsData(prev => ({
             ...prev,
@@ -170,12 +290,20 @@ export default function PersonnelPortal({ params }: { params: Params }) {
     }
   }, [activeTab]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatMessage.trim()) return;
-    setMessages([...messages, { id: Date.now(), sender: "ADMIN", text: chatMessage, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-    setChatMessage("");
-  };
+  // --- RENDER LOADING STATE ---
+  if (isLoading || !profile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 text-slate-400 gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+        <p className="text-xs font-bold uppercase tracking-widest">Retrieving Personnel File...</p>
+      </div>
+    );
+  }
+
+  // Helper for Current Shop Info
+  const currentShop = shops.find(s => s.id === profile.assignedShopId) || { name: "Unassigned", location: "N/A", managerName: "N/A", managerPhone: "", openingTime: "N/A" };
+  const revProgress = Math.min(100, Math.round((targets.revenueCurrent / targets.revenueTarget) * 100));
+  const volProgress = Math.min(100, Math.round((targets.volumeCurrent / targets.volumeTarget) * 100));
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 lg:p-10 font-sans text-slate-900 animate-in fade-in duration-500">
@@ -183,25 +311,54 @@ export default function PersonnelPortal({ params }: { params: Params }) {
       {/* 🔙 TOP NAVIGATION */}
       <div className="flex items-center justify-between mb-8">
         <Link href="/dashboard/hr/enrollment" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back to Personnel Grid
+          <ArrowLeft className="w-4 h-4" /> Back to Team Directory
         </Link>
         
-        {/* EDIT / SAVE CONTROLS */}
-        <div className="flex gap-3">
-          {isEditing ? (
-            <>
-              <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-300">
-                Cancel
-              </button>
-              <button onClick={() => setIsEditing(false)} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-emerald-700">
-                <Save className="w-4 h-4" /> Save Profile
-              </button>
-            </>
-          ) : (
-            <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-               <Edit2 className="w-3.5 h-3.5" /> Edit Settings
-            </button>
-          )}
+        <div className="flex items-center gap-4">
+           <button 
+             onClick={toggleCallAbility}
+             className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+               isCallActive 
+               ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2" 
+               : "bg-slate-200 text-slate-500"
+             }`}
+           >
+             {isCallActive ? <PhoneIncoming className="w-3 h-3 animate-pulse" /> : <PhoneOff className="w-3 h-3" />}
+             {isCallActive ? "Lines Open" : "Lines Blocked"}
+           </button>
+
+           <div className="flex gap-3">
+             {isEditing ? (
+               <>
+                 <button onClick={() => { setIsEditing(false); setNewPassword(""); }} className="px-4 py-2 bg-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-300">
+                   Cancel
+                 </button>
+                 <button 
+                   onClick={handleSaveProfile} 
+                   disabled={isSaving}
+                   className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-emerald-700 disabled:opacity-50"
+                 >
+                   {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
+                   Save Profile
+                 </button>
+               </>
+             ) : (
+               <>
+                 <button 
+                   onClick={handleDelete} 
+                   disabled={isDeleting}
+                   className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-xs font-bold shadow-sm hover:bg-red-50 disabled:opacity-50 transition-all"
+                 >
+                    {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    Delete
+                 </button>
+
+                 <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition-all">
+                    <Edit2 className="w-3.5 h-3.5" /> Edit Settings
+                 </button>
+               </>
+             )}
+           </div>
         </div>
       </div>
 
@@ -226,8 +383,8 @@ export default function PersonnelPortal({ params }: { params: Params }) {
                 <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
                   {profile.name}
                   <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-                    profile.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 
-                    profile.status === 'On Leave' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                    profile.status === 'Active' || profile.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 
+                    profile.status === 'On Leave' || profile.status === 'ON_LEAVE' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                   }`}>
                     {profile.status}
                   </span>
@@ -241,6 +398,7 @@ export default function PersonnelPortal({ params }: { params: Params }) {
                       onChange={(e) => setProfile({...profile, assignedShopId: e.target.value})}
                       className="text-sm font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none"
                    >
+                     <option value="">-- No Shop Assigned --</option>
                      {shops.map(shop => <option key={shop.id} value={shop.id}>{shop.name} ({shop.location})</option>)}
                    </select>
                  ) : (
@@ -255,7 +413,7 @@ export default function PersonnelPortal({ params }: { params: Params }) {
             {/* Status Toggle (Edit Mode Only) */}
             {isEditing && (
               <div className="flex gap-2">
-                 {['Active', 'On Leave', 'Suspended'].map(s => (
+                 {['ACTIVE', 'ON_LEAVE', 'SUSPENDED'].map(s => (
                    <button 
                      key={s}
                      onClick={() => setProfile({...profile, status: s})}
@@ -263,21 +421,21 @@ export default function PersonnelPortal({ params }: { params: Params }) {
                        profile.status === s ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200'
                      }`}
                    >
-                     {s}
+                     {s.replace('_', ' ')}
                    </button>
                  ))}
               </div>
             )}
           </div>
           
-          {/* Contact & Admin Config Details */}
+          {/* Contact Details & Password Reset */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6 pt-6 border-t border-slate-100">
             <div className="flex items-center gap-3">
               <Phone className="w-4 h-4 text-slate-400" />
               {isEditing ? (
                 <input value={profile.phone} onChange={(e) => setProfile({...profile, phone: e.target.value})} className="text-xs font-semibold bg-slate-50 border-b border-slate-300 w-full" />
               ) : (
-                <span className="text-xs font-semibold text-slate-600">{profile.phone}</span>
+                <span className="text-xs font-semibold text-slate-600">{profile.phone || "No Phone"}</span>
               )}
             </div>
             <div className="flex items-center gap-3">
@@ -289,27 +447,32 @@ export default function PersonnelPortal({ params }: { params: Params }) {
               )}
             </div>
             
-            {/* New Valuable Settings Display */}
-            <div className="flex items-center gap-3">
-              <Percent className="w-4 h-4 text-blue-400" />
-              {isEditing ? (
-                 <div className="flex items-center text-xs">
-                   <input 
-                      type="number"
-                      value={adminSettings.commissionRate} 
-                      onChange={(e) => setAdminSettings({...adminSettings, commissionRate: parseFloat(e.target.value)})} 
-                      className="text-xs font-semibold bg-slate-50 border-b border-slate-300 w-12" 
-                   />
-                   <span>% Comm.</span>
-                 </div>
-              ) : (
-                <span className="text-xs font-semibold text-slate-600">{adminSettings.commissionRate}% Commission</span>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              <Smartphone className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-semibold text-slate-600 truncate" title={adminSettings.deviceId}>Device: {adminSettings.deviceId}</span>
-            </div>
+            {/* ✅ NEW: Password Reset Field (Only visible in Edit Mode) */}
+            {isEditing && (
+              <div className="flex items-center gap-3 col-span-2 bg-red-50 p-2 rounded-lg border border-red-100">
+                <Key className="w-4 h-4 text-red-400" />
+                <input 
+                  type="password"
+                  placeholder="Reset Password (Optional)" 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="text-xs font-bold bg-transparent border-b border-red-200 w-full text-red-600 placeholder-red-300 outline-none" 
+                />
+              </div>
+            )}
+
+            {!isEditing && (
+              <>
+                <div className="flex items-center gap-3">
+                  <Percent className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-semibold text-slate-600">{adminSettings.commissionRate}% Commission</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Smartphone className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-600 truncate">Device: {adminSettings.deviceId}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -318,7 +481,7 @@ export default function PersonnelPortal({ params }: { params: Params }) {
       <div className="flex items-center gap-1 mb-8 border-b border-slate-200 overflow-x-auto scrollbar-hide">
         {[
           { id: 'OVERVIEW', label: 'Dashboard' },
-          { id: 'LEAVE', label: 'Leave & Absence' },
+          { id: 'LEAVE', label: 'Leave Requests' },
           { id: 'HISTORY', label: 'Work History' },
           { id: 'REPORTS', label: 'Sales Reports' },
           { id: 'CHAT', label: 'Messages' },
@@ -340,20 +503,16 @@ export default function PersonnelPortal({ params }: { params: Params }) {
 
       {/* --- TAB CONTENT AREA --- */}
 
-      {/* 📊 OVERVIEW: DUAL TARGETS & STORE LINK */}
+      {/* 📊 OVERVIEW */}
       {activeTab === 'OVERVIEW' && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            
-            {/* 1. DUAL TARGET SYSTEM (Value & Volume) */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm md:col-span-2 relative group">
+            {/* 1. TARGET SYSTEM */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm md:col-span-2 relative">
                <div className="flex items-center justify-between mb-6">
-                 <div>
-                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                     <TrendingUp className="w-4 h-4" /> Monthly Performance Targets
-                   </p>
-                 </div>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                   <TrendingUp className="w-4 h-4" /> Monthly Goals
+                 </p>
                  {!isEditingTargets ? (
                    <button onClick={() => setIsEditingTargets(true)} className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors">
                      Adjust Goals
@@ -422,31 +581,33 @@ export default function PersonnelPortal({ params }: { params: Params }) {
                </div>
             </div>
 
-            {/* 2. STORE CONNECTION INTEL (Auto-Updates based on assignment) */}
+            {/* 2. ASSIGNED SHOP INFO */}
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-sm text-white flex flex-col justify-between">
                <div>
                  <div className="flex items-center gap-3 mb-6 opacity-70">
                    <Building2 className="w-4 h-4" />
-                   <span className="text-xs font-bold uppercase tracking-wider">Assigned Store Link</span>
+                   <span className="text-xs font-bold uppercase tracking-wider">Assigned Location</span>
                  </div>
                  <p className="text-lg font-bold mb-1">{currentShop.name}</p>
                  <p className="text-xs opacity-50 mb-1">{currentShop.location}</p>
-                 <p className="text-xs text-emerald-400 font-mono mb-4">Open: {currentShop.hours}</p>
+                 <p className="text-xs text-emerald-400 font-mono mb-4">Open: {currentShop.openingTime || "08:00 AM - 05:00 PM"}</p>
                </div>
                
                <div className="pt-4 border-t border-white/10">
                  <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Branch Manager</p>
                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold">{currentShop.manager}</span>
-                    <a href={`tel:${currentShop.contact}`} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                       <Phone className="w-3 h-3" />
-                    </a>
+                    <span className="text-sm font-bold">{currentShop.managerName || "Unassigned"}</span>
+                    {currentShop.managerPhone && (
+                      <a href={`tel:${currentShop.managerPhone}`} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                         <Phone className="w-3 h-3" />
+                      </a>
+                    )}
                  </div>
                </div>
             </div>
           </div>
 
-          {/* 3. DAILY SALES FUNNEL & FOOTFALL (Collected Data) */}
+          {/* 3. DAILY METRICS */}
           <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm mb-6">
              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-6 flex items-center gap-2">
                <Activity className="w-4 h-4 text-blue-600" /> Daily Interaction Funnel
@@ -487,7 +648,7 @@ export default function PersonnelPortal({ params }: { params: Params }) {
         </div>
       )}
 
-      {/* 🌴 LEAVE MANAGEMENT (Functional!) */}
+      {/* 🌴 LEAVE MANAGEMENT */}
       {activeTab === 'LEAVE' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
            {/* Pending Requests */}
@@ -638,17 +799,26 @@ export default function PersonnelPortal({ params }: { params: Params }) {
              </div>
              <Lock className="w-4 h-4 text-slate-300" />
           </div>
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.sender === 'ADMIN' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] p-4 rounded-2xl text-sm shadow-sm ${
-                  msg.sender === 'ADMIN' ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'
-                }`}>
-                  <p className="mb-1">{msg.text}</p>
-                  <p className={`text-[10px] font-medium text-right ${msg.sender === 'ADMIN' ? 'text-blue-200' : 'text-slate-400'}`}>{msg.time}</p>
-                </div>
-              </div>
-            ))}
+          <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
+            {messages.length === 0 ? (
+              <div className="text-center text-slate-400 text-xs mt-10 italic">No messages yet. Start the conversation.</div>
+            ) : (
+              messages.map((msg: any) => {
+                const isAdmin = msg.senderId === "admin-hq-id";
+                return (
+                  <div key={msg.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[75%] p-4 rounded-2xl text-sm shadow-sm ${
+                      isAdmin ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'
+                    }`}>
+                      <p className="mb-1">{msg.content}</p>
+                      <p className={`text-[9px] font-medium text-right ${isAdmin ? 'text-blue-200' : 'text-slate-400'}`}>
+                        {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
           <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex gap-4">
             <input 
@@ -657,8 +827,8 @@ export default function PersonnelPortal({ params }: { params: Params }) {
               placeholder="Type message..." 
               className="flex-1 bg-slate-100 border-none rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-100 outline-none transition-all"
             />
-            <button type="submit" className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
-              <Send className="w-5 h-5" />
+            <button type="submit" disabled={isSending} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 disabled:opacity-50">
+              {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             </button>
           </form>
         </div>
@@ -671,9 +841,9 @@ export default function PersonnelPortal({ params }: { params: Params }) {
              <LiveMap lat={gpsData.lat} lng={gpsData.lng} speed={gpsData.speed} />
           </div>
           <div className="absolute top-4 left-4 z-[1000] bg-white/90 backdrop-blur border border-slate-200 p-4 rounded-xl shadow-lg w-64">
-             <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Live Telemetry</h4>
+             <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Device Status</h4>
              <div className="space-y-3">
-               <div className="flex justify-between text-sm"><span className="text-slate-600">Status</span><span className="font-bold text-slate-900">{gpsData.status}</span></div>
+               <div className="flex justify-between text-sm"><span className="text-slate-600">State</span><span className="font-bold text-slate-900">{gpsData.status}</span></div>
                <div className="flex justify-between text-sm"><span className="text-slate-600">Speed</span><span className="font-bold text-slate-900">{gpsData.speed} km/h</span></div>
                <div className="flex justify-between text-sm"><span className="text-slate-600">Battery</span><span className="font-bold text-slate-900">{Math.floor(gpsData.battery)}%</span></div>
                <div className="flex justify-between text-sm items-center pt-2 border-t border-slate-200">

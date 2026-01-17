@@ -1,21 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
-  UserPlus, Fingerprint, MapPin, Camera, ShieldCheck, FileText, 
-  ChevronRight, Loader2, CheckCircle, Search, Filter, ArrowLeft, Upload
+  UserPlus, Fingerprint, MapPin, FileText, 
+  ChevronRight, Loader2, CheckCircle, ArrowLeft, 
+  Mail, Phone, Building2
 } from "lucide-react";
 
 export default function PersonnelController() {
   const [view, setView] = useState<'GRID' | 'FORM'>('GRID');
-  
-  // --- MOCK DATA FOR GRID ---
-  const [staff] = useState([
-    { id: "1", name: "Kojo Bonsu", staffId: "LG-ACC-401", shop: "Melcom Accra Mall", status: "ACTIVE" },
-    { id: "2", name: "Ama Serwaa", staffId: "LG-KUM-502", shop: "Game Kumasi Mall", status: "ON_LEAVE" },
-    { id: "3", name: "Kwesi Appiah", staffId: "LG-LAB-201", shop: "Palace Labone", status: "SUSPENDED" },
-  ]);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- 1. FETCH REAL STAFF DATA ---
+  useEffect(() => {
+    if (view === 'GRID') {
+      fetchStaff();
+    }
+  }, [view]);
+
+  const fetchStaff = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/hr/staff");
+      if (res.ok) {
+        setStaff(await res.json());
+      }
+    } catch (error) {
+      console.error("Failed to load staff");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // --- RENDER: THE GRID (DIRECTORY) ---
   if (view === 'GRID') {
@@ -37,77 +54,132 @@ export default function PersonnelController() {
 
         {/* THE TABLE */}
         <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Detail</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Hub</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Portal Access</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {staff.map((person) => (
-                <tr key={person.id} className="group hover:bg-slate-50 transition-colors">
-                  <td className="px-8 py-6">
-                    <Link href={`/dashboard/hr/personnel/${person.id}`} className="flex items-center gap-4 group-hover:translate-x-1 transition-transform">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-400 text-xs">
-                        {person.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-[12px] font-black text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">{person.name}</p>
-                        <p className="text-[9px] text-blue-600 font-bold uppercase tracking-widest">{person.staffId}</p>
-                      </div>
-                    </Link>
-                  </td>
-                  <td className="px-6 py-6 text-[11px] font-bold text-slate-600 uppercase">{person.shop}</td>
-                  <td className="px-6 py-6 text-center">
-                    <span className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-2 ${
-                      person.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                      person.status === 'SUSPENDED' ? 'bg-red-50 text-red-600 border-red-100' :
-                      'bg-slate-50 text-slate-500 border-slate-100'
-                    }`}>
-                      {person.status}
-                    </span>
-                  </td>
-                  <td className="px-8 py-6 text-right">
-                     <Link 
-                       href={`/dashboard/hr/personnel/${person.id}`}
-                       className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 hover:border-blue-500 hover:text-blue-600 transition-all shadow-sm"
-                     >
-                       Open Portal <ChevronRight className="w-3 h-3" />
-                     </Link>
-                  </td>
+          {isLoading ? (
+            <div className="p-20 flex flex-col items-center justify-center text-slate-400">
+              <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-600" />
+              <p className="text-xs font-bold uppercase tracking-widest">Syncing Directory...</p>
+            </div>
+          ) : staff.length === 0 ? (
+            <div className="p-20 text-center text-slate-400">
+              <p className="font-bold text-lg text-slate-900 mb-2">No Personnel Found</p>
+              <p className="text-xs uppercase tracking-widest">Enroll your first operative to begin.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Identity</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Hub</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {staff.map((person) => (
+                  <tr key={person.id} className="group hover:bg-slate-50 transition-colors">
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-4 group-hover:translate-x-1 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-400 text-xs">
+                          {person.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-[12px] font-black text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">{person.name}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                             <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-wide">
+                               <Mail className="w-2.5 h-2.5" /> {person.email}
+                             </span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-6 text-[11px] font-bold text-slate-600 uppercase">
+                       {person.shop ? (
+                         <div className="flex items-center gap-2">
+                           <Building2 className="w-3.5 h-3.5 text-slate-400" /> {person.shop.name}
+                         </div>
+                       ) : (
+                         <span className="text-slate-400 italic">Unassigned</span>
+                       )}
+                    </td>
+                    <td className="px-6 py-6 text-center">
+                      <span className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-2 ${
+                        person.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                        person.status === 'SUSPENDED' ? 'bg-red-50 text-red-600 border-red-100' :
+                        'bg-slate-50 text-slate-500 border-slate-100'
+                      }`}>
+                        {person.status || 'ACTIVE'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                       <Link 
+                         href={`/dashboard/hr/personnel/${person.id}`}
+                         className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 hover:border-blue-500 hover:text-blue-600 transition-all shadow-sm"
+                       >
+                         View Profile <ChevronRight className="w-3 h-3" />
+                       </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     );
   }
 
-  // --- RENDER: THE FORM (YOUR ORIGINAL CODE RE-INTEGRATED) ---
+  // --- RENDER: THE FORM ---
   return <EnrollmentForm onBack={() => setView('GRID')} />;
 }
 
-// --- SUB-COMPONENT: THE FORM ---
+// --- SUB-COMPONENT: THE REAL FORM ---
 function EnrollmentForm({ onBack }: { onBack: () => void }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [shops, setShops] = useState<any[]>([]);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    name: "", email: "", phone: "", 
+    role: "SALES_REP", shopId: "", password: "",
+    ghanaCard: "", dob: "" // Kept for UI, optionally sent to backend
+  });
+
+  // Load Shops for Dropdown
+  useEffect(() => {
+    const loadShops = async () => {
+       const res = await fetch("/api/shops");
+       if (res.ok) setShops(await res.json());
+    };
+    loadShops();
+  }, []);
 
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => setStep(prev => prev - 1);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Logic to POST to /api/hr/onboard
-    setTimeout(() => {
+
+    try {
+      const res = await fetch("/api/hr/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+
+      if (res.ok) {
+        setCompleted(true);
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error}`);
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      alert("Network Error");
       setIsSubmitting(false);
-      setCompleted(true);
-    }, 2000);
+    }
   };
 
   if (completed) {
@@ -117,7 +189,7 @@ function EnrollmentForm({ onBack }: { onBack: () => void }) {
           <CheckCircle className="w-10 h-10 text-emerald-500" />
         </div>
         <h2 className="text-2xl font-black text-slate-900 tracking-tight">ENROLLMENT SUCCESSFUL</h2>
-        <p className="text-slate-500 text-xs uppercase tracking-widest mt-2">Personnel synced to LG Global Retail Grid</p>
+        <p className="text-slate-500 text-xs uppercase tracking-widest mt-2">Personnel synced to Nexus Global Grid</p>
         <button 
           onClick={onBack}
           className="mt-8 px-8 py-3 bg-slate-900 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all"
@@ -169,26 +241,55 @@ function EnrollmentForm({ onBack }: { onBack: () => void }) {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Full Legal Name</label>
-                  <input required placeholder="As on Ghana Card" className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all" />
+                  <input 
+                    required 
+                    placeholder="As on Ghana Card" 
+                    className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all"
+                    value={formData.name}
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
-                  <input required type="email" placeholder="official@nexus.com" className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all" />
+                  <input 
+                    required 
+                    type="email" 
+                    placeholder="official@nexus.com" 
+                    className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all"
+                    value={formData.email}
+                    onChange={e => setFormData({...formData, email: e.target.value})}
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ghana Card ID</label>
-                  <input required placeholder="GHA-000000000-0" className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all" />
+                  <input 
+                    placeholder="GHA-000000000-0" 
+                    className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all"
+                    value={formData.ghanaCard}
+                    onChange={e => setFormData({...formData, ghanaCard: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date of Birth</label>
-                  <input required type="date" className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all" />
+                  <input 
+                    type="date" 
+                    className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all"
+                    value={formData.dob}
+                    onChange={e => setFormData({...formData, dob: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number</label>
-                  <input required placeholder="+233..." className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all" />
+                  <input 
+                    required 
+                    placeholder="+233..." 
+                    className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all"
+                    value={formData.phone}
+                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                  />
                 </div>
               </div>
             </div>
@@ -205,18 +306,27 @@ function EnrollmentForm({ onBack }: { onBack: () => void }) {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Retail Node</label>
-                  <select className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all">
-                    <option>Melcom - Accra Mall</option>
-                    <option>Game - Kumasi City Mall</option>
-                    <option>Palace Hypermarket - Labone</option>
+                  <select 
+                    className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all"
+                    value={formData.shopId}
+                    onChange={e => setFormData({...formData, shopId: e.target.value})}
+                  >
+                    <option value="">-- Select Hub --</option>
+                    {shops.map(shop => (
+                      <option key={shop.id} value={shop.id}>{shop.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Role within Grid</label>
-                  <select className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all">
-                    <option>Sales Representative</option>
-                    <option>Floor Supervisor</option>
-                    <option>Inventory Auditor</option>
+                  <select 
+                    className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all"
+                    value={formData.role}
+                    onChange={e => setFormData({...formData, role: e.target.value})}
+                  >
+                    <option value="SALES_REP">Sales Representative</option>
+                    <option value="ADMIN">Administrator (HQ)</option>
+                    <option value="HR_MANAGER">HR Manager</option>
                   </select>
                 </div>
               </div>
@@ -233,7 +343,14 @@ function EnrollmentForm({ onBack }: { onBack: () => void }) {
 
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Access Password</label>
-                <input required type="password" placeholder="Min 8 chars" className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all" />
+                <input 
+                  required 
+                  type="password" 
+                  placeholder="Min 8 chars" 
+                  className="w-full bg-white border border-slate-200 h-12 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 transition-all"
+                  value={formData.password}
+                  onChange={e => setFormData({...formData, password: e.target.value})}
+                />
               </div>
             </div>
           )}
@@ -276,9 +393,21 @@ function EnrollmentForm({ onBack }: { onBack: () => void }) {
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Status</p>
-                  <p className="text-xs font-bold uppercase tracking-wider">Awaiting Deployment</p>
+                  <p className="text-xs font-bold uppercase tracking-wider">Drafting Profile...</p>
                 </div>
               </div>
+
+              <div className="space-y-2 mt-4 pt-4 border-t border-white/10">
+                 <div className="flex justify-between text-[10px]">
+                   <span className="text-white/40 font-bold uppercase">Name</span>
+                   <span className="font-bold">{formData.name || "..."}</span>
+                 </div>
+                 <div className="flex justify-between text-[10px]">
+                   <span className="text-white/40 font-bold uppercase">Role</span>
+                   <span className="font-bold text-blue-400">{formData.role}</span>
+                 </div>
+              </div>
+
               <div className="bg-white/5 p-4 rounded-xl border border-white/5 mt-10">
                 <p className="text-[9px] text-white/50 leading-relaxed uppercase font-bold tracking-tighter italic">
                   "Ensure Ghana Card ID is verified against the NIA database before final submission."

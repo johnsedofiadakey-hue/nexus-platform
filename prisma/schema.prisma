@@ -1,5 +1,5 @@
 // --------------------------------------------------------------------------
-// NEXUS PLATFORM SCHEMA - PRISMA 7 COMPLIANT
+// NEXUS PLATFORM SCHEMA - MASTER V2.1 (UPDATED)
 // ARCHITECTURE: LG GHANA / RETAIL INTELLIGENCE & FIELD FORCE
 // --------------------------------------------------------------------------
 
@@ -13,6 +13,7 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// --- ENUMS ---
 enum Role {
   SUPER_USER
   ADMIN
@@ -35,92 +36,117 @@ enum Severity {
   CRITICAL
 }
 
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // --- USER & PERSONNEL MANAGEMENT ---
 model User {
-  id                String         @id @default(cuid())
-  name              String
-  email             String         @unique
-  password          String
-  role              Role           @default(SALES_REP)
-  status            StaffStatus    @default(ACTIVE)
-  isSuspended       Boolean        @default(false)
+  id              String      @id @default(cuid())
+  name            String
+  email           String      @unique
+  password        String
+  role            Role        @default(SALES_REP)
+  status          StaffStatus @default(ACTIVE)
+  isSuspended     Boolean     @default(false)
   
   // HR & BIO-DATA
-  staffId           String?        @unique
-  image             String?        
-  ghanaCardId       String?        @unique
-  dob               DateTime?
-  address           String?
-  phone             String?
-  emergencyContact  String?
-  
+  staffId         String?     @unique
+  image           String?     
+  ghanaCardId     String?     @unique
+  dob             DateTime?
+  address         String?
+  phone           String?
+  emergencyContact String?
+
+  // PERFORMANCE TARGETS
+  monthlyTargetRev Float    @default(0) // Revenue Target (e.g. 20,000 GHS)
+  monthlyTargetVol Int      @default(0) // Volume Target (e.g. 50 Units)
+  commissionRate   Float    @default(0) // % Commission
+
   // FIELD TELEMETRY
-  lastLat           Float?         
-  lastLng           Float?
-  lastSync          DateTime?      @updatedAt
+  lastLat         Float?          
+  lastLng         Float?
+  lastSync        DateTime?   @updatedAt
 
   // RELATIONSHIPS
-  shopId            String?
-  shop              Shop?          @relation(fields: [shopId], references: [id])
-  sales             Sale[]
-  reports           DailyReport[]
-  expenses          Expense[]
-  incidents         ConductIncident[]
-  leaveRequests     LeaveRequest[]
-  sentMessages      ChatMessage[]  @relation("SentMessages")
-  receivedMessages  ChatMessage[]  @relation("ReceivedMessages")
+  shopId          String?
+  shop            Shop?       @relation(fields: [shopId], references: [id])
   
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  sales            Sale[]
+  attendance       Attendance[]
+  reports          DailyReport[]
+  expenses         Expense[]
+  
+  // ✅ RENAMED TO MATCH API (was 'incidents')
+  conductIncidents ConductIncident[] 
+  
+  leaveRequests    LeaveRequest[]
+  
+  sentMessages     ChatMessage[]  @relation("SentMessages")
+  receivedMessages ChatMessage[]  @relation("ReceivedMessages")
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   @@map("users")
 }
 
-// --- RETAIL NODES ---
+// --- RETAIL NODES (SHOPS) ---
 model Shop {
-  id          String      @id @default(cuid())
-  name        String      
-  location    String?
-  latitude    Float
-  longitude   Float
-  radius      Float       @default(150) 
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
+  id             String      @id @default(cuid())
+  name           String      
+  location       String?     // e.g. "Accra"
+  latitude       Float
+  longitude      Float
+  radius         Float       @default(150) // Geofence in meters
+  isActive       Boolean     @default(true)
   
-  inventory   Inventory[]
-  users       User[]
-  sales       Sale[]
+  // STORE OPERATIONS
+  managerName    String?
+  managerPhone   String?
+  openingTime    String?     // "08:00 AM"
+  closingTime    String?     // "09:00 PM"
+
+  inventory      Product[]
+  users          User[]
+  sales          Sale[]
+  
+  createdAt      DateTime    @default(now())
 
   @@map("shops")
 }
 
 // --- HIERARCHICAL INVENTORY SYSTEM ---
 model Category {
-  id            String         @id @default(cuid())
-  name          String         @unique // e.g., "HOME APPLIANCE"
+  id            String        @id @default(cuid())
+  name          String        @unique // e.g., "HOME APPLIANCE"
   subCategories SubCategory[]
-  createdAt     DateTime       @default(now())
+  createdAt     DateTime      @default(now())
 
   @@map("categories")
 }
 
 model SubCategory {
-  id          String      @id @default(cuid())
-  name        String      // e.g., "AIR CONDITION"
-  categoryId  String
-  category    Category    @relation(fields: [categoryId], references: [id])
-  products    Inventory[]
+  id            String      @id @default(cuid())
+  name          String      // e.g., "AIR CONDITION"
+  categoryId    String
+  category      Category    @relation(fields: [categoryId], references: [id])
+  products      Product[]
   
   @@unique([name, categoryId])
   @@map("sub_categories")
 }
 
-model Inventory {
+model Product {
   id            String      @id @default(cuid())
   sku           String      @unique
   productName   String
   priceGHS      Float
   quantity      Int         @default(0)
+  minStock      Int         @default(5) // Low stock alert level
   formulation   String      @default("FINISHED_GOOD")
   
   subCategoryId String
@@ -128,6 +154,8 @@ model Inventory {
   
   shopId        String
   shop          Shop        @relation(fields: [shopId], references: [id])
+  
+  saleItems     SaleItem[]  // Relation to sales
   
   lastRestock   DateTime?
   updatedAt     DateTime    @updatedAt
@@ -137,87 +165,129 @@ model Inventory {
 
 // --- TRANSACTIONS & REPORTING ---
 model Sale {
-  id              String    @id @default(cuid())
-  shopId          String
-  userId          String
-  totalAmount     Float
-  items           Json      
-  paymentMethod   String    @default("CASH")
-  latitude        Float?
-  longitude       Float?
-  createdAt       DateTime  @default(now())
+  id            String      @id @default(cuid())
+  shopId        String
+  userId        String
+  totalAmount   Float
   
-  shop            Shop      @relation(fields: [shopId], references: [id])
-  user            User      @relation(fields: [userId], references: [id])
+  items         SaleItem[]
+  
+  paymentMethod String      @default("CASH")
+  latitude      Float?
+  longitude     Float?
+  
+  createdAt     DateTime    @default(now())
+  
+  shop          Shop        @relation(fields: [shopId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
 
   @@map("sales")
 }
 
+model SaleItem {
+  id            String      @id @default(cuid())
+  saleId        String
+  productId     String
+  quantity      Int
+  priceAtSale   Float       // Snapshot of price at time of sale
+  
+  sale          Sale        @relation(fields: [saleId], references: [id])
+  product       Product     @relation(fields: [productId], references: [id])
+
+  @@map("sale_items")
+}
+
 model DailyReport {
-  id              String    @id @default(cuid())
-  userId          String
-  walkIns         Int       @default(0)
-  buyers          Int       @default(0)
-  nonBuyers       Int       @default(0)
-  conversionRate  Float     @default(0)
-  marketIntel     String?   @db.Text 
-  notes           String?
-  createdAt       DateTime  @default(now())
-  user            User      @relation(fields: [userId], references: [id])
+  id             String      @id @default(cuid())
+  userId         String
+  
+  walkIns        Int         @default(0)
+  inquiries      Int         @default(0)
+  conversions    Int         @default(0)
+  
+  conversionRate Float       @default(0)
+  marketIntel    String?     @db.Text 
+  notes          String?
+  
+  createdAt      DateTime    @default(now())
+  user           User        @relation(fields: [userId], references: [id])
 
   @@map("daily_reports")
 }
 
-// --- CONDUCT & AUTHORITY ---
-model ConductIncident {
-  id            String    @id @default(cuid())
-  userId        String
-  category      String    // e.g., "Geofence Violation"
-  severity      Severity  @default(LOW)
-  description   String    @db.Text
-  actionTaken   String?   
-  createdAt     DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id])
+// --- HR: ATTENDANCE & LEAVES ---
+model Attendance {
+  id             String      @id @default(cuid())
+  date           DateTime    @default(now()) // The shift date
+  
+  clockInTime    DateTime?
+  clockOutTime   DateTime?
+  
+  clockInGPS     String?     // "lat,lng"
+  clockOutGPS    String?
+  
+  status         String      @default("PRESENT") // PRESENT, LATE, ABSENT
+  
+  userId         String
+  user           User        @relation(fields: [userId], references: [id])
 
-  @@map("conduct_incidents")
+  @@map("attendance")
 }
 
 model LeaveRequest {
-  id            String    @id @default(cuid())
-  userId        String
-  startDate     DateTime
-  endDate       DateTime
-  reason        String    @db.Text
-  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  createdAt     DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id])
+  id             String      @id @default(cuid())
+  userId         String
+  type           String      // Sick, Annual, etc.
+  startDate      DateTime
+  endDate        DateTime
+  reason         String?     @db.Text
+  status         LeaveStatus @default(PENDING)
+  
+  createdAt      DateTime    @default(now())
+  user           User        @relation(fields: [userId], references: [id])
 
   @@map("leave_requests")
 }
 
+// --- CONDUCT, EXPENSES & CHAT ---
+model ConductIncident {
+  id            String      @id @default(cuid())
+  userId        String
+  category      String      // e.g., "Geofence Violation"
+  severity      Severity    @default(LOW)
+  description   String      @db.Text
+  actionTaken   String?     
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@map("conduct_incidents")
+}
+
 model Expense {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   userId        String
   amount        Float
-  category      String    
+  category      String      
   description   String
-  receiptImage  String?   
-  status        String    @default("PENDING") 
-  createdAt     DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id])
+  receiptImage  String?     
+  status        String      @default("PENDING") 
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id])
 
   @@map("expenses")
 }
 
 model ChatMessage {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   content       String
   senderId      String
   receiverId    String
-  isRead        Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  sender        User      @relation("SentMessages", fields: [senderId], references: [id])
-  receiver      User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  isRead        Boolean     @default(false)
+  type          String      @default("TEXT") // TEXT, IMAGE, AUDIO
+  
+  createdAt     DateTime    @default(now())
+  sender        User        @relation("SentMessages", fields: [senderId], references: [id])
+  receiver      User        @relation("ReceivedMessages", fields: [receiverId], references: [id])
 
   @@map("chat_messages")
 }
