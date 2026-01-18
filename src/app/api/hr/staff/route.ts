@@ -2,32 +2,23 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs"; 
 
-// Force dynamic to ensure the list is always fresh
 export const dynamic = 'force-dynamic';
 
-// GET: List all staff (Excluding Super Admins)
+// GET: List all staff
 export async function GET() {
   try {
     const staff = await prisma.user.findMany({
-      where: {
-        role: { not: "SUPER_USER" } // Hide Super Admin from the general list
-      },
+      where: { role: { not: "SUPER_USER" } },
       include: {
-        shop: { select: { name: true, location: true } }, // Include Shop Details
-        _count: { select: { sales: true } } // Include Sales Count
+        shop: { select: { name: true, location: true } },
+        _count: { select: { sales: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
     
-    // Remove passwords before sending to frontend
-    const safeStaff = staff.map(user => {
-      const { password, ...rest } = user;
-      return rest;
-    });
-
+    const safeStaff = staff.map(({ password, ...rest }) => rest);
     return NextResponse.json(safeStaff);
   } catch (error) {
-    console.error("Fetch Staff Error:", error);
     return NextResponse.json({ error: "Failed to fetch staff" }, { status: 500 });
   }
 }
@@ -38,17 +29,24 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, email, password, role, phone, shopId, status } = body;
 
-    // 1. Check if email exists
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) {
-      return NextResponse.json({ error: "Email already in use" }, { status: 400 });
+    if (!email || !password || !name) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // 2. Hash Password
-    const hashedPassword = await hash(password, 10);
+    // 1. Check duplicate email
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return NextResponse.json({ error: "Email already in use" }, { status: 400 });
+
+    // 2. Validate Shop (If provided)
+    let validShopId = null;
+    if (shopId && shopId !== "") {
+      const shopExists = await prisma.shop.findUnique({ where: { id: shopId } });
+      if (!shopExists) return NextResponse.json({ error: "Invalid Shop ID" }, { status: 400 });
+      validShopId = shopId;
+    }
 
     // 3. Create User
-    // We convert empty strings to null for optional fields like shopId
+    const hashedPassword = await hash(password, 10);
     const user = await prisma.user.create({
       data: {
         name,
@@ -56,13 +54,11 @@ export async function POST(req: Request) {
         password: hashedPassword,
         role: role || "SALES_REP",
         phone,
-        // If shopId is an empty string, set it to null, otherwise use the ID
-        shopId: shopId === "" ? null : shopId,
+        shopId: validShopId, // Safe ID
         status: status || "ACTIVE"
       }
     });
 
-    // Return user without password
     const { password: _, ...safeUser } = user;
     return NextResponse.json(safeUser);
 

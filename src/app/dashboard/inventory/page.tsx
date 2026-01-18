@@ -2,313 +2,299 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  Package, Search, Plus, Filter, AlertTriangle, 
-  Building2, ArrowRight, Wallet, LayoutGrid, ArrowLeft 
+  Package, AlertTriangle, TrendingUp, Layers, 
+  Search, Activity, ArrowUpRight, Loader2, Building2,
+  Zap, Turtle, ArrowDownRight
 } from "lucide-react";
 
-// --- TYPES ---
-interface ShopSummary {
-  id: string;
-  name: string;
-  location: string;
-  itemCount: number;
-  totalValue: number;
-}
-
-interface Product {
-  id: string;
-  productName: string;
-  sku: string;
-  category: string;
-  quantity: number;
-  priceGHS: number;
-  minStock: number;
-}
-
 export default function AdminInventoryPage() {
-  // VIEW STATE: null = Overview Mode, string = Shop ID (Detail Mode)
-  const [selectedShop, setSelectedShop] = useState<ShopSummary | null>(null);
-  const [shops, setShops] = useState<ShopSummary[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   
-  // MODAL STATE
-  const [isAdding, setIsAdding] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "", sku: "", category: "Electronics", price: "", quantity: "", minStock: "5"
-  });
+  // FILTERS
+  const [selectedHub, setSelectedHub] = useState("ALL");
+  const [filterType, setFilterType] = useState("ALL"); // ALL | FAST | SLOW | LOW_STOCK
 
-  // --- 1. INITIAL LOAD (OVERVIEW) ---
+  // --- 1. LOAD DATA ---
   useEffect(() => {
-    fetchHubs();
+    fetchInventory();
   }, []);
 
-  const fetchHubs = async () => {
+  const fetchInventory = async () => {
     setLoading(true);
     try {
-      // In a real API, we would ask the server for these calculated stats.
-      // For now, we fetch shops and calculate client-side or use mock data structure if API is simple.
-      const res = await fetch("/api/shops");
+      const res = await fetch(`/api/inventory?t=${Date.now()}`);
       if (res.ok) {
-        const data = await res.json();
-        // Transform the raw shop data into summaries (Mocking value calculation for now)
-        const summaries = data.map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          location: s.location,
-          itemCount: s._count?.inventory || 0,
-          totalValue: 0 // In V2, API should return this sum
-        }));
-        setShops(summaries);
+        setInventory(await res.json());
       }
+    } catch (error) {
+      console.error("Failed to load inventory");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 2. FETCH SPECIFIC SHOP INVENTORY ---
-  const openShopInventory = async (shop: ShopSummary) => {
-    setSelectedShop(shop);
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/inventory?shopId=${shop.id}`);
-      if (res.ok) {
-        setProducts(await res.json());
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  // --- 2. FILTERING LOGIC ---
+  
+  // A. Filter by Hub First
+  const hubFilteredData = selectedHub === "ALL" 
+    ? inventory 
+    : inventory.filter(item => item.hub === selectedHub);
 
-  // --- 3. ADD STOCK TO SELECTED SHOP ---
-  const handleAddStock = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedShop) return;
+  // B. Analytics on the Hub-Filtered Data
+  const totalStock = hubFilteredData.reduce((acc, item) => acc + (item.stock || 0), 0);
+  const totalValue = hubFilteredData.reduce((acc, item) => acc + ((item.price || 0) * (item.stock || 0)), 0);
+  const lowStockItems = hubFilteredData.filter(item => item.status === 'Low Stock');
+  
+  // C. Velocity Calculation (Simple 80/20 Rule Logic)
+  // Sort by sales velocity desc
+  const sortedBySales = [...hubFilteredData].sort((a, b) => b.salesVelocity - a.salesVelocity);
+  const topMovers = sortedBySales.slice(0, 5); // Top 5 items
+  const slowMovers = hubFilteredData.filter(i => i.salesVelocity === 0 && i.stock > 0); // No sales but has stock
 
-    const payload = { ...formData, shopId: selectedShop.id };
+  // D. Final Table Data (Apply Type Filter & Search)
+  const finalTableData = sortedBySales.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          item.id.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesType = true;
+    if (filterType === "FAST") matchesType = item.salesVelocity > 0;
+    if (filterType === "SLOW") matchesType = item.salesVelocity === 0;
+    if (filterType === "LOW_STOCK") matchesType = item.status === "Low Stock";
 
-    const res = await fetch("/api/inventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    return matchesSearch && matchesType;
+  });
 
-    if (res.ok) {
-      alert("Stock Added Successfully");
-      setIsAdding(false);
-      openShopInventory(selectedShop); // Refresh the table
-      setFormData({ name: "", sku: "", category: "Electronics", price: "", quantity: "", minStock: "5" });
-    } else {
-      alert("Failed to add stock");
-    }
-  };
+  // Unique Hubs for Dropdown
+  const uniqueHubs = Array.from(new Set(inventory.map(i => i.hub)));
 
-  // ==================================================================================
-  // VIEW 1: NETWORK OVERVIEW (THE DASHBOARD)
-  // ==================================================================================
-  if (!selectedShop) {
-    return (
-      <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4">
+  return (
+    <div className="p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+      
+      {/* HEADER & SHOP SELECTOR */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Inventory Analytics</h1>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">
+            Performance Analysis & Stock Health
+          </p>
+        </div>
         
-        {/* HEADER */}
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Inventory Hubs</h1>
-          <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Select a retail node to manage stock</p>
+        {/* SHOP FILTER DROPDOWN */}
+        <div className="flex flex-col gap-2">
+           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filter By Hub</label>
+           <div className="relative">
+             <select 
+               value={selectedHub}
+               onChange={(e) => setSelectedHub(e.target.value)}
+               className="h-12 pl-4 pr-10 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 shadow-sm appearance-none min-w-[200px]"
+             >
+               <option value="ALL">Global Network (All Shops)</option>
+               {uniqueHubs.map(hub => (
+                 <option key={hub} value={hub}>{hub}</option>
+               ))}
+             </select>
+             <Building2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+           </div>
         </div>
+      </div>
 
-        {/* HIGH-LEVEL STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl shadow-blue-900/10 relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-6 opacity-10"><Wallet className="w-16 h-16" /></div>
-             <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Total Network Value</p>
-             {/* This would be a real calculation in production */}
-             <h2 className="text-4xl font-black tracking-tight">₵ 2.4M</h2>
-             <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs font-bold">
-               <span className="bg-emerald-500/20 px-2 py-1 rounded-md">+12%</span>
-               <span>vs last month</span>
-             </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-blue-200 transition-colors">
-             <div className="absolute top-0 right-0 p-6 text-slate-100 group-hover:text-blue-50 transition-colors"><Building2 className="w-16 h-16" /></div>
-             <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Active Hubs</p>
-             <h2 className="text-4xl font-black text-slate-900 tracking-tight">{shops.length}</h2>
-             <p className="mt-4 text-xs font-bold text-slate-400">Retail Locations</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-amber-200 transition-colors">
-             <div className="absolute top-0 right-0 p-6 text-slate-100 group-hover:text-amber-50 transition-colors"><AlertTriangle className="w-16 h-16" /></div>
-             <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2">Low Stock Alerts</p>
-             <h2 className="text-4xl font-black text-slate-900 tracking-tight">8</h2>
-             <p className="mt-4 text-xs font-bold text-amber-500">Items requiring restock</p>
-          </div>
-        </div>
-
-        {/* HUBS GRID */}
-        <div>
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <LayoutGrid className="w-4 h-4 text-blue-600" /> Available Shops
-          </h3>
-          
-          {loading ? (
-             <div className="flex items-center justify-center h-40"><div className="animate-spin w-8 h-8 border-4 border-blue-600 rounded-full border-t-transparent"></div></div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {shops.map((shop) => (
-                <button 
-                  key={shop.id}
-                  onClick={() => openShopInventory(shop)}
-                  className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-left group"
-                >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-black text-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      {shop.name.charAt(0)}
-                    </div>
-                    <div className="px-3 py-1 bg-slate-50 rounded-full text-[10px] font-black uppercase text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                      Open
-                    </div>
-                  </div>
-                  
-                  <h3 className="text-xl font-black text-slate-900 mb-1">{shop.name}</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-6">{shop.location}</p>
-                  
-                  <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
-                     <div>
-                       <p className="text-[10px] font-bold text-slate-300 uppercase">Stock Level</p>
-                       <p className="font-black text-slate-700">{shop.itemCount} Units</p>
-                     </div>
-                     <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                       <ArrowRight className="w-4 h-4" />
-                     </div>
-                  </div>
-                </button>
-              ))}
+      {/* ANALYTICS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        
+        {/* 1. FAST MOVERS (High Velocity) */}
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm relative overflow-hidden group">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
+              <Zap className="w-6 h-6" />
             </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top Performer</p>
+              <h3 className="text-lg font-black text-slate-900 truncate w-32">
+                {topMovers[0]?.name || "N/A"}
+              </h3>
+            </div>
+          </div>
+          <div className="text-[10px] font-bold text-amber-600 flex items-center gap-1 uppercase tracking-wide">
+             <ArrowUpRight className="w-3 h-3" /> Highest Sales Velocity
+          </div>
+        </div>
+
+        {/* 2. SLOW MOVERS (Dead Stock) */}
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-500">
+              <Turtle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stagnant Items</p>
+              <h3 className="text-2xl font-black text-slate-900">{slowMovers.length} SKUs</h3>
+            </div>
+          </div>
+          <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wide">
+             <ArrowDownRight className="w-3 h-3" /> Zero Sales Recorded
+          </div>
+        </div>
+
+        {/* 3. TOTAL VALUATION */}
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory Value</p>
+              <h3 className="text-2xl font-black text-slate-900">₵ {totalValue.toLocaleString()}</h3>
+            </div>
+          </div>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-emerald-500 h-full w-[75%] rounded-full" />
+          </div>
+        </div>
+
+        {/* 4. ALERTS */}
+        <div className={`p-6 rounded-[2rem] border shadow-sm ${lowStockItems.length > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-slate-200'}`}>
+          <div className="flex items-center gap-4 mb-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${lowStockItems.length > 0 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className={`text-[10px] font-black uppercase tracking-widest ${lowStockItems.length > 0 ? 'text-red-400' : 'text-slate-400'}`}>Restock Needed</p>
+              <h3 className={`text-2xl font-black ${lowStockItems.length > 0 ? 'text-red-600' : 'text-slate-900'}`}>{lowStockItems.length} Items</h3>
+            </div>
+          </div>
+          <p className="text-[10px] font-bold opacity-60 uppercase">Below Minimum Level</p>
+        </div>
+      </div>
+
+      {/* INTELLIGENCE TABLE */}
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
+        
+        {/* TABLE CONTROLS */}
+        <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-blue-600" /> 
+              {selectedHub === "ALL" ? "Global Stock List" : `${selectedHub} Stock`}
+            </h3>
+            <div className="h-6 w-px bg-slate-200 hidden md:block" />
+            
+            {/* SMART FILTERS */}
+            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+               {[
+                 { id: 'ALL', label: 'All Items' },
+                 { id: 'FAST', label: 'Fast Moving' },
+                 { id: 'SLOW', label: 'Slow Moving' },
+                 { id: 'LOW_STOCK', label: 'Low Stock' }
+               ].map(f => (
+                 <button 
+                   key={f.id}
+                   onClick={() => setFilterType(f.id)} 
+                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                     filterType === f.id ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                   }`}
+                 >
+                   {f.label}
+                 </button>
+               ))}
+            </div>
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search SKU, Product..." 
+              className="w-full md:w-64 h-12 pl-12 pr-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-xs outline-none focus:border-blue-500 transition-all"
+            />
+          </div>
+        </div>
+
+        {/* DATA TABLE */}
+        <div className="overflow-x-auto">
+          {loading ? (
+             <div className="p-20 flex flex-col items-center justify-center text-slate-400 gap-4">
+               <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+               <p className="text-[10px] font-bold uppercase tracking-widest">Analyzing Data...</p>
+             </div>
+          ) : finalTableData.length === 0 ? (
+             <div className="p-20 text-center text-slate-400">
+               <p className="font-bold">No data found matching criteria.</p>
+             </div>
+          ) : (
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <tr>
+                  <th className="px-8 py-6">Product Performance</th>
+                  <th className="px-6 py-6">Category</th>
+                  <th className="px-6 py-6">Location</th>
+                  <th className="px-6 py-6 text-right">Valuation</th>
+                  <th className="px-8 py-6 w-64">Stock Health</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {finalTableData.map((item) => (
+                  <tr key={item.dbId} className="hover:bg-slate-50/80 transition-colors group">
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-4">
+                        {/* VELOCITY BADGE */}
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+                          item.salesVelocity > 5 ? 'bg-amber-50 border-amber-100 text-amber-600' : 
+                          item.salesVelocity > 0 ? 'bg-blue-50 border-blue-100 text-blue-600' :
+                          'bg-slate-50 border-slate-200 text-slate-400'
+                        }`}>
+                           {item.salesVelocity > 5 ? <Zap className="w-5 h-5" /> : 
+                            item.salesVelocity > 0 ? <Activity className="w-5 h-5" /> : 
+                            <Turtle className="w-5 h-5" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.name}</p>
+                          <p className="text-[10px] font-bold text-slate-400 flex gap-2">
+                            <span>{item.id}</span>
+                            <span className="text-slate-300">|</span>
+                            <span className={item.salesVelocity > 0 ? "text-emerald-500" : "text-slate-400"}>
+                              {item.salesVelocity} Sold (All Time)
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                       <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold uppercase tracking-wide">
+                         {item.subCat}
+                       </span>
+                    </td>
+                    <td className="px-6 py-5 text-xs font-bold text-slate-600">
+                      {item.hub}
+                    </td>
+                    <td className="px-6 py-5 text-right font-black text-slate-700">
+                       ₵ {(item.price || 0).toLocaleString()}
+                    </td>
+                    <td className="px-8 py-5">
+                       <div className="flex items-center justify-between mb-1">
+                          <span className={`text-xs font-black ${item.status === 'Low Stock' ? 'text-red-600' : 'text-slate-900'}`}>
+                            {item.stock} Units
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400">Min: {item.minStock || 5}</span>
+                       </div>
+                       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-1000 ${
+                              item.stock <= (item.minStock || 5) ? 'bg-red-500' : 'bg-emerald-500'
+                            }`} 
+                            style={{ width: `${Math.min(100, (item.stock / 100) * 100)}%` }} 
+                          />
+                       </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
-    );
-  }
-
-  // ==================================================================================
-  // VIEW 2: SHOP DRILL-DOWN (THE DETAILS)
-  // ==================================================================================
-  return (
-    <div className="p-6 space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
-      
-      {/* HEADER WITH BACK BUTTON */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setSelectedShop(null)}
-            className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{selectedShop.name}</h1>
-            <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Inventory Management</p>
-          </div>
-        </div>
-        
-        <button 
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
-        >
-          <Plus className="w-4 h-4" /> Add Stock
-        </button>
-      </div>
-
-      {/* ADD STOCK FORM OVERLAY */}
-      {isAdding && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xl animate-in fade-in slide-in-from-top-4">
-           <div className="flex justify-between items-center mb-4">
-              <h3 className="font-black text-lg">Add to {selectedShop.name}</h3>
-              <button onClick={() => setIsAdding(false)} className="text-slate-400 hover:text-slate-900 font-bold text-xs uppercase">Close</button>
-           </div>
-           
-           <form onSubmit={handleAddStock} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Product Name</label>
-                    <input className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, name: e.target.value})} required />
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">SKU / Code</label>
-                    <input className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, sku: e.target.value})} required />
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Category</label>
-                    <input className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, category: e.target.value})} required />
-                 </div>
-              </div>
-
-              <div className="md:col-span-3 grid grid-cols-3 gap-4">
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Price (GHS)</label>
-                    <input type="number" className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, price: e.target.value})} required />
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity</label>
-                    <input type="number" className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, quantity: e.target.value})} required />
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Min Alert</label>
-                    <input type="number" className="w-full p-3 bg-slate-50 rounded-lg border font-bold text-sm outline-none focus:border-blue-500 transition-colors" onChange={e => setFormData({...formData, minStock: e.target.value})} />
-                 </div>
-              </div>
-
-              <div className="md:col-span-3 pt-2">
-                 <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-sm shadow-lg hover:bg-blue-700 transition-all">
-                    Confirm Inbound Stock
-                 </button>
-              </div>
-           </form>
-        </div>
-      )}
-
-      {/* PRODUCTS TABLE */}
-      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-        {loading ? (
-           <div className="p-12 flex justify-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 rounded-full border-t-transparent"></div></div>
-        ) : products.length === 0 ? (
-           <div className="p-12 text-center">
-             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><Package className="w-8 h-8" /></div>
-             <p className="text-slate-900 font-bold">No inventory found</p>
-             <p className="text-slate-400 text-xs mt-1">Add items to start tracking stock for this hub.</p>
-           </div>
-        ) : (
-          <table className="w-full text-left">
-             <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest pl-6">Product</th>
-                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
-                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">SKU</th>
-                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
-                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right pr-6">Price</th>
-                </tr>
-             </thead>
-             <tbody className="divide-y divide-slate-100">
-                {products.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                     <td className="p-4 pl-6 font-bold text-slate-900">{item.productName}</td>
-                     <td className="p-4 text-xs font-bold text-slate-500 uppercase">{item.category || "General"}</td>
-                     <td className="p-4 text-xs font-mono text-slate-400 text-center">{item.sku}</td>
-                     <td className="p-4 text-right">
-                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
-                          item.quantity <= item.minStock ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"
-                        }`}>
-                          {item.quantity} Units
-                        </span>
-                     </td>
-                     <td className="p-4 text-right pr-6 font-bold text-slate-700">₵ {item.priceGHS.toLocaleString()}</td>
-                  </tr>
-                ))}
-             </tbody>
-          </table>
-        )}
-      </div>
-
     </div>
   );
 }

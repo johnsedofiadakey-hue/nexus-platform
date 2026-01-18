@@ -16,12 +16,8 @@ export default function MobileChat() {
   const [micError, setMicError] = useState(""); // Track permission errors
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // --- MOCK CHAT HISTORY (Initial Load) ---
-  // In a real app, you would fetch this from the API on mount
-  const [chatHistory, setChatHistory] = useState([
-    { id: 1, sender: "ADMIN", text: "Kojo, please confirm when stock for the 55-inch OLED arrives.", time: "09:15 AM" },
-    { id: 2, sender: "ME", text: "Sure, the truck just pulled in. Offloading now.", time: "09:17 AM" },
-  ]);
+  // --- CHAT HISTORY (loaded from DB) ---
+  const [chatHistory, setChatHistory] = useState<any[]>([]);
 
   // --- CALL TIMER ---
   useEffect(() => {
@@ -95,25 +91,36 @@ export default function MobileChat() {
     setChatHistory(prev => [...prev, newMsg]);
     setMessage("");
 
-    // 2. Send to Real Backend API
+    // 2. Send to Real Backend API (use unified /api/messages endpoint)
     try {
-      await fetch("/api/chat/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          content: newMsg.text,
-          type: "TEXT" 
-        }),
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newMsg.text, type: 'TEXT', receiverId: 'admin-hq-id' })
       });
-      
-      // Success! Message is saved in DB. 
-      // We do NOT show a fake "Admin Typing..." anymore. The Admin must reply manually.
+
+      // Refreshing or relying on polling elsewhere will pick this up. We already did optimistic update.
 
     } catch (error) {
-      console.error("Failed to send message", error);
-      // Optional: Add a "Failed to send" red icon to the message
+      console.error('Failed to send message', error);
     }
   };
+
+  // Load message history for mobile user (polling handled elsewhere in mobile/messages)
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch('/api/messages?t=' + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          setChatHistory(data);
+        }
+      } catch (e) { console.error('Failed to fetch chat history', e); }
+    };
+    fetchHistory();
+    const interval = setInterval(fetchHistory, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // --- CALL SCREEN OVERLAY ---
   if (callStatus !== 'NONE') {

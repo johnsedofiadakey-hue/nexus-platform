@@ -15,6 +15,7 @@ export default withAuth(
           pathname.startsWith("/login") ||
           pathname.startsWith("/api/auth") ||
           pathname.startsWith("/public") ||
+          pathname.startsWith("/api") ||
           pathname === "/"
         ) {
           return true;

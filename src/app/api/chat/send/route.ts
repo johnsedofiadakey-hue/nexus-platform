@@ -14,19 +14,17 @@ export async function POST(req: Request) {
     const user = await prisma.user.findUnique({ where: { email: session.user.email } });
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // In a real app, 'receiverId' would be dynamic. 
-    // For now, we assume messages go to a generic 'ADMIN' pool or a specific Admin user ID.
-    // We will just create the record linked to the sender.
-    
-    // Note: Since we haven't seeded an "ADMIN" user ID yet, we will just Log it for now 
-    // to prevent the app from crashing if it can't find a receiver.
-    // In production, you would do: receiverId: "admin-id-here"
+    // Find the first Admin user to send messages to
+    const admin = await prisma.user.findFirst({ 
+      where: { role: { in: ['SUPER_USER', 'ADMIN'] } } 
+    });
+    if (!admin) return NextResponse.json({ error: "No admin available to receive messages" }, { status: 404 });
     
     const message = await prisma.chatMessage.create({
       data: {
         content,
         senderId: user.id,
-        receiverId: user.id, // ⚠️ TEMP: Sending to self just to save record, or find an Admin ID
+        receiverId: admin.id, // ✅ Send to actual admin, not self
         type: type || "TEXT",
         isRead: false
       }

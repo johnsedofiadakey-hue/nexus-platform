@@ -1,64 +1,66 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth"; 
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    // 1. Authenticate the User (Security Check)
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Find the Real User & Shop from DB
+    const { items, totalAmount, gps } = await req.json();
+
+    // 1. Identify Seller & Shop
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: { shop: true }
     });
 
     if (!user || !user.shopId) {
-      return NextResponse.json({ error: "User or Shop invalid" }, { status: 400 });
+      return NextResponse.json({ error: "User/Shop not identified" }, { status: 400 });
     }
 
-    // 3. Process the Data
-    const body = await req.json();
-    const { items, totalAmount, gps } = body; // items = [{ productId, quantity, price }]
-
-    // 4. Create the Sale Record
-    const sale = await prisma.sale.create({
-      data: {
-        userId: user.id,
-        shopId: user.shopId,
-        totalAmount: totalAmount,
-        paymentMethod: "CASH",
-        latitude: gps?.lat || null,
-        longitude: gps?.lng || null,
-        items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            priceAtSale: item.price
-          }))
+    // 2. Transaction: Create Sale + Update Inventory (Atomic)
+    const transaction = await prisma.$transaction(async (tx) => {
+      
+      // A. Create the Sale Record
+      const sale = await tx.sale.create({
+        data: {
+          userId: user.id,
+          shopId: user.shopId!,
+          totalAmount: parseFloat(totalAmount),
+          latitude: gps?.lat || 0,
+          longitude: gps?.lng || 0,
+          paymentMethod: "CASH", // Default for now
+          items: {
+            create: items.map((i: any) => ({
+              productId: i.productId,
+              quantity: i.quantity,
+              priceAtSale: i.price
+            }))
+          }
         }
+      });
+
+      // B. Deduct Inventory (Loop through items)
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { quantity: { decrement: item.quantity } }
+        });
       }
+
+      return sale;
     });
 
-    // 5. Update Inventory (Subtract Stock)
-    // We loop through items to update product counts
-    for (const item of items) {
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: { quantity: { decrement: item.quantity } }
-      });
-    }
-
-    return NextResponse.json({ success: true, saleId: sale.id });
+    return NextResponse.json({ success: true, saleId: transaction.id });
 
   } catch (error) {
-    console.error("Sales Error:", error);
+    console.error("Sale Error:", error);
     return NextResponse.json({ error: "Transaction Failed" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@
 
 import React, { ReactNode, useEffect, useState, Component, ErrorInfo } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
+import LocationTracker from "@/components/utils/LocationTracker"; // ✅ IMPORT TRACKER
 import "./globals.css";
 
 // --- 1. NEXUS ERROR BOUNDARY (The Last Line of Defense) ---
@@ -40,9 +41,9 @@ class NexusErrorBoundary extends Component<Props, State> {
   }
 }
 
-// --- 2. AUTH SHIELD (Prevents Hydration Mismatch Crashes) ---
+// --- 2. AUTH SHIELD (Handles Hydration & GPS Injection) ---
 function AuthShield({ children }: { children: ReactNode }) {
-  const { status } = useSession();
+  const { data: session, status } = useSession(); // ✅ Get Session Data
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -61,7 +62,16 @@ function AuthShield({ children }: { children: ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  // ✅ AUTO-ACTIVATE TRACKER IF LOGGED IN
+  // We cast session.user to 'any' to access 'id' safely if types aren't fully strict
+  const userId = (session?.user as any)?.id;
+
+  return (
+    <>
+      {userId && <LocationTracker userId={userId} />}
+      {children}
+    </>
+  );
 }
 
 // --- 3. MAIN ROOT LAYOUT ---
@@ -70,6 +80,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning={true}>
       <head>
         <title>Nexus Enterprise | Stormglide</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
       </head>
       <body 
         className="antialiased selection:bg-blue-100" 
