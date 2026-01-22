@@ -1,71 +1,60 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 1. Calculate Today's Revenue & Sales Count
-    const salesToday = await prisma.sale.aggregate({
-      where: { createdAt: { gte: today } },
-      _sum: { totalAmount: true },
-      _count: { id: true }
-    });
+    // 1. Run Aggregations in Parallel for Speed
+    const [
+      salesToday,
+      activeStaff,
+      lowStockItems,
+      totalRevenue
+    ] = await Promise.all([
+      // Count sales made today
+      prisma.sale.count({
+        where: { createdAt: { gte: today } }
+      }),
+      // Count staff active (e.g., clocked in today)
+      prisma.attendance.count({
+        where: { 
+          date: { gte: today },
+          clockOutTime: null // Still clocked in
+        }
+      }),
+      // Count items below minStock
+      prisma.product.count({
+        where: { quantity: { lte: 5 } } // You can adjust '5' to use db field 'minStock' if preferred
+      }),
+      // Sum total revenue (All time)
+      prisma.sale.aggregate({
+        _sum: { totalAmount: true }
+      })
+    ]);
 
-    // 2. Count Active Staff (Clocked In but not Out)
-    const activeStaff = await prisma.attendance.count({
-      where: { 
-        date: { gte: today },
-        clockInTime: { not: null },
-        clockOutTime: null
-      }
-    });
-
-    // 3. Get Low Stock Alerts
-    const lowStockItems = await prisma.product.count({
-      where: { quantity: { lte: 5 } } // Hardcoded threshold or use minStock column
-    });
-
-    // 4. Get Recent Transactions (Live Feed)
-    const recentSales = await prisma.sale.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
+    // 2. Fetch Leaderboard (Top 3 Shops)
+    const topShops = await prisma.shop.findMany({
+      take: 3,
       include: {
-        user: { select: { name: true } },
-        shop: { select: { name: true } },
-      }
+        _count: { select: { sales: true } }
+      },
+      orderBy: { sales: { _count: 'desc' } }
     });
-
-    // 5. Get Top Performing Shops (Revenue)
-    // Grouping by Shop for leaderboard
-    const salesByShop = await prisma.sale.groupBy({
-      by: ['shopId'],
-      _sum: { totalAmount: true },
-      orderBy: { _sum: { totalAmount: 'desc' } },
-      take: 4
-    });
-
-    // Fetch Shop Names for the leaderboard
-    const leaderboard = await Promise.all(salesByShop.map(async (entry) => {
-      const shop = await prisma.shop.findUnique({ where: { id: entry.shopId } });
-      return {
-        name: shop?.name || "Unknown Shop",
-        revenue: entry._sum.totalAmount || 0
-      };
-    }));
 
     return NextResponse.json({
-      revenue: salesToday._sum.totalAmount || 0,
-      salesCount: salesToday._count.id || 0,
-      activeStaff,
+      revenue: totalRevenue._sum.totalAmount || 0,
+      salesCount: salesToday,
+      activeStaff: activeStaff,
       lowStockCount: lowStockItems,
-      recentSales,
-      leaderboard
+      leaderboard: topShops.map(s => ({ name: s.name, sales: s._count.sales }))
     });
 
   } catch (error) {
-    console.error("Dashboard Stats Error:", error);
-    return NextResponse.json({ error: "Failed to load stats" }, { status: 500 });
+    console.error("Stats Error:", error);
+    return NextResponse.json({ error: "Stats failed" }, { status: 500 });
   }
 }

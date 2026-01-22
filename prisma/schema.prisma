@@ -1,7 +1,6 @@
-// --------------------------------------------------------------------------
-// NEXUS PLATFORM SCHEMA - MASTER V2.2 (GPS OPTIMIZED)
-// ARCHITECTURE: LG GHANA / RETAIL INTELLIGENCE & FIELD FORCE
-// --------------------------------------------------------------------------
+// ----------------------------------------------------------------
+// NEXUS GLOBAL SCHEMA - v25.6 (POSTGRESQL / NEON EDITION)
+// ----------------------------------------------------------------
 
 generator client {
   provider = "prisma-client-js"
@@ -10,284 +9,232 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  directUrl = env("DIRECT_URL") // Required for Neon migrations
 }
 
-// --- ENUMS ---
+// --- 1. IDENTITY & HR ---
+model User {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  password        String
+  role            Role     @default(SALES_REP)
+  phone           String?
+  ghanaCard       String?
+  status          Status   @default(ACTIVE)
+  image           String?  // Exposes avatar support
+  
+  // Operational Links
+  shopId          String?   
+  shop            Shop?    @relation(fields: [shopId], references: [id])
+  
+  // HR Data
+  attendance      Attendance[]
+  leaves          LeaveRequest[]
+  disciplinary    DisciplinaryRecord[] @relation("ReceivedCitations")
+  issuedCitations DisciplinaryRecord[] @relation("IssuedCitations")
+
+  // Sales Data
+  sales           Sale[]
+  dailyReports    DailyReport[]
+  
+  // Chat
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  // GPS Tracking & Sentinel Data
+  lastLat         Float?
+  lastLng         Float?
+  lastSync        DateTime?
+  isInsideZone    Boolean   @default(false)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
 enum Role {
   SUPER_USER
   ADMIN
-  ASSISTANT
-  SALES_REP
   HR_MANAGER
+  SALES_REP
 }
 
-enum StaffStatus {
+enum Status {
   ACTIVE
   SUSPENDED
   ON_LEAVE
-  ONBOARDING
+  TERMINATED
 }
 
-enum Severity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum LeaveStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-// --- USER & PERSONNEL MANAGEMENT ---
-model User {
-  id              String      @id @default(cuid())
-  name            String
-  email           String      @unique
-  password        String
-  role            Role        @default(SALES_REP)
-  status          StaffStatus @default(ACTIVE)
-  isSuspended     Boolean     @default(false)
-  
-  // HR & BIO-DATA
-  staffId         String?     @unique
-  image           String?     
-  ghanaCardId     String?     @unique
-  dob             DateTime?
-  address         String?
-  phone           String?
-  emergencyContact String?
-
-  // PERFORMANCE TARGETS
-  monthlyTargetRev Float    @default(0) // Revenue Target (e.g. 20,000 GHS)
-  monthlyTargetVol Int      @default(0) // Volume Target (e.g. 50 Units)
-  commissionRate   Float    @default(0) // % Commission
-
-  // FIELD TELEMETRY (GPS DATA)
-  lastLat         Float?          
-  lastLng         Float?
-  lastSync        DateTime?   // Removed @updatedAt so we control EXACTLY when they are "Online"
-
-  // RELATIONSHIPS
-  shopId          String?
-  shop            Shop?       @relation(fields: [shopId], references: [id])
-  
-  sales           Sale[]
-  attendance      Attendance[]
-  reports         DailyReport[]
-  expenses        Expense[]
-  
-  conductIncidents ConductIncident[] 
-  
-  leaveRequests    LeaveRequest[]
-  
-  sentMessages     ChatMessage[]  @relation("SentMessages")
-  receivedMessages ChatMessage[]  @relation("ReceivedMessages")
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  @@map("users")
-}
-
-// --- RETAIL NODES (SHOPS) ---
+// --- 2. RETAIL NETWORK (SHOPS) ---
 model Shop {
-  id              String      @id @default(cuid())
-  name            String      
-  location        String?     // e.g. "Accra"
-  latitude        Float
-  longitude       Float
-  radius          Float       @default(150) // Geofence in meters
-  isActive        Boolean     @default(true)
+  id            String    @id @default(uuid())
+  name          String
+  location      String    
+  latitude      Float
+  longitude     Float
+  radius        Int       @default(150) 
   
-  // STORE OPERATIONS
-  managerName     String?
-  managerPhone    String?
-  openingTime     String?     // "08:00 AM"
-  closingTime     String?     // "09:00 PM"
+  managerName   String?
+  managerPhone  String?
+  openingTime   String?   @default("08:00 AM")
 
-  inventory       Product[]
-  users           User[]
-  sales           Sale[]
-  
-  createdAt       DateTime    @default(now())
+  // Relations
+  staff         User[]
+  inventory     Product[]
+  sales         Sale[]
 
-  @@map("shops")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
-// --- HIERARCHICAL INVENTORY SYSTEM ---
-model Category {
-  id              String        @id @default(cuid())
-  name            String        @unique // e.g., "HOME APPLIANCE"
-  subCategories   SubCategory[]
-  createdAt       DateTime      @default(now())
+// --- 3. SUPPLY CHAIN (INVENTORY) ---
+model Product {
+  id            String    @id @default(uuid())
+  productName   String
+  sku           String    @unique
+  
+  // Financials
+  priceGHS      Float
+  quantity      Int
+  minStock      Int       @default(5)
+  
+  // Categorization (Formulation Tracking)
+  formulation   String?   @default("FINISHED_GOOD") 
+  category      String?   
+  subCat        String?   
+  
+  // Linking
+  shopId        String?   
+  shop          Shop?     @relation(fields: [shopId], references: [id])
+  
+  subCategoryId String?   
+  subCategory   SubCategory? @relation(fields: [subCategoryId], references: [id])
 
-  @@map("categories")
+  saleItems     SaleItem[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Category {
+  id            String        @id @default(uuid())
+  name          String        @unique
+  subCategories SubCategory[]
 }
 
 model SubCategory {
-  id              String      @id @default(cuid())
-  name            String      // e.g., "AIR CONDITION"
-  categoryId      String
-  category        Category    @relation(fields: [categoryId], references: [id])
-  products        Product[]
-  
-  @@unique([name, categoryId])
-  @@map("sub_categories")
+  id            String    @id @default(uuid())
+  name          String
+  categoryId    String    
+  category      Category  @relation(fields: [categoryId], references: [id])
+  products      Product[]
 }
 
-model Product {
-  id              String      @id @default(cuid())
-  sku             String      @unique
-  productName     String
-  priceGHS        Float
-  quantity        Int         @default(0)
-  minStock        Int         @default(5) // Low stock alert level
-  formulation     String      @default("FINISHED_GOOD")
-  
-  subCategoryId   String
-  subCategory     SubCategory @relation(fields: [subCategoryId], references: [id])
-  
-  shopId          String
-  shop            Shop        @relation(fields: [shopId], references: [id])
-  
-  saleItems       SaleItem[]  // Relation to sales
-  
-  lastRestock     DateTime?
-  updatedAt       DateTime    @updatedAt
-
-  @@map("inventory")
-}
-
-// --- TRANSACTIONS & REPORTING ---
+// --- 4. SALES ENGINE ---
 model Sale {
-  id              String      @id @default(cuid())
-  shopId          String
-  userId          String
-  totalAmount     Float
+  id            String     @id @default(uuid())
+  totalAmount   Float
   
-  items           SaleItem[]
+  // Source Tracking (Gen Z Analytics)
+  source        String     @default("POS") // MOBILE or POS
+  paymentMethod String     @default("CASH")
   
-  paymentMethod   String      @default("CASH")
-  latitude        Float?
-  longitude       Float?
+  // Location Data (Sales Verification)
+  latitude      Float?
+  longitude     Float?
   
-  createdAt       DateTime    @default(now())
+  // Links
+  userId        String     
+  user          User       @relation(fields: [userId], references: [id])
   
-  shop            Shop        @relation(fields: [shopId], references: [id])
-  user            User        @relation(fields: [userId], references: [id])
-
-  @@map("sales")
+  shopId        String?    
+  shop          Shop?      @relation(fields: [shopId], references: [id])
+  
+  items         SaleItem[]
+  
+  createdAt     DateTime   @default(now())
 }
 
 model SaleItem {
-  id              String      @id @default(cuid())
-  saleId          String
-  productId       String
-  quantity        Int
-  priceAtSale     Float       // Snapshot of price at time of sale
+  id            String   @id @default(uuid())
+  saleId        String   
+  sale          Sale     @relation(fields: [saleId], references: [id])
   
-  sale            Sale        @relation(fields: [saleId], references: [id])
-  product         Product     @relation(fields: [productId], references: [id])
-
-  @@map("sale_items")
+  productId     String   
+  product       Product  @relation(fields: [productId], references: [id])
+  
+  quantity      Int
+  priceAtSale   Float
 }
 
 model DailyReport {
-  id               String      @id @default(cuid())
-  userId           String
+  id            String   @id @default(uuid())
+  userId        String   
+  user          User     @relation(fields: [userId], references: [id])
   
-  walkIns          Int         @default(0)
-  inquiries        Int         @default(0)
-  conversions      Int         @default(0)
+  walkIns       Int      @default(0)
+  buyers        Int      @default(0) // Renamed from inquiries to match Pulse logic
+  marketIntel   String?  
+  stockGaps     String?  // Specifically for field intelligence
   
-  conversionRate   Float       @default(0)
-  marketIntel      String?     @db.Text 
-  notes            String?
-  
-  createdAt        DateTime    @default(now())
-  user             User        @relation(fields: [userId], references: [id])
-
-  @@map("daily_reports")
+  createdAt     DateTime @default(now())
 }
 
-// --- HR: ATTENDANCE & LEAVES ---
+// --- 5. HR & COMPLIANCE ---
 model Attendance {
-  id               String      @id @default(cuid())
-  date             DateTime    @default(now()) // The shift date
+  id            String    @id @default(uuid())
+  userId        String    
+  user          User      @relation(fields: [userId], references: [id])
   
-  clockInTime      DateTime?
-  clockOutTime     DateTime?
+  date          DateTime
+  clockInTime   DateTime?
+  clockOutTime  DateTime?
   
-  clockInGPS       String?     // "lat,lng"
-  clockOutGPS      String?
-  
-  status           String      @default("PRESENT") // PRESENT, LATE, ABSENT
-  
-  userId           String
-  user             User        @relation(fields: [userId], references: [id])
-
-  @@map("attendance")
+  gpsLat        Float?
+  gpsLng        Float?
 }
 
 model LeaveRequest {
-  id               String      @id @default(cuid())
-  userId           String
-  type             String      // Sick, Annual, etc.
-  startDate        DateTime
-  endDate          DateTime
-  reason           String?     @db.Text
-  status           LeaveStatus @default(PENDING)
+  id            String   @id @default(uuid())
+  userId        String   
+  user          User     @relation(fields: [userId], references: [id])
   
-  createdAt        DateTime    @default(now())
-  user             User        @relation(fields: [userId], references: [id])
-
-  @@map("leave_requests")
-}
-
-// --- CONDUCT, EXPENSES & CHAT ---
-model ConductIncident {
-  id              String      @id @default(cuid())
-  userId          String
-  category        String      // e.g., "Geofence Violation"
-  severity        Severity    @default(LOW)
-  description     String      @db.Text
-  actionTaken     String?     
-  createdAt       DateTime    @default(now())
-  user            User        @relation(fields: [userId], references: [id])
-
-  @@map("conduct_incidents")
-}
-
-model Expense {
-  id              String      @id @default(cuid())
-  userId          String
-  amount          Float
-  category        String      
-  description     String
-  receiptImage    String?     
-  status          String      @default("PENDING") 
-  createdAt       DateTime    @default(now())
-  user            User        @relation(fields: [userId], references: [id])
-
-  @@map("expenses")
-}
-
-model ChatMessage {
-  id              String      @id @default(cuid())
-  content         String
-  senderId        String
-  receiverId      String
-  isRead          Boolean     @default(false)
-  type            String      @default("TEXT") // TEXT, IMAGE, AUDIO
+  type          String   
+  startDate     DateTime
+  endDate       DateTime
+  reason        String
+  status        String   @default("PENDING") 
   
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt // Added for edit functionality
-  sender          User        @relation("SentMessages", fields: [senderId], references: [id])
-  receiver        User        @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  createdAt     DateTime @default(now())
+}
 
-  @@map("chat_messages")
+model DisciplinaryRecord {
+  id            String   @id @default(uuid())
+  userId        String   
+  user          User     @relation("ReceivedCitations", fields: [userId], references: [id])
+  
+  issuerId      String   
+  issuer        User     @relation("IssuedCitations", fields: [issuerId], references: [id])
+  
+  type          String   
+  severity      String   
+  description   String
+  actionTaken   String?  
+  
+  createdAt     DateTime @default(now())
+}
+
+model Message {
+  id            String   @id @default(uuid())
+  content       String
+  
+  senderId      String   
+  sender        User     @relation("SentMessages", fields: [senderId], references: [id])
+  
+  receiverId    String   
+  receiver      User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  read          Boolean  @default(false)
+  createdAt     DateTime @default(now())
 }

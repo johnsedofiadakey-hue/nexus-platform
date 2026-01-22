@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
+import { resolveSessionUser } from "@/lib/sessionUser";
 
 export async function POST(req: Request) {
   try {
@@ -9,17 +10,22 @@ export async function POST(req: Request) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { walkIns, buyers, marketIntel, notes, latitude, longitude } = body;
+    // Accept both legacy 'buyers' and newer 'conversions' field names
+    const { walkIns, buyers, conversions, marketIntel, notes, latitude, longitude } = body;
+    const conv = parseInt(conversions ?? buyers ?? 0) || 0;
+
+    // Resolve the authoritative user id for the report. Some session shapes don't include `id`.
+    const sessionUser = await resolveSessionUser(session);
+    if (!sessionUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const report = await prisma.dailyReport.create({
       data: {
-        userId: session.user.id,
-        walkIns: parseInt(walkIns),
-        buyers: parseInt(buyers),
-        conversionRate: (parseInt(buyers) / parseInt(walkIns)) * 100 || 0,
+        userId: sessionUser.id,
+        walkIns: parseInt(walkIns) || 0,
+        conversions: conv,
+        conversionRate: (conv / (parseInt(walkIns) || 1)) * 100 || 0,
         marketIntel: marketIntel,
         notes: notes,
-        // Optional: track location of report submission to ensure rep is on-site
       }
     });
 

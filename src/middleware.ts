@@ -3,33 +3,36 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
+    const token = req.nextauth.token;
+    const isAdminRoute = req.nextUrl.pathname.startsWith("/admin");
+    const isAdminApi = req.nextUrl.pathname.startsWith("/api/admin");
+
+    // 1. REJECT NON-ADMINS FROM COMMAND CENTER
+    if ((isAdminRoute || isAdminApi) && token?.role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/mobilepos", req.url));
+    }
+
+    // 2. REJECT NON-USERS FROM MOBILE POS
+    const isMobileRoute = req.nextUrl.pathname.startsWith("/mobilepos");
+    if (isMobileRoute && !token) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+
     return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl;
-        
-        // Public routes that should never trigger auth logic
-        if (
-          pathname.startsWith("/login") ||
-          pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/public") ||
-          pathname.startsWith("/api") ||
-          pathname === "/"
-        ) {
-          return true;
-        }
-
-        return !!token;
-      },
+      // Middleware only runs if authorized returns true
+      authorized: ({ token }) => !!token,
     },
   }
 );
 
+// 🎯 MATCHING PATTERNS
 export const config = {
-  // Ignore static assets, images, and next internal files
   matcher: [
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|assets|images|public).*)",
+    "/admin/:path*",
+    "/api/admin/:path*",
+    "/mobilepos/:path*",
   ],
 };

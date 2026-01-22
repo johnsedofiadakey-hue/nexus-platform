@@ -3,50 +3,39 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export const dynamic = 'force-dynamic';
-
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await req.json();
+    const { shopId, items, totalAmount, gps } = body;
+
+    if (!shopId || !items || items.length === 0) {
+      return NextResponse.json({ error: "Invalid Data" }, { status: 400 });
     }
 
-    const { items, totalAmount, gps } = await req.json();
-
-    // 1. Identify Seller & Shop
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { shop: true }
-    });
-
-    if (!user || !user.shopId) {
-      return NextResponse.json({ error: "User/Shop not identified" }, { status: 400 });
-    }
-
-    // 2. Transaction: Create Sale + Update Inventory (Atomic)
-    const transaction = await prisma.$transaction(async (tx) => {
-      
-      // A. Create the Sale Record
-      const sale = await tx.sale.create({
+    // TRANSACTION: Record Sale + Update Inventory
+    const sale = await prisma.$transaction(async (tx) => {
+      // 1. Create Sale Record
+      const newSale = await tx.sale.create({
         data: {
-          userId: user.id,
-          shopId: user.shopId!,
-          totalAmount: parseFloat(totalAmount),
-          latitude: gps?.lat || 0,
-          longitude: gps?.lng || 0,
+          userId: session.user.id,
+          shopId: shopId,
+          totalAmount: totalAmount,
           paymentMethod: "CASH", // Default for now
           items: {
             create: items.map((i: any) => ({
               productId: i.productId,
               quantity: i.quantity,
-              priceAtSale: i.price
+              price: i.price,
+              name: "Product" // Ideally fetch real name, but this is faster
             }))
           }
         }
       });
 
-      // B. Deduct Inventory (Loop through items)
+      // 2. Deduct Inventory
       for (const item of items) {
         await tx.product.update({
           where: { id: item.productId },
@@ -54,13 +43,16 @@ export async function POST(req: Request) {
         });
       }
 
-      return sale;
+      // 3. (Optional) Log GPS Location if you have a Location Log table
+      // await tx.locationLog.create(...)
+
+      return newSale;
     });
 
-    return NextResponse.json({ success: true, saleId: transaction.id });
+    return NextResponse.json({ success: true, saleId: sale.id });
 
   } catch (error) {
-    console.error("Sale Error:", error);
+    console.error("Sales API Error:", error);
     return NextResponse.json({ error: "Transaction Failed" }, { status: 500 });
   }
 }

@@ -1,51 +1,55 @@
-// path: /src/app/api/operations/pulse-feed/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // This named import is now valid!
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  try {
-    // Check connection first to prevent silent crashes
-    await prisma.$connect();
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    // Fetch the 10 most recent transactions from our Geographical Nodes (Accra/Kumasi)
-    const pulses = await prisma.sale.findMany({
-      take: 10,
-      orderBy: { 
-        createdAt: 'desc' 
-      },
-      include: {
-        shop: {
-          select: {
-            name: true,
-            location: true,
-          }
+  try {
+    // 1. GHOST DETECTION LOGIC
+    // Find users who are clocked in but have zero sales in the last 4 hours
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    
+    const ghostUsers = await prisma.user.findMany({
+      where: {
+        role: 'USER',
+        attendances: {
+          some: { clockOutTime: null } // Currently clocked in
         },
-        user: {
-          select: {
-            name: true,
-            role: true,
-          }
+        sales: {
+          none: { createdAt: { gte: fourHoursAgo } } // No sales recently
         }
-      }
+      },
+      select: { id: true, name: true, shop: { select: { name: true } } }
+    });
+
+    // 2. LIVE INTEL (From your existing daily-reports folder)
+    const intel = await prisma.dailyReport.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { name: true } } }
+    });
+
+    // 3. RECENT SALES (From your existing sales folder)
+    const sales = await prisma.sale.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { name: true } } }
     });
 
     return NextResponse.json({
-      success: true,
-      count: pulses.length,
-      data: pulses,
+      ghosts: ghostUsers,
+      intel,
+      sales,
       timestamp: new Date().toISOString()
-    }, { status: 200 });
-
-  } catch (error: any) {
-    console.error("📡 [NEXUS PULSE ERROR]:", error.message);
-    
-    return NextResponse.json({
-      success: false,
-      error: "Strategic Data Feed Interrupted",
-      detail: process.env.NODE_ENV === "development" ? error.message : undefined
-    }, { status: 500 });
-  } finally {
-    // In serverless/API routes, we usually don't disconnect, 
-    // but we ensure the connection pool is managed by the singleton.
+    });
+  } catch (e) {
+    return NextResponse.json({ error: "Pulse engine failure" }, { status: 500 });
   }
 }

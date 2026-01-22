@@ -1,77 +1,130 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+/**
+ * --------------------------------------------------------------------------
+ * NEXUS PLATFORM - SATELLITE LOCATION TRACKER
+ * VERSION: 5.0.0 (STABLE / TIMEOUT FIX / BATTERY OPTIMIZED)
+ * --------------------------------------------------------------------------
+ * Handles real-time GPS telemetry ingestion from the operative's device.
+ * Syncs coordinates to the central database for HUD visualization.
+ * --------------------------------------------------------------------------
+ */
 
-export default function LocationTracker({ userId }: { userId: string }) {
-  const [status, setStatus] = useState("Initializing GPS...");
-  const [lastSent, setLastSent] = useState<string>("--:--");
-  const [error, setError] = useState<string | null>(null);
+import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+
+interface LocationConfig {
+  enableHighAccuracy: boolean;
+  timeout: number;
+  maximumAge: number;
+}
+
+// ⚙️ OPTIMIZED SATELLITE CONFIGURATION
+// relaxed constraints to prevent "Code 3" Timeouts
+const GPS_CONFIG: LocationConfig = {
+  enableHighAccuracy: true, // Request best possible accuracy
+  timeout: 45000,           // Wait 45s before throwing Code 3 (Fixes timeout error)
+  maximumAge: 30000,        // Accept positions up to 30s old (Prevents lag)
+};
+
+export default function LocationTracker() {
+  const { data: session } = useSession();
+  const [status, setStatus] = useState<string>("Initializing Satellite Link...");
+  const watchId = useRef<number | null>(null);
+  const lastUpdateRef = useRef<number>(0);
+  const isTransmitting = useRef<boolean>(false);
+
+  // --- TELEMETRY UPLINK ENGINE ---
+  const transmitLocation = async (lat: number, lng: number, accuracy: number) => {
+    // Throttle: Only send updates every 15 seconds to save bandwidth/battery
+    const now = Date.now();
+    if (now - lastUpdateRef.current < 15000 || isTransmitting.current) return;
+
+    if (!session?.user?.email) return;
+
+    try {
+      isTransmitting.current = true;
+      
+      // Send coordinate payload to Nexus Core
+      const response = await fetch("/api/mobile/location/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: lat,
+          longitude: lng,
+          accuracy: accuracy,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        lastUpdateRef.current = now;
+        setStatus("Link Active: Coordinates Synced");
+      } else {
+        setStatus("Link Unstable: Retrying...");
+      }
+    } catch (error) {
+      console.warn("Telemetry Uplink Failed (Retrying in background)");
+    } finally {
+      isTransmitting.current = false;
+    }
+  };
 
   useEffect(() => {
     if (!navigator.geolocation) {
-      setError("GPS not supported");
+      setStatus("Error: GPS Module Not Found");
       return;
     }
 
-    console.log("Starting GPS Watcher for:", userId);
-    setStatus("Acquiring Satellite...");
+    // --- SUCCESS HANDLER ---
+    const handleSuccess = (pos: GeolocationPosition) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      transmitLocation(latitude, longitude, accuracy);
+    };
 
-    const watchId = navigator.geolocation.watchPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        setStatus("GPS Locked. Sending...");
+    // --- ERROR HANDLER (HARDENED) ---
+    const handleError = (err: GeolocationPositionError) => {
+      let msg = "Signal Lost";
 
-        try {
-          const res = await fetch('/api/users/update-location', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId,
-              latitude,
-              longitude,
-              status: 'ACTIVE'
-            })
-          });
-
-          if (res.ok) {
-            setLastSent(new Date().toLocaleTimeString());
-            setStatus("Live & Transmitting");
-            setError(null);
-          } else {
-            setStatus("Server Error");
-            setError("API Blocked");
-          }
-        } catch (err) {
-          console.error("Transmission Error", err);
-          setStatus("Connection Failed");
-          setError("Network Error");
-        }
-      },
-      (err) => {
-        console.error("GPS Error:", err);
-        setError(err.message);
-        setStatus("GPS Signal Lost");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+      switch (err.code) {
+        case 1: // PERMISSION_DENIED
+          msg = "GPS Access Denied by User";
+          console.error("Satellite Error:", msg);
+          break;
+        case 2: // POSITION_UNAVAILABLE
+          msg = "Network Unreachable (No GPS Fix)";
+          // Silent retry - typical in tunnels/elevators
+          break;
+        case 3: // TIMEOUT
+          // We suppress console.error here to prevent log spamming
+          // The watcher will automatically try again in the next cycle
+          msg = "Acquiring Signal..."; 
+          break;
+        default:
+          msg = `GPS Error: ${err.message}`;
       }
+
+      setStatus(msg);
+    };
+
+    // --- ACTIVATE SATELLITE WATCHER ---
+    // Clears any existing ghost watchers before starting a new one
+    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+
+    watchId.current = navigator.geolocation.watchPosition(
+      handleSuccess,
+      handleError,
+      GPS_CONFIG
     );
 
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [userId]);
+    return () => {
+      if (watchId.current !== null) {
+        navigator.geolocation.clearWatch(watchId.current);
+      }
+    };
+  }, [session]); // Re-bind if session changes
 
-  // VISUAL DEBUGGER (Visible only on the phone)
-  return (
-    <div className="fixed bottom-0 left-0 right-0 bg-slate-900/90 text-white p-2 text-[10px] z-[9999] flex justify-between items-center border-t border-slate-700 font-mono">
-      <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${error ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`} />
-        <span>{status}</span>
-      </div>
-      <div className="text-slate-400">
-        Last Sync: <span className="text-white">{lastSent}</span>
-      </div>
-    </div>
-  );
+  // This component is a logic utility (Headless), so it renders nothing visible
+  // It runs silently in the background of the application layout.
+  return null; 
 }

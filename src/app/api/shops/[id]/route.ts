@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, context: any) {
   try {
+    const p = await (context.params as Promise<{ id: string }>);
     const shop = await prisma.shop.findUnique({
-      where: { id: params.id },
+      where: { id: p.id },
       include: {
         users: {
           select: {
@@ -16,7 +17,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             lastLng: true,
             image: true,
             sales: {
-               where: { shopId: params.id }
+               where: { shopId: p.id }
             }
           }
         },

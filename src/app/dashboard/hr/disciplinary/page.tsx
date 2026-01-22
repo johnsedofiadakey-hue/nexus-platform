@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  ShieldAlert, Gavel, Plus, Search, FileText, 
-  AlertTriangle, CheckCircle, User, X, Loader2 
+  ShieldAlert, Gavel, Search, FileText, 
+  AlertTriangle, CheckCircle, User, X, Loader2, Building2 
 } from "lucide-react";
 
 export default function DisciplinaryPage() {
@@ -13,6 +13,8 @@ export default function DisciplinaryPage() {
   
   // MODAL STATE
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [formData, setFormData] = useState({
     userId: "",
     category: "Misconduct",
@@ -28,13 +30,15 @@ export default function DisciplinaryPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Fetch Incidents
-      const incRes = await fetch("/api/hr/conduct?t=" + Date.now());
+      // 1. Fetch Incidents
+      const incRes = await fetch("/api/hr/disciplinary?t=" + Date.now());
       if (incRes.ok) setIncidents(await incRes.json());
 
-      // Fetch Staff (for the dropdown)
+      // 2. Fetch Staff (for the dropdown)
       const staffRes = await fetch("/api/hr/staff");
       if (staffRes.ok) setStaff(await staffRes.json());
+    } catch (e) {
+      console.error("Load failed", e);
     } finally {
       setLoading(false);
     }
@@ -42,8 +46,9 @@ export default function DisciplinaryPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
-      const res = await fetch("/api/hr/conduct", {
+      const res = await fetch("/api/hr/disciplinary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
@@ -51,13 +56,16 @@ export default function DisciplinaryPage() {
 
       if (res.ok) {
         setIsModalOpen(false);
-        loadData(); // Refresh list
+        loadData(); // Refresh list immediately
         setFormData({ userId: "", category: "Misconduct", severity: "LOW", description: "", actionTaken: "" });
+        alert(formData.severity === "CRITICAL" ? "Incident Logged & Staff Suspended" : "Incident Recorded");
       } else {
         alert("Failed to record incident.");
       }
     } catch (error) {
       alert("Network Error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -72,13 +80,15 @@ export default function DisciplinaryPage() {
   };
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+    <div className="p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500 bg-slate-50/50 min-h-screen">
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div>
           <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Conduct & Gavel</h1>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">Disciplinary Records & Infractions</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
+             <ShieldAlert className="w-4 h-4 text-red-500" /> Disciplinary Records
+          </p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
@@ -107,10 +117,11 @@ export default function DisciplinaryPage() {
         <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
            <div className="flex items-center gap-3 mb-2">
              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><CheckCircle className="w-5 h-5" /></div>
-             <span className="text-[10px] font-black uppercase text-slate-400">Resolved</span>
+             <span className="text-[10px] font-black uppercase text-slate-400">Staff Involved</span>
            </div>
-           <p className="text-3xl font-black text-slate-900">0</p> 
-           {/* Logic for 'Resolved' can be added later via a status field */}
+           <p className="text-3xl font-black text-slate-900">
+             {new Set(incidents.map(i => i.userId)).size}
+           </p> 
         </div>
       </div>
 
@@ -129,13 +140,13 @@ export default function DisciplinaryPage() {
                  <label className="text-[10px] font-bold text-slate-400 uppercase">Staff Member</label>
                  <select 
                    required
-                   className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                   className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-xs outline-none focus:border-blue-500 transition-all"
                    onChange={e => setFormData({...formData, userId: e.target.value})}
                    value={formData.userId}
                  >
                    <option value="">-- Select Personnel --</option>
                    {staff.map(p => (
-                     <option key={p.id} value={p.id}>{p.name} ({p.shop?.name})</option>
+                     <option key={p.id} value={p.id}>{p.name} ({p.shop?.name || "No Shop"})</option>
                    ))}
                  </select>
               </div>
@@ -144,7 +155,7 @@ export default function DisciplinaryPage() {
                  <div className="space-y-2">
                    <label className="text-[10px] font-bold text-slate-400 uppercase">Category</label>
                    <select 
-                     className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                     className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-xs outline-none focus:border-blue-500 transition-all"
                      onChange={e => setFormData({...formData, category: e.target.value})}
                      value={formData.category}
                    >
@@ -152,12 +163,13 @@ export default function DisciplinaryPage() {
                      <option>Late Arrival</option>
                      <option>Misconduct</option>
                      <option>Inventory Discrepancy</option>
+                     <option>Theft / Fraud</option>
                    </select>
                  </div>
                  <div className="space-y-2">
                    <label className="text-[10px] font-bold text-slate-400 uppercase">Severity Level</label>
                    <select 
-                     className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                     className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-xs outline-none focus:border-blue-500 transition-all"
                      onChange={e => setFormData({...formData, severity: e.target.value})}
                      value={formData.severity}
                    >
@@ -175,7 +187,7 @@ export default function DisciplinaryPage() {
                    required
                    rows={3}
                    placeholder="Describe what happened..." 
-                   className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-sm outline-none focus:border-blue-500 transition-all resize-none"
+                   className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-xs outline-none focus:border-blue-500 transition-all resize-none"
                    onChange={e => setFormData({...formData, description: e.target.value})}
                    value={formData.description}
                  />
@@ -185,14 +197,14 @@ export default function DisciplinaryPage() {
                  <label className="text-[10px] font-bold text-slate-400 uppercase">Action Taken</label>
                  <input 
                    placeholder="e.g. Verbal Warning given" 
-                   className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-sm outline-none focus:border-blue-500 transition-all"
+                   className="w-full h-12 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-xs outline-none focus:border-blue-500 transition-all"
                    onChange={e => setFormData({...formData, actionTaken: e.target.value})}
                    value={formData.actionTaken}
                  />
               </div>
 
-              <button type="submit" className="w-full py-4 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-red-700 transition-all">
-                 Confirm Record
+              <button disabled={isSubmitting} type="submit" className="w-full py-4 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-red-700 transition-all flex items-center justify-center gap-2">
+                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Log Record"}
               </button>
             </form>
           </div>
@@ -200,55 +212,63 @@ export default function DisciplinaryPage() {
       )}
 
       {/* RECORDS LIST */}
-      {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-slate-300" /></div>
-      ) : incidents.length === 0 ? (
-        <div className="text-center py-24 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
-           <ShieldAlert className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-           <h3 className="text-lg font-black text-slate-900">Clean Record</h3>
-           <p className="text-sm text-slate-500 mt-1">No disciplinary incidents recorded yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {incidents.map((item) => (
-            <div key={item.id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow">
-               
-               <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${getSeverityStyle(item.severity)}`}>
-                    <Gavel className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-slate-900 text-lg">{item.category}</h3>
-                    <p className="text-xs text-slate-500 font-bold leading-relaxed max-w-xl">{item.description}</p>
-                    <div className="flex items-center gap-3 mt-3">
-                       <span className={`px-2 py-1 rounded text-[9px] font-black uppercase border ${getSeverityStyle(item.severity)}`}>
-                         {item.severity} Level
-                       </span>
-                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                         {new Date(item.createdAt).toLocaleDateString()}
-                       </span>
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm">
+        {loading ? (
+          <div className="flex justify-center py-20 gap-3 text-slate-400">
+             <Loader2 className="w-6 h-6 animate-spin" />
+             <span className="text-xs font-bold uppercase tracking-widest">Loading Logs...</span>
+          </div>
+        ) : incidents.length === 0 ? (
+          <div className="text-center py-24">
+             <ShieldAlert className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+             <h3 className="text-lg font-black text-slate-900">Clean Record</h3>
+             <p className="text-sm text-slate-500 mt-1">No disciplinary incidents recorded yet.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {incidents.map((item) => (
+              <div key={item.id} className="p-6 hover:bg-slate-50/50 transition-colors flex flex-col md:flex-row md:items-start justify-between gap-6 group">
+                 
+                 <div className="flex items-start gap-6">
+                    <div className={`mt-1 w-12 h-12 rounded-2xl flex items-center justify-center font-black shrink-0 ${getSeverityStyle(item.severity)}`}>
+                      <Gavel className="w-5 h-5" />
                     </div>
-                  </div>
-               </div>
+                    <div>
+                      <div className="flex items-center gap-3 mb-1">
+                         <h3 className="font-black text-slate-900 text-sm">{item.type}</h3>
+                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${getSeverityStyle(item.severity)}`}>
+                           {item.severity} Level
+                         </span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed max-w-2xl mb-2">{item.description}</p>
+                      
+                      {/* ACTION TAKEN PILL */}
+                      {item.actionTaken && (
+                        <div className="inline-flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                           <CheckCircle className="w-3 h-3" /> {item.actionTaken}
+                        </div>
+                      )}
+                    </div>
+                 </div>
 
-               <div className="flex flex-col md:items-end gap-2 border-t md:border-t-0 border-slate-100 pt-4 md:pt-0">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-slate-400" />
-                    <span className="font-bold text-slate-900 text-sm">{item.user?.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">
-                    <Building2 className="w-3.5 h-3.5" /> {item.user?.shop?.name || "HQ"}
-                  </div>
-                  <div className="mt-2 text-right">
-                    <p className="text-[9px] font-black text-slate-300 uppercase">Action Taken</p>
-                    <p className="text-xs font-bold text-slate-700">{item.actionTaken}</p>
-                  </div>
-               </div>
+                 <div className="flex flex-col md:items-end gap-1.5 border-t md:border-t-0 border-slate-100 pt-4 md:pt-0 pl-16 md:pl-0">
+                    <div className="flex items-center gap-2 text-slate-900">
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-bold text-xs uppercase tracking-wide">{item.user?.name || "Unknown Staff"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wide">
+                      <Building2 className="w-3 h-3" /> {item.user?.shop?.name || "HQ / Unassigned"}
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-1">
+                       {new Date(item.createdAt).toLocaleDateString()}
+                    </span>
+                 </div>
 
-            </div>
-          ))}
-        </div>
-      )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
     </div>
   );

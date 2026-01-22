@@ -1,66 +1,79 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@next-auth/prisma-adapter"; // Best practice to include
+import { PrismaAdapter } from "@next-auth/prisma-adapter"; 
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  session: { 
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 Days Session
+  },
+  
+  pages: { 
+    signIn: "/auth/signin", 
+    error: "/auth/error",   
+  },
+
   providers: [
     CredentialsProvider({
-      name: "Sign in",
+      name: "Nexus Access",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email", type: "email", placeholder: "operative@nexus.com" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) return null;
+        if (!credentials?.email || !credentials.password) {
+          throw new Error("Missing credentials");
+        }
 
-        // 1. FETCH USER & SHOP LINK (CRITICAL FIX)
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
-          include: { shop: true } // <--- This was missing!
+          include: { 
+            shop: { select: { id: true, name: true } } 
+          } 
         });
 
-        if (!user) return null;
+        if (!user) throw new Error("Identity not found in registry.");
 
         const isPasswordValid = await compare(credentials.password, user.password);
-        if (!isPasswordValid) return null;
+        if (!isPasswordValid) throw new Error("Invalid security key.");
 
-        // 2. RETURN THE "PASSPORT"
+        // Return the full "Passport"
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
-          shopId: user.shopId // <--- Pass this to the token
+          shopId: user.shopId,
         };
       }
     })
   ],
+
   callbacks: {
-    // 3. BAKE DATA INTO TOKEN
+    // Inject custom fields into the JWT token
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
-        token.shopId = (user as any).shopId; // <--- Critical
+        token.shopId = (user as any).shopId; 
       }
       return token;
     },
-    // 4. EXPOSE DATA TO SESSION (FRONTEND)
+
+    // Expose those fields to the useSession() hook on the frontend
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          role: token.role,
-          shopId: token.shopId // <--- Now the app knows the shop!
-        }
-      };
+      if (session.user) {
+        (session.user as any).id = token.id;
+        (session.user as any).role = token.role;
+        (session.user as any).shopId = token.shopId;
+      }
+      return session;
     }
-  }
+  },
+  
+  debug: process.env.NODE_ENV === 'development',
+  secret: process.env.NEXTAUTH_SECRET,
 };

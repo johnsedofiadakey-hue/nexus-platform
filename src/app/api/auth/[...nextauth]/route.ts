@@ -15,7 +15,8 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: { email: credentials.email },
+          include: { shop: true } // Include shop to check assignment
         });
 
         if (!user || !user.password) return null;
@@ -30,7 +31,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           status: user.status,
-          isSuspended: user.isSuspended,
+          shopId: user.shopId,
         };
       }
     })
@@ -41,12 +42,12 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+        token.shopId = (user as any).shopId;
       }
       return token;
     },
     
     // 2. SESSION Callback: "God Mode" / Fresh Data Fetch
-    // Instead of trusting the cookie, we ask the DB: "Is this user still active?"
     async session({ session, token }) {
       if (session.user && token.email) {
         try {
@@ -55,8 +56,8 @@ export const authOptions: NextAuthOptions = {
             select: { 
               id: true, 
               role: true, 
-              status: true, 
-              isSuspended: true 
+              status: true, // 👈 FIXED: Selecting 'status' (Enum), NOT 'isSuspended'
+              shopId: true
             }
           });
 
@@ -65,7 +66,10 @@ export const authOptions: NextAuthOptions = {
             (session.user as any).id = freshUser.id;
             (session.user as any).role = freshUser.role;
             (session.user as any).status = freshUser.status;
-            (session.user as any).isSuspended = freshUser.isSuspended;
+            (session.user as any).shopId = freshUser.shopId;
+            
+            // Derive 'isSuspended' from the Status Enum
+            (session.user as any).isSuspended = freshUser.status === 'SUSPENDED';
           }
         } catch (error) {
           console.error("Nexus Auth Sync Error:", error);
@@ -75,8 +79,8 @@ export const authOptions: NextAuthOptions = {
     }
   },
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: "/auth/signin", // Make sure this matches your folder structure
+    error: "/auth/signin",
   },
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" }

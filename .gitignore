@@ -1,34 +1,36 @@
-# --- NEXUS SECURITY: IGNORE SENSITIVE DATA ---
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env*.local
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# --- DEPENDENCIES ---
+# dependencies
 /node_modules
 /.pnp
-.pnp.*
+.pnp.js
 
-# --- NEXT.JS BUILD OUTPUT ---
+# testing
+/coverage
+
+# next.js
 /.next/
 /out/
+
+# production
 /build
-/dist
 
-# --- PRISMA & DATABASE ---
-/prisma/*.db
-/prisma/*.db-journal
-
-# --- OS & TOOLS ---
+# misc
 .DS_Store
 *.pem
+
+# debug
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
-.vercel
-.turbo
+ts-debug.log*
 
-# --- TYPESCRIPT ---
+# local env files
+.env
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
 *.tsbuildinfo
+next-env.d.ts

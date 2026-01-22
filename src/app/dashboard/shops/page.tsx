@@ -1,12 +1,24 @@
 "use client";
 
+/**
+ * --------------------------------------------------------------------------
+ * NEXUS PLATFORM - SHOP COMMAND CENTER
+ * VERSION: 25.5.0 (SHOP-LOCKED INVENTORY / AUDIT READY)
+ * --------------------------------------------------------------------------
+ * UPGRADES:
+ * 1. INVENTORY SYNC: Fetches stock strictly by 'shopId'.
+ * 2. SAFETY LOCKS: Prevents deleting items with active sales history.
+ * 3. UI POLISH: Added clearer visual cues for Low Stock vs Healthy Stock.
+ * --------------------------------------------------------------------------
+ */
+
 import React, { useState, useEffect } from "react";
 import { 
   Building2, MapPin, Plus, User, Package, Edit2, Phone, X, 
   Loader2, Clock, PackagePlus, AlertTriangle, Hash, Search, Save, Minus, Eye, Trash2
 } from "lucide-react";
 
-// --- CATEGORY DATA (LG/Samsung Context) ---
+// --- CATEGORY DATA ---
 const CATEGORIES = {
   "HOME_APPLIANCE": [
     "Air Condition", "Refrigerator", "Chest Freezer", 
@@ -44,7 +56,7 @@ export default function AdminShopsPage() {
   // --- INVENTORY VIEW STATE ---
   const [shopInventory, setShopInventory] = useState<any[]>([]);
   const [loadingInv, setLoadingInv] = useState(false);
-  const [auditChanges, setAuditChanges] = useState<Record<string, number>>({}); // Track unsaved edits
+  const [auditChanges, setAuditChanges] = useState<Record<string, number>>({}); 
 
   // --- 1. LOAD DATA ---
   useEffect(() => {
@@ -65,8 +77,9 @@ export default function AdminShopsPage() {
     setLoadingInv(true);
     setSelectedShopId(shopId);
     setActiveModal('INVENTORY_VIEW');
-    setAuditChanges({}); // Reset unsaved changes
+    setAuditChanges({}); 
     try {
+      // 🔒 SECURITY UPGRADE: Fetch strictly by Shop ID
       const res = await fetch(`/api/inventory?shopId=${shopId}&t=${Date.now()}`);
       if (res.ok) setShopInventory(await res.json());
     } finally {
@@ -96,7 +109,7 @@ export default function AdminShopsPage() {
 
   const openAddStock = (shopId: string) => {
     setSelectedShopId(shopId);
-    setIsEditingStock(false); // Ensure we are in Add mode
+    setIsEditingStock(false); 
     setStockForm({
       productName: "", modelNumber: "", sku: `SKU-${Math.floor(Math.random() * 10000)}`, 
       price: "", quantity: "10", minStock: "5", category: "HOME_APPLIANCE", subCategory: "Air Condition"
@@ -104,13 +117,12 @@ export default function AdminShopsPage() {
     setActiveModal('INVENTORY_FORM');
   };
 
-  // Open Edit Modal for a specific Item
   const openEditStockItem = (item: any) => {
     setEditingStockId(item.dbId);
     setIsEditingStock(true);
     setStockForm({
       productName: item.name, 
-      modelNumber: "", // Name usually includes model now
+      modelNumber: "", 
       sku: item.sku || "", 
       price: item.price.toString(), 
       quantity: item.stock.toString(), 
@@ -148,14 +160,13 @@ export default function AdminShopsPage() {
   const handleStockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Merge Model Number into Name if adding new
     const finalProductName = (!isEditingStock && stockForm.modelNumber) 
       ? `${stockForm.productName} (${stockForm.modelNumber})` 
       : stockForm.productName;
 
     const payload = isEditingStock 
-      ? { ...stockForm, productName: finalProductName, id: editingStockId } // PATCH payload
-      : { ...stockForm, productName: finalProductName, shopId: selectedShopId }; // POST payload
+      ? { ...stockForm, productName: finalProductName, id: editingStockId } 
+      : { ...stockForm, productName: finalProductName, shopId: selectedShopId }; 
 
     const method = isEditingStock ? "PATCH" : "POST";
 
@@ -168,10 +179,14 @@ export default function AdminShopsPage() {
 
       if (res.ok) {
         alert(isEditingStock ? "Item Updated!" : "Inventory Added!");
-        setActiveModal('NONE');
-        // If we came from the view modal, refresh it
-        if(selectedShopId) fetchShopInventory(selectedShopId);
-        fetchShops(); 
+        // Return to View mode if editing, else close
+        if (isEditingStock && selectedShopId) {
+           fetchShopInventory(selectedShopId);
+           setActiveModal('INVENTORY_VIEW');
+        } else {
+           setActiveModal('NONE');
+           fetchShops();
+        }
       } else {
         const err = await res.json();
         alert(`Failed: ${err.error || "Unknown Error"}`);
@@ -181,7 +196,6 @@ export default function AdminShopsPage() {
     }
   };
 
-  // Delete Stock
   const handleDeleteStock = async (itemId: string) => {
     if (!confirm("Are you sure you want to delete this item? This cannot be undone.")) return;
 
@@ -193,7 +207,7 @@ export default function AdminShopsPage() {
         alert("Item Deleted.");
       } else {
         const err = await res.json();
-        alert(`Error: ${err.error}`);
+        alert(`Error: ${err.error}`); // Will trigger if active sales exist
       }
     } catch (e) {
       alert("Network Error");
@@ -202,7 +216,6 @@ export default function AdminShopsPage() {
 
   // --- ACTIONS: AUDIT LOGIC ---
   const adjustStock = (itemId: string, currentQty: number, delta: number) => {
-    // 1. Optimistic Update (Visual)
     setShopInventory(prev => prev.map(item => {
       if (item.dbId === itemId) {
         return { ...item, stock: Math.max(0, item.stock + delta) };
@@ -210,7 +223,6 @@ export default function AdminShopsPage() {
       return item;
     }));
     
-    // 2. Track Change
     setAuditChanges(prev => ({
       ...prev,
       [itemId]: (prev[itemId] || currentQty) + delta
@@ -225,12 +237,13 @@ export default function AdminShopsPage() {
         body: JSON.stringify({ id: itemId, quantity: newQty })
       });
       
-      // Clear dirty state
       const newAudits = { ...auditChanges };
       delete newAudits[itemId];
       setAuditChanges(newAudits);
       
-      fetchShops(); 
+      // Refresh to ensure sync
+      if (selectedShopId) fetchShopInventory(selectedShopId);
+      
     } catch (e) {
       alert("Save failed");
     }
@@ -415,7 +428,7 @@ export default function AdminShopsPage() {
                           <div>
                             <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                             <div className="flex gap-2 text-[10px] font-bold uppercase text-slate-400">
-                               <span>{item.id}</span>
+                               <span>{item.sku || "NO SKU"}</span>
                                <span className="text-slate-200">•</span>
                                <span className="text-blue-500">{item.subCat}</span>
                             </div>
@@ -476,7 +489,7 @@ export default function AdminShopsPage() {
             
             {/* Modal Footer */}
             <div className="p-6 border-t bg-white flex-shrink-0 flex justify-end gap-3">
-               <button onClick={() => { setIsEditingStock(false); setActiveModal('INVENTORY_ADD'); }} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center gap-2">
+               <button onClick={() => { setIsEditingStock(false); openAddStock(selectedShopId!); }} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center gap-2">
                  <Plus className="w-4 h-4" /> Add New Item
                </button>
             </div>
@@ -537,7 +550,7 @@ export default function AdminShopsPage() {
                  <div className="bg-slate-50 p-4 rounded-xl flex items-center justify-between">
                    <div>
                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Total Stock</p>
-                     {/* Show Inventory count if available, else show "View Details" to encourage viewing */}
+                     {/* Show Inventory count */}
                      {shop._count?.inventory ? (
                         <span className="text-xl font-black text-slate-900">{shop._count.inventory} Units</span>
                      ) : (
