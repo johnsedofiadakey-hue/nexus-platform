@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Tooltip, Circle, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Building2, User, AlertCircle, Wifi } from 'lucide-react';
 

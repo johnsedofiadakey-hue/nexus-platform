@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --turbopack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "db:push": "npx prisma db push",
     "db:seed": "npx prisma db seed",
     "db:generate": "npx prisma generate",
@@ -53,5 +54,8 @@
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "^1.31.1"
   }
 }
