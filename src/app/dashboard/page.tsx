@@ -1,283 +1,224 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import dynamic from "next/dynamic";
+import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { 
-  TrendingUp, Users, Map as MapIcon, Loader2, ShieldCheck, 
-  RefreshCw, Building2, Gavel, Wallet, ShieldAlert, UserCheck, 
-  ShoppingBag, Package, ArrowRight 
-} from "lucide-react";
-import Link from "next/link";
+  TrendingUp, Users, Package, AlertTriangle, 
+  Map as MapIcon, RefreshCw, Zap, Loader2, CheckCircle2
+} from 'lucide-react';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer 
+} from 'recharts';
 
-// Existing Components
-import PulseFeed from "@/components/dashboard/PulseFeed";
-import SalesAnalysis from "@/components/dashboard/SalesAnalysis";
+// 🛰️ DESKTOP-OPTIMIZED SATELLITE ENGINE
+const GlobalMap = dynamic(() => import('@/components/maps/LiveMap'), { 
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full bg-slate-50 flex flex-col items-center justify-center text-slate-300 rounded-[3rem]">
+      <Loader2 className="w-6 h-6 animate-spin mb-3" />
+      <p className="text-[10px] font-black uppercase tracking-[0.2em]">Synchronizing Satellite Feed...</p>
+    </div>
+  )
+});
 
-// Load Map Dynamically (No SSR)
-const OperationsMap = dynamic(
-  () => import("@/components/LiveMap"), 
-  { 
-    ssr: false, 
-    loading: () => (
-      <div className="h-full w-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 gap-3 border border-dashed border-slate-200 rounded-2xl">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-        <span className="text-xs font-bold uppercase tracking-widest text-center">Loading Satellite Map...</span>
-      </div>
-    )
-  }
-);
-
-export default function DashboardPage() {
-  // 1. STATE
-  const [stats, setStats] = useState({ 
-    revenue: 0, activeStaff: 0, salesCount: 0, activeShops: 0, lowStockCount: 0 
-  });
-  
-  const [shops, setShops] = useState<any[]>([]); 
-  const [reps, setReps] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  // 2. FETCH REAL DATA
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setIsSyncing(true);
-        
-        // A. Get Key Metrics
-        const statsRes = await fetch("/api/dashboard/stats");
-        if (statsRes.ok) {
-          const data = await statsRes.json();
-          setStats({
-            revenue: data.revenue || 0,
-            activeStaff: data.activeStaff || 0,
-            salesCount: data.salesCount || 0,
-            activeShops: data.leaderboard?.length || 0,
-            lowStockCount: data.lowStockCount || 0
-          });
-        }
-
-        // B. Get Shop Locations
-        const shopsRes = await fetch("/api/shops");
-        if (shopsRes.ok) {
-          setShops(await shopsRes.json());
-        }
-
-        // C. Get Field Staff Locations
-        const repsRes = await fetch("/api/users?role=sales_rep");
-        if (repsRes.ok) {
-          setReps(await repsRes.json());
-        }
-
-      } catch (e) {
-        console.error("Dashboard Sync Error:", e);
-      } finally {
-        setLoading(false);
-        setIsSyncing(false);
-      }
-    }
-
-    fetchData();
-    const interval = setInterval(fetchData, 15000); // Refresh every 15s
-    return () => clearInterval(interval);
-  }, []);
-
-  // 3. METRICS CONFIG
-  const kpiCards = useMemo(() => [
-    { 
-      label: "Total Revenue", 
-      value: `₵ ${stats.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
-      icon: TrendingUp, 
-      color: "text-blue-600", 
-      bg: "bg-blue-50",
-      trend: `+${stats.salesCount} Sales Today`, 
-      sub: "Gross Earnings"
-    },
-    { 
-      label: "Active Staff", 
-      value: `${stats.activeStaff} Online`, 
-      icon: Users, 
-      color: "text-emerald-600", 
-      bg: "bg-emerald-50",
-      trend: "Live GPS",
-      sub: "Field Agents Clocked In"
-    },
-    { 
-      label: "Operational Shops", 
-      value: `${shops.length} Locations`, 
-      icon: MapIcon, 
-      color: "text-purple-600", 
-      bg: "bg-purple-50",
-      trend: "Nationwide",
-      sub: "Active Retail Points"
-    }
-  ], [stats, shops]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
-        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading Operations Center...</p>
-      </div>
-    );
-  }
+// --- SUB-COMPONENT: HIGH-DENSITY METRIC ---
+const MetricCard = ({ title, value, status, icon: Icon, theme }: any) => {
+  const themes: any = {
+      blue: 'bg-blue-50 text-blue-600 border-blue-100',
+      emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+      purple: 'bg-purple-50 text-purple-600 border-purple-100',
+      rose: 'bg-rose-50 text-rose-600 border-rose-100'
+  };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-12">
-      <div className="max-w-[1800px] mx-auto px-6 py-8">
-        
-        {/* --- HEADER --- */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 border-b border-slate-200 pb-6 gap-4">
-          <div className="flex items-center gap-4">
-            <div className="bg-slate-900 p-3 rounded-xl shadow-lg shadow-slate-200">
-              <ShieldCheck className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tight uppercase leading-none mb-1">Operations Dashboard</h1>
-              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">LG Ghana • Command Center</p>
-            </div>
+      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-500">
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 border ${themes[theme]}`}>
+              <Icon size={24} strokeWidth={2.5} />
           </div>
-          
-          <div className="flex flex-wrap items-center gap-3">
-            {/* QUICK ACTIONS */}
-            <div className="flex items-center gap-1 bg-white border border-slate-200 p-1.5 rounded-xl shadow-sm">
-               <Link href="/dashboard/shops" className="px-4 py-2 hover:bg-slate-50 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-                  <Building2 className="w-3.5 h-3.5 text-slate-400" /> Shops
-               </Link>
-               <Link href="/dashboard/inventory" className="px-4 py-2 hover:bg-slate-50 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-                  <Package className="w-3.5 h-3.5 text-slate-400" /> Stock
-               </Link>
-               <Link href="/dashboard/hr/enrollment" className="px-4 py-2 hover:bg-slate-50 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-                  <UserCheck className="w-3.5 h-3.5 text-slate-400" /> Staff
-               </Link>
-               <Link href="/dashboard/hr/disciplinary" className="px-4 py-2 hover:bg-red-50 hover:text-red-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
-                  <Gavel className="w-3.5 h-3.5" /> Conduct
-               </Link>
-            </div>
-
-            {/* SYNC INDICATOR */}
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-xl shadow-sm">
-              <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'}`} />
-              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                {isSyncing ? "Syncing..." : "Live"}
-              </span>
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-500' : 'text-slate-300'}`} />
-            </div>
-          </div>
-        </div>
-
-        {/* --- METRICS GRID --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {kpiCards.map((card, i) => (
-            <div key={i} className="bg-white border border-slate-200 p-6 rounded-[2rem] shadow-sm hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-2xl ${card.bg} ${card.color}`}>
-                  <card.icon className="w-5 h-5" />
-                </div>
-                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wide ${card.trend.includes('+') ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-500'}`}>
-                  {card.trend}
+          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">{title}</p>
+          <div className="flex items-baseline gap-3">
+              <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">{value}</h2>
+              {status && (
+                <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-tighter ${status.includes('+') || status === 'Stable' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {status}
                 </span>
-              </div>
-              <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{card.label}</h3>
-              <div className="flex items-baseline gap-2">
-                 <p className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{card.value}</p>
-                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide opacity-60">/ {card.sub}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* --- MAIN WORKSPACE --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-[750px]">
-          
-          {/* LEFT: MAP & ALERTS (8 Cols) */}
-          <div className="lg:col-span-8 space-y-8 flex flex-col">
-            
-            {/* MAP CONTAINER */}
-            <div className="h-[520px] bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden relative shadow-sm group">
-              <div className="absolute top-6 left-6 z-20 space-y-2 pointer-events-none">
-                <div className="bg-slate-900/90 backdrop-blur-md px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3">
-                  <div className="relative">
-                    <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-ping absolute top-0 left-0 opacity-75"></div>
-                    <div className="w-2.5 h-2.5 bg-blue-500 rounded-full relative"></div>
-                  </div>
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Live Field View</span>
-                </div>
-              </div>
-              
-              {/* MAP COMPONENT */}
-              <OperationsMap shops={shops} reps={reps} />
-            </div>
-
-            {/* ACTION CARDS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* HR ALERTS */}
-              <Link href="/dashboard/hr/disciplinary" className="bg-white border border-slate-200 p-6 rounded-[2rem] shadow-sm hover:border-red-200 hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-red-50 p-3 rounded-2xl text-red-600 group-hover:bg-red-600 group-hover:text-white transition-all">
-                    <ShieldAlert className="w-5 h-5" />
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-red-400 transition-colors" />
-                </div>
-                <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-1">Attention Needed</h4>
-                <p className="text-xs font-bold text-slate-900">Check disciplinary reports & alerts.</p>
-              </Link>
-
-              {/* PAYROLL */}
-              <Link href="/dashboard/hr/wages" className="bg-white border border-slate-200 p-6 rounded-[2rem] shadow-sm hover:border-blue-200 hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                    <Wallet className="w-5 h-5" />
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
-                </div>
-                <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-1">Payroll</h4>
-                <p className="text-xs font-bold text-slate-900">Review pending wages & bonuses.</p>
-              </Link>
-
-              {/* INVENTORY */}
-              <Link href="/dashboard/inventory" className="bg-white border border-slate-200 p-6 rounded-[2rem] shadow-sm hover:border-amber-200 hover:shadow-md transition-all group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-amber-50 p-3 rounded-2xl text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all">
-                    <ShoppingBag className="w-5 h-5" />
-                  </div>
-                  <span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${stats.lowStockCount > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
-                    {stats.lowStockCount} Alerts
-                  </span>
-                </div>
-                <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-1">Inventory</h4>
-                <p className="text-xs font-bold text-slate-900">
-                   {stats.lowStockCount > 0 ? "Critical stock levels detected." : "Stock levels are healthy."}
-                </p>
-              </Link>
-            </div>
+              )}
           </div>
+      </div>
+  );
+};
 
-          {/* RIGHT: CHARTS & FEED (4 Cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-8">
-            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden flex-[0.8] min-h-[300px]">
-              <SalesAnalysis />
-            </div>
-            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden flex-1 min-h-[400px]">
-              <PulseFeed />
-            </div>
+export default function OperationsHub() {
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<any>(null);
+  const [shops, setShops] = useState<any[]>([]);
+  const [team, setTeam] = useState<any[]>([]);
+  const [feed, setFeed] = useState<any[]>([]);
+
+  const fetchData = async () => {
+    try {
+      const timestamp = Date.now();
+      const [analytics, pulse, shopList, teamList] = await Promise.all([
+        fetch(`/api/analytics/dashboard?t=${timestamp}`).then(res => res.json()),
+        fetch(`/api/operations/pulse-feed?t=${timestamp}`).then(res => res.json()),
+        fetch(`/api/shops/list?t=${timestamp}`).then(res => res.json()),
+        fetch(`/api/hr/team/list?t=${timestamp}`).then(res => res.json())
+      ]);
+
+      setMetrics(analytics);
+      setFeed(Array.isArray(pulse) ? pulse : []);
+      setShops(Array.isArray(shopList) ? shopList : (shopList.data || []));
+      setTeam(Array.isArray(teamList) ? teamList : (teamList.data || []));
+    } catch (error) {
+      console.error("Dashboard Link Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  if (loading) return (
+    <div className="h-screen flex flex-col items-center justify-center bg-white">
+      <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+      <p className="mt-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.5em]">Establishing Command Hub</p>
+    </div>
+  );
+
+  return (
+    <div className="p-10 max-w-[1750px] mx-auto animate-in fade-in duration-700 space-y-10">
+      
+      {/* --- HEADER --- */}
+      <header className="flex justify-between items-end mb-12">
+        <div>
+          <h1 className="text-6xl font-black text-slate-900 tracking-tighter uppercase leading-none">Operations Hub</h1>
+          {/* ✅ FIXED: Changed <p> to <div> to allow nesting */}
+          <div className="text-slate-400 font-black text-[11px] uppercase tracking-[0.3em] mt-6 flex items-center gap-3">
+            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]" /> 
+            Global Authority System Active
           </div>
-
         </div>
+        <div className="flex gap-4">
+          <button onClick={() => fetchData()} className="h-16 px-8 bg-white border border-slate-200 rounded-2xl flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 transition-all">
+            <RefreshCw size={18} /> Update Telemetry
+          </button>
+          <div className="h-16 px-8 bg-slate-900 text-white rounded-2xl flex items-center gap-5 shadow-2xl">
+            <Zap size={18} className="text-blue-400 fill-blue-400" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Protocol Secure</span>
+          </div>
+        </div>
+      </header>
 
-        {/* --- FOOTER --- */}
-        <div className="mt-12 flex flex-col md:flex-row items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] border-t border-slate-200 pt-8 gap-4">
-          <p>© 2026 Nexus Operations • LG Ghana</p>
-          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-2">
-               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> System Online
-            </span>
-            <span className="text-slate-300">|</span>
-            <span>Secure Connection</span>
+      {/* --- TOP ROW: CORE STATS --- */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <MetricCard title="Revenue Flow" value={`₵ ${metrics?.revenue?.toLocaleString() || '0'}`} status="+14.2%" icon={TrendingUp} theme="blue" />
+        <MetricCard title="Active Team" value={`${metrics?.activeStaff || 0} Agents`} status="Stable" icon={Users} theme="emerald" />
+        <MetricCard title="Inventory Value" value={`₵ ${((metrics?.inventoryValue || 0) / 1000000).toFixed(2)}M`} status="Verified" icon={Package} theme="purple" />
+        <MetricCard title="Security Flags" value={feed.filter(f => f.type === 'GHOST_ALERT').length} status="Critical" icon={AlertTriangle} theme="rose" />
+      </div>
+
+      {/* --- MIDDLE ROW: MAP & PERFORMANCE SIDE-BY-SIDE --- */}
+      <div className="grid grid-cols-12 gap-10">
+        <div className="col-span-8 bg-white p-3 rounded-[3.5rem] border border-slate-200 shadow-sm relative h-[600px] overflow-hidden">
+          <GlobalMap shops={shops} reps={team} mapType="GLOBAL" />
+          <div className="absolute bottom-10 left-10 z-[400] bg-white/95 backdrop-blur-md border border-slate-200 px-8 py-5 rounded-[2.5rem] shadow-2xl flex items-center gap-6">
+            <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center"><MapIcon size={24} /></div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Global Terminal Registry</p>
+              <p className="text-lg font-black text-slate-900 mt-1 uppercase tracking-tighter">{shops.length} Active Hubs</p>
+            </div>
           </div>
         </div>
 
+        <div className="col-span-4 bg-white rounded-[3.5rem] p-10 border border-slate-200 shadow-sm flex flex-col h-[600px]">
+          <h3 className="text-2xl font-black text-slate-900 mb-10 uppercase tracking-tighter px-1">Hub Efficiency</h3>
+          <div className="flex-1 space-y-10 overflow-y-auto pr-4 custom-scrollbar">
+            {metrics?.shopPerformance?.length > 0 ? (
+                metrics.shopPerformance.map((hub: any, i: number) => (
+                <div key={i} className="group">
+                    <div className="flex justify-between items-end mb-4 px-1">
+                    <span className="text-sm font-black text-slate-800 uppercase tracking-tight">{hub.name}</span>
+                    <span className="text-[11px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl uppercase">₵{hub.revenue.toLocaleString()}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden">
+                    <div 
+                        className="h-full rounded-full transition-all duration-1000" 
+                        style={{ 
+                            width: `${(hub.revenue / (metrics?.shopPerformance[0]?.revenue || 1)) * 100}%`,
+                            background: i === 0 ? 'linear-gradient(90deg, #1d4ed8, #3b82f6)' : '#cbd5e1'
+                        }} 
+                    />
+                    </div>
+                </div>
+                ))
+            ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-4 opacity-60">
+                    <TrendingUp size={48} strokeWidth={1} />
+                    <p className="text-[10px] font-black uppercase tracking-widest">No Performance Data</p>
+                </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* --- BOTTOM ROW: CHART & ALERTS --- */}
+      <div className="grid grid-cols-12 gap-10">
+        <div className="col-span-7 bg-white rounded-[3.5rem] p-12 border border-slate-200 shadow-sm">
+          <div className="flex justify-between items-center mb-12">
+            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Sales Velocity</h3>
+            <div className="flex items-center gap-3 bg-slate-50 px-5 py-2 rounded-2xl border border-slate-100">
+                <div className="w-2 h-2 bg-blue-600 rounded-full" />
+                <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Network Growth</span>
+            </div>
+          </div>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={metrics?.chartData || []}>
+                <defs>
+                  <linearGradient id="vGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} dy={20} />
+                <YAxis hide />
+                <Tooltip 
+                    contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)'}}
+                    labelStyle={{color: '#94a3b8', fontSize: '11px', fontWeight: '900', textTransform: 'uppercase'}}
+                />
+                <Area type="monotone" dataKey="sales" stroke="#2563eb" strokeWidth={5} fill="url(#vGrad)" isAnimationActive={true} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="col-span-5 bg-rose-50/30 rounded-[3.5rem] p-12 border border-rose-100 flex flex-col h-[525px]">
+          <h3 className="text-2xl font-black text-rose-900 mb-10 flex items-center gap-4 uppercase tracking-tighter">
+            <AlertTriangle className="animate-pulse text-rose-600" size={26} /> Security Logs
+          </h3>
+          <div className="flex-1 overflow-y-auto space-y-5 custom-scrollbar pr-2">
+            {feed.filter(f => f.type === 'GHOST_ALERT').length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-rose-300 gap-8 opacity-40">
+                <CheckCircle2 size={72} strokeWidth={1} />
+                <p className="text-[11px] font-black uppercase tracking-[0.4em]">Protocol Clear</p>
+              </div>
+            ) : (
+              feed.filter(f => f.type === 'GHOST_ALERT').map((alert: any) => (
+                <div key={alert.id} className="bg-white p-8 rounded-[2.5rem] border border-rose-100 shadow-sm flex justify-between items-center group hover:bg-rose-600 transition-all duration-500">
+                    <div className="flex-1">
+                        <p className="font-black text-base text-slate-900 uppercase group-hover:text-white transition-colors">{alert.user}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-rose-100 transition-colors mt-2">{alert.shop} • {alert.message}</p>
+                    </div>
+                    <button className="bg-rose-600 text-white group-hover:bg-white group-hover:text-rose-600 px-7 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl active:scale-95">
+                        Intervene
+                    </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

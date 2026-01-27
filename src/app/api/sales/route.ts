@@ -1,58 +1,35 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 
-export async function POST(req: Request) {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId");
 
-    const body = await req.json();
-    const { shopId, items, totalAmount, gps } = body;
-
-    if (!shopId || !items || items.length === 0) {
-      return NextResponse.json({ error: "Invalid Data" }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json([]); // Return empty array instead of crashing
     }
 
-    // TRANSACTION: Record Sale + Update Inventory
-    const sale = await prisma.$transaction(async (tx) => {
-      // 1. Create Sale Record
-      const newSale = await tx.sale.create({
-        data: {
-          userId: session.user.id,
-          shopId: shopId,
-          totalAmount: totalAmount,
-          paymentMethod: "CASH", // Default for now
-          items: {
-            create: items.map((i: any) => ({
-              productId: i.productId,
-              quantity: i.quantity,
-              price: i.price,
-              name: "Product" // Ideally fetch real name, but this is faster
-            }))
-          }
+    // 🚀 OPTIMIZATION: Only fetch the last 50 sales to prevent timeout
+    const sales = await prisma.sale.findMany({
+      where: { userId },
+      take: 50, 
+      orderBy: { createdAt: 'desc' },
+      include: {
+        shop: {
+          select: { name: true }
+        },
+        _count: {
+          select: { items: true }
         }
-      });
-
-      // 2. Deduct Inventory
-      for (const item of items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { quantity: { decrement: item.quantity } }
-        });
       }
-
-      // 3. (Optional) Log GPS Location if you have a Location Log table
-      // await tx.locationLog.create(...)
-
-      return newSale;
     });
 
-    return NextResponse.json({ success: true, saleId: sale.id });
-
+    return NextResponse.json(sales);
   } catch (error) {
-    console.error("Sales API Error:", error);
-    return NextResponse.json({ error: "Transaction Failed" }, { status: 500 });
+    console.error("❌ SALES_API_ERROR:", error);
+    return NextResponse.json([], { status: 500 }); // Return empty array on error
   }
 }

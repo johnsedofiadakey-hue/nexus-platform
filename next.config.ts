@@ -1,31 +1,62 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 🚀 STANDALONE MODE: Required for high-efficiency Railway/Docker deploys
-  output: 'standalone',
+  /**
+   * 🔥 CRITICAL FIX
+   * Leaflet + React Strict Mode = double mount = crash
+   */
+  reactStrictMode: false,
 
-  // 🏛️ BUILD STABILITY: Prevent "ghost" errors from stopping production
+  /**
+   * 🚀 Production-ready output
+   */
+  output: "standalone",
+
+  /**
+   * 🛡️ Prevent Leaflet from being bundled incorrectly
+   * (REQUIRED for Turbopack stability)
+   */
+  serverExternalPackages: ["leaflet"],
+
+  /**
+   * ⚠️ Build tolerances (your choice, preserved)
+   */
   typescript: {
-    // !! WARN !!
-    // Allows production builds to successfully complete even if
-    // your project has type errors (like the one we just fixed).
     ignoreBuildErrors: true,
   },
   eslint: {
-    // Speed up builds by skipping linting during the push
     ignoreDuringBuilds: true,
   },
 
-  // 🛰️ TURBOPACK CONFIG: 
-  // We handle the engine switch (Webpack vs Turbopack) in package.json,
-  // but we can add Turbopack-specific rules here if needed later.
+  /**
+   * 🧪 Experimental (CLEANED)
+   */
   experimental: {
-    // Optimizes package imports for faster builds
+    serverActions: {
+      allowedOrigins: ["localhost:3000", "192.168.100.216"],
+    },
+
+    /**
+     * ❌ REMOVED react-leaflet
+     * It causes hydration + ref reuse issues
+     */
     optimizePackageImports: [
-      'lucide-react',
-      'framer-motion',
-      'recharts',
-      'geolib'
+      "lucide-react",
+      "framer-motion",
+      "recharts",
+      "geolib",
+    ],
+  },
+
+  /**
+   * 🖼️ Image handling
+   */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
     ],
   },
 };

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, Search, TrendingUp, DollarSign, 
-  Clock, Calendar, ChevronRight, Loader2, Filter
+  Clock, Calendar, ChevronRight, Loader2
 } from "lucide-react";
 import { useMobileTheme } from "@/context/MobileThemeContext";
 
@@ -32,7 +32,8 @@ export default function MobileSalesLog() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`/api/sales?source=MOBILE&t=${Date.now()}`);
+        // Calls the backend API we are about to create
+        const res = await fetch(`/api/sales/history?t=${Date.now()}`); 
         if (res.ok) {
           const data = await res.json();
           setSales(Array.isArray(data) ? data : []);
@@ -57,6 +58,7 @@ export default function MobileSalesLog() {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center ${themeClasses.bg}`}>
         <Loader2 className="w-8 h-8 animate-spin" style={{ color: accentHex }} />
+        <p className={`mt-4 text-[10px] font-black uppercase tracking-widest ${themeClasses.text}`}>Loading Records...</p>
       </div>
     );
   }
@@ -67,7 +69,7 @@ export default function MobileSalesLog() {
       {/* 🏗️ THEMED HEADER */}
       <div className={`px-6 py-6 border-b sticky top-0 z-20 shadow-sm ${themeClasses.nav} ${themeClasses.border}`}>
         <div className="flex items-center gap-4 mb-4">
-          <button onClick={() => router.back()} className={`p-2 rounded-full ${darkMode ? 'bg-slate-800' : 'bg-slate-50'}`}>
+          <button onClick={() => router.back()} className={`p-2 rounded-full hover:opacity-70 transition-colors ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
             <ArrowLeft className={`w-5 h-5 ${themeClasses.text}`} />
           </button>
           <h1 className={`text-xl font-black tracking-tight ${themeClasses.text}`}>Sales Log</h1>
@@ -81,7 +83,7 @@ export default function MobileSalesLog() {
              className={`w-full h-12 pl-11 pr-4 rounded-xl text-xs font-bold outline-none border transition-all ${
                darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
              }`}
-             style={{ focusBorderColor: accentHex }}
+             style={{ borderColor: darkMode ? undefined : accentHex }}
              value={searchTerm}
              onChange={(e) => setSearchTerm(e.target.value)}
            />
@@ -101,8 +103,8 @@ export default function MobileSalesLog() {
                </div>
                <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Today's Revenue</span>
              </div>
-             <h2 className="text-4xl font-black tracking-tighter mb-1">₵ {todayTotal.toLocaleString()}</h2>
-             <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">{sales.length} Successful Sales</p>
+             <h2 className="text-4xl font-black tracking-tighter mb-1">₵{todayTotal.toLocaleString()}</h2>
+             <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">{sales.length} Sales Today</p>
           </div>
           
           {/* Abstract background shapes */}
@@ -129,7 +131,7 @@ export default function MobileSalesLog() {
                    <DollarSign className="w-6 h-6" />
                  </div>
                  <div>
-                   <p className={`font-black text-sm ${themeClasses.text}`}>#{sale.id.slice(-6).toUpperCase()}</p>
+                   <p className={`font-black text-xs ${themeClasses.text} opacity-70`}>#{sale.id.slice(-6).toUpperCase()}</p>
                    <div className="flex items-center gap-1.5 mt-1 text-slate-400">
                      <Clock className="w-3 h-3" />
                      <p className="text-[9px] font-bold uppercase">{new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -139,8 +141,8 @@ export default function MobileSalesLog() {
 
                <div className="text-right flex items-center gap-3">
                  <div>
-                    <p className={`text-lg font-black ${themeClasses.text}`}>₵ {sale.totalAmount.toLocaleString()}</p>
-                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Completed</p>
+                    <p className={`text-lg font-black ${themeClasses.text}`}>₵{sale.totalAmount.toLocaleString()}</p>
+                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Paid</p>
                  </div>
                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors" />
                </div>
@@ -148,8 +150,8 @@ export default function MobileSalesLog() {
           ))
         ) : (
           <div className="text-center py-20 opacity-40">
-            <Calendar className="w-12 h-12 mx-auto mb-4" />
-            <p className="text-xs font-black uppercase tracking-widest">No Sales Found</p>
+            <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+            <p className={`text-xs font-black uppercase tracking-widest ${themeClasses.text}`}>No Sales Found</p>
           </div>
         )}
       </div>

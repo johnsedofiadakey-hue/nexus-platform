@@ -1,7 +1,6 @@
-export default function TestPage() {
-  return (
-    <div style={{ background: 'red', color: 'white', height: '100vh', display: 'flex', alignItems: 'center', justifyCenter: 'center', fontSize: '50px', fontWeight: 'bold' }}>
-      NEXUS SYSTEM OVERRIDE ACTIVE
-    </div>
-  );
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  // Automatically redirect to the secure sign-in page
+  redirect("/auth/signin");
 }

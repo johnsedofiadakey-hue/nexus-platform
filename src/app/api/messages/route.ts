@@ -3,52 +3,89 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// GET: Fetch conversation history
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+/**
+ * -----------------------------------------
+ * GET — Fetch conversation messages
+ * Used by HQ dashboards
+ * -----------------------------------------
+ */
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
 
-  const { searchParams } = new URL(req.url);
-  const staffId = searchParams.get("staffId");
-  const myId = session.user.id;
+    if (!session?.user?.id) {
+      return NextResponse.json([], { status: 401 });
+    }
 
-  // If Admin is viewing a staff page, fetch chat between Admin and that Staff
-  // If Staff is viewing their own mobile chat, fetch chat between Staff and Admin(s)
-  const targetId = staffId || myId; 
+    const userId = session.user.id;
 
-  const messages = await prisma.message.findMany({
-    where: {
-      OR: [
-        { senderId: myId, receiverId: staffId! },
-        { senderId: staffId!, receiverId: myId }
-      ]
-    },
-    orderBy: { createdAt: 'asc' }, // Oldest first (chat log style)
-  });
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: userId },
+          { receiverId: userId }
+        ]
+      },
+      orderBy: { createdAt: "asc" },
+      take: 100
+    });
 
-  return NextResponse.json(messages);
+    return NextResponse.json(messages);
+  } catch (error) {
+    console.error("MESSAGES GET ERROR:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch messages" },
+      { status: 500 }
+    );
+  }
 }
 
-// POST: Send a new message
+/**
+ * -----------------------------------------
+ * POST — Send message (HQ → Staff OR Staff → HQ)
+ * -----------------------------------------
+ */
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json();
-    const { content, receiverId } = body;
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { content, receiverId } = await req.json();
+
+    if (!content || !receiverId) {
+      return NextResponse.json(
+        { error: "Missing content or receiverId" },
+        { status: 400 }
+      );
+    }
+
+    const senderId = session.user.id;
+
+    // Prevent sending message to self
+    if (senderId === receiverId) {
+      return NextResponse.json(
+        { error: "Cannot send message to yourself" },
+        { status: 400 }
+      );
+    }
 
     const message = await prisma.message.create({
       data: {
         content,
-        senderId: session.user.id,
-        receiverId,
-        read: false
+        senderId,
+        receiverId
       }
     });
 
     return NextResponse.json(message);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to send" }, { status: 500 });
+    console.error("MESSAGE SEND ERROR:", error);
+    return NextResponse.json(
+      { error: "Message send failed" },
+      { status: 500 }
+    );
   }
 }

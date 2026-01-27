@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useMobileTheme } from "@/context/MobileThemeContext";
 
-// Helper to get hex codes for inline styles (fixes Tailwind dynamic class limitations)
+// Helper to get hex codes for inline styles
 const getColorHex = (color: string) => {
   const colors: Record<string, string> = {
     blue: "#2563eb",
@@ -20,7 +20,7 @@ const getColorHex = (color: string) => {
   return colors[color] || colors.blue;
 };
 
-export default function MobileMenu() {
+export default function MobileProfilePage() {
   const { data: session } = useSession();
   const [view, setView] = useState<'MENU' | 'LEAVE_LIST' | 'LEAVE_FORM'>('MENU');
   const { darkMode, toggleDarkMode, accent, setAccent, themeClasses } = useMobileTheme();
@@ -68,7 +68,7 @@ export default function MobileMenu() {
       <div className={`min-h-[80vh] transition-colors duration-500 pb-24 font-sans`}>
         
         {/* HEADER */}
-        <div className="flex items-center gap-4 mb-6 px-2">
+        <div className="flex items-center gap-4 mb-6 px-2 mt-6">
             <Link href="/mobilepos" className={`p-2 rounded-full border shadow-sm ${themeClasses.card} ${themeClasses.border}`}>
                 <ArrowLeft className={`w-5 h-5 ${themeClasses.text}`} />
             </Link>
@@ -126,10 +126,10 @@ export default function MobileMenu() {
                    <p className={`font-bold ${themeClasses.text}`}>Accent Color</p>
                  </div>
                  <div className="flex gap-2">
-                   {['blue', 'purple', 'rose', 'amber'].map((c) => (
+                   {(['blue', 'purple', 'rose', 'amber'] as const).map((c) => (
                      <button 
                         key={c} 
-                        onClick={() => setAccent(c as any)} 
+                        onClick={() => setAccent(c)} 
                         className={`w-8 h-8 rounded-full border-2 transition-all ${c === accent ? "border-white shadow-lg scale-110" : "border-transparent opacity-50"}`}
                         style={{ backgroundColor: getColorHex(c) }}
                      />
@@ -166,7 +166,7 @@ export default function MobileMenu() {
             </div>
           </div>
 
-          <button onClick={() => signOut({ callbackUrl: "/login" })} className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 mb-8">
+          <button onClick={() => signOut({ callbackUrl: "/auth/login" })} className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 mb-8">
             <LogOut className="w-4 h-4" /> Log Out
           </button>
         </div>
@@ -178,7 +178,7 @@ export default function MobileMenu() {
   if (view === 'LEAVE_LIST') {
     return (
       <div className="min-h-[80vh] pb-24 font-sans">
-         <div className="flex items-center justify-between mb-6 px-2">
+         <div className="flex items-center justify-between mb-6 px-2 mt-6">
             <button onClick={() => setView('MENU')} className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:opacity-80">
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
@@ -192,7 +192,6 @@ export default function MobileMenu() {
            + New Request
          </button>
          
-         {/* Placeholder for history */}
          <div className={`mt-8 text-center p-8 rounded-3xl border border-dashed ${darkMode ? "border-slate-700" : "border-slate-200"}`}>
            <Calendar className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No active history</p>
@@ -205,7 +204,7 @@ export default function MobileMenu() {
   if (view === 'LEAVE_FORM') {
     return (
       <div className="min-h-[80vh] font-sans pb-24">
-        <div className="flex items-center justify-between mb-6 px-2">
+        <div className="flex items-center justify-between mb-6 px-2 mt-6">
            <button onClick={() => setView('LEAVE_LIST')} className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:opacity-80">
              <ArrowLeft className="w-4 h-4" /> Cancel
            </button>

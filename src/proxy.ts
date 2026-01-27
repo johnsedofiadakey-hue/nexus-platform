@@ -3,24 +3,18 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    const token = req.nextauth.token;
-    const isAdminPath = req.nextUrl.pathname.startsWith("/admin");
+    const path = req.nextUrl.pathname;
     
-    // Redirect non-admins trying to access the Command Center
-    if (isAdminPath && token?.role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/mobilepos", req.url));
-    }
-    
-    return NextResponse.next();
+    // 🛑 STOP REDIRECTS: Let the user go where the link says
+    // If the path is /dashboard/hr, DO NOT move them to /enrollment.
+    return NextResponse.next(); 
   },
   {
-    callbacks: {
-      authorized: ({ token }) => !!token,
-    },
+    callbacks: { authorized: ({ token }) => !!token },
+    pages: { signIn: "/auth/signin" }
   }
 );
 
-// Matching paths for the Proxy to monitor
 export const config = {
-  matcher: ["/admin/:path*", "/mobilepos/:path*", "/api/admin/:path*"],
+  matcher: ["/dashboard/:path*", "/mobilepos/:path*"],
 };

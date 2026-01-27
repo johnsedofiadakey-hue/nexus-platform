@@ -3,12 +3,11 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  BarChart2, Zap, ShieldAlert, MessageSquare, Send, 
-  Loader2, CheckCircle2, TrendingUp, PackageSearch, ArrowLeft
+  BarChart2, Zap, PackageSearch, Send, 
+  Loader2, CheckCircle2, ArrowLeft
 } from "lucide-react";
-import { useMobileTheme } from "@/context/MobileThemeContext"; // 👈 Theme integration
+import { useMobileTheme } from "@/context/MobileThemeContext"; 
 
-// Helper for dynamic Hex codes
 const getColorHex = (color: string) => {
   const colors: Record<string, string> = {
     blue: "#2563eb",
@@ -58,9 +57,9 @@ export default function FieldReportPage() {
       <div className={`min-h-screen flex flex-col items-center justify-center p-8 text-center animate-in zoom-in duration-300 ${themeClasses.bg}`}>
         <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-4" />
         <h2 className={`text-xl font-black uppercase tracking-tighter ${themeClasses.text}`}>Report Synchronized</h2>
-        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Intelligence logged to LG Command Center</p>
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Intelligence logged to Command Center</p>
         <button 
-          onClick={() => router.push("/mobilepos/pos")} 
+          onClick={() => router.push("/mobilepos")} 
           className="mt-10 px-8 py-4 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all"
           style={{ backgroundColor: accentHex }}
         >
@@ -73,7 +72,7 @@ export default function FieldReportPage() {
   return (
     <div className={`min-h-screen font-sans pb-24 transition-colors duration-500 ${themeClasses.bg}`}>
       
-      {/* STEALTH HEADER */}
+      {/* HEADER */}
       <div className={`px-6 py-6 border-b sticky top-0 z-20 shadow-sm ${themeClasses.nav} ${themeClasses.border}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -105,7 +104,7 @@ export default function FieldReportPage() {
               <input 
                 type="number" required placeholder="0"
                 className={`w-full border h-14 px-4 rounded-xl text-sm font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                style={{ focusBorderColor: accentHex }}
+                style={{ borderColor: darkMode ? undefined : accentHex }}
                 onChange={(e) => setFormData({...formData, walkIns: e.target.value})}
               />
             </div>
@@ -114,7 +113,7 @@ export default function FieldReportPage() {
               <input 
                 type="number" required placeholder="0"
                 className={`w-full border h-14 px-4 rounded-xl text-sm font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                style={{ focusBorderColor: accentHex }}
+                style={{ borderColor: darkMode ? undefined : accentHex }}
                 onChange={(e) => setFormData({...formData, buyers: e.target.value})}
               />
             </div>
@@ -132,7 +131,7 @@ export default function FieldReportPage() {
              <textarea 
                rows={3}
                className={`w-full border p-4 rounded-xl text-xs font-bold outline-none transition-all resize-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-               placeholder="Example: Samsung is offering 10% cash-back today..."
+               placeholder="Example: Competitor X is offering 10% discount..."
                onChange={(e) => setFormData({...formData, competitorNotes: e.target.value})}
              />
           </div>
@@ -149,7 +148,7 @@ export default function FieldReportPage() {
              <textarea 
                rows={2}
                className={`w-full border-dashed border-2 p-4 rounded-xl text-xs font-bold outline-none transition-all resize-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-               placeholder="Which LG models are out of stock?"
+               placeholder="Which models are out of stock?"
                onChange={(e) => setFormData({...formData, stockGaps: e.target.value})}
              />
           </div>

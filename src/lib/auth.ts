@@ -1,79 +1,77 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@next-auth/prisma-adapter"; 
-import { prisma } from "@/lib/prisma";
-import { compare } from "bcryptjs";
+import { prisma } from "@/lib/prisma"; 
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  session: { 
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 Days Session
-  },
-  
-  pages: { 
-    signIn: "/auth/signin", 
-    error: "/auth/error",   
-  },
+  // 🛡️ CRITICAL FIX 1: Explicitly bind the secret to prevent decryption errors
+  secret: process.env.NEXTAUTH_SECRET,
 
   providers: [
     CredentialsProvider({
-      name: "Nexus Access",
+      name: "Nexus Credentials",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "operative@nexus.com" },
-        password: { label: "Password", type: "password" }
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) {
-          throw new Error("Missing credentials");
-        }
+        if (!credentials?.email || !credentials?.password) return null;
 
+        // Atomic lookup: includes shop details for location verification
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: { 
-            shop: { select: { id: true, name: true } } 
-          } 
+          where: { email: credentials.email.toLowerCase() },
+          include: { shop: true }
         });
 
-        if (!user) throw new Error("Identity not found in registry.");
+        if (!user || !user.password) return null;
 
-        const isPasswordValid = await compare(credentials.password, user.password);
-        if (!isPasswordValid) throw new Error("Invalid security key.");
+        const isValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
 
-        // Return the full "Passport"
+        if (!isValid) return null;
+
         return {
           id: user.id,
-          email: user.email,
           name: user.name,
+          email: user.email,
           role: user.role,
           shopId: user.shopId,
+          // 🛡️ CRITICAL FIX 2: Changed 'lat/lng' to 'latitude/longitude' to match your Prisma Schema
+          shopLat: user.shop?.latitude || 0,
+          shopLng: user.shop?.longitude || 0,
         };
-      }
-    })
+      },
+    }),
   ],
-
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 Day Session
+  },
   callbacks: {
-    // Inject custom fields into the JWT token
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
-        token.shopId = (user as any).shopId; 
+        token.shopId = (user as any).shopId;
+        token.shopLat = (user as any).shopLat;
+        token.shopLng = (user as any).shopLng;
       }
       return token;
     },
-
-    // Expose those fields to the useSession() hook on the frontend
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
         (session.user as any).shopId = token.shopId;
+        (session.user as any).shopLat = token.shopLat;
+        (session.user as any).shopLng = token.shopLng;
       }
       return session;
-    }
+    },
   },
-  
-  debug: process.env.NODE_ENV === 'development',
-  secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: "/auth/login",
+  }
 };

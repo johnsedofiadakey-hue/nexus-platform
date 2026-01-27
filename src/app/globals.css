@@ -79,3 +79,8 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #e2e8f0;
 }
+
+/* --- MOBILE POS SAFE AREA (iPhone Home Bar Fix) --- */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
