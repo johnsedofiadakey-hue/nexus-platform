@@ -16,7 +16,7 @@ export default withAuth(
        * 
        * Options:
        * 1. Production: Return !!req.nextauth.token (only allow authenticated users)
-       * 2. Development bypass: Set NEXT_PUBLIC_DEV_BYPASS=true in .env to allow unauthenticated access
+       * 2. Development bypass: Set DEV_AUTH_BYPASS=true in .env (server-side only) to allow unauthenticated access
        * 
        * Current setting: Checks for valid token OR dev bypass flag
        */
@@ -25,7 +25,8 @@ export default withAuth(
         if (token) return true;
         
         // Dev bypass: Allow access if explicitly enabled (USE ONLY IN DEVELOPMENT)
-        if (process.env.NEXT_PUBLIC_DEV_BYPASS === "true") {
+        // NOTE: Uses server-side env var (not NEXT_PUBLIC_) for security
+        if (process.env.DEV_AUTH_BYPASS === "true") {
           console.log("[Middleware] ⚠️ DEV BYPASS ENABLED - Allowing unauthenticated access");
           return true;
         }

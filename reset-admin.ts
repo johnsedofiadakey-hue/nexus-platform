@@ -31,8 +31,11 @@ async function main() {
     console.log("---");
     console.log("✅ SUCCESS! Admin record created/updated.");
     console.log(`📧 Email: ${admin.email}`);
-    console.log(`🔑 DEV ONLY - Password: ${password}`);
     console.log(`🛡️ Role: ${admin.role}`);
+    // Only log password in local development
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🔑 DEV ONLY - Password: ${password}`);
+    }
     console.log("---");
   } catch (e) {
     console.error("❌ RESET FAILED:");

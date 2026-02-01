@@ -25,11 +25,22 @@ This PR implements safe, testable changes to fix authentication and messaging in
 - ✅ Updated `fix-auth.js` - Uses `admin@nexus.com` and bcrypt
 - ✅ Updated `reset-admin.ts` - Uses `admin@nexus.com` and bcrypt
 - ✅ All scripts are now idempotent (safe to run multiple times)
-- ✅ Scripts print "DEV ONLY" credentials to console
+- ✅ Scripts print credentials only in non-production environments
 
-**Standard Admin Credentials (DEV ONLY):**
+**⚠️ SECURITY WARNING: Default Admin Credentials**
+
+**Standard Admin Credentials (DEVELOPMENT ONLY):**
 - Email: `admin@nexus.com`
 - Password: `admin123`
+
+**🚨 CRITICAL: These default credentials MUST be changed immediately in production environments!**
+
+To change the admin password in production:
+```bash
+# Use one of the provided scripts with a secure password
+tsx reset-admin.ts
+# Then manually update the password in the script before running
+```
 
 ### 4. Fixed Middleware Auth Bypass
 - ✅ Replaced `authorized: () => true` with proper token check
@@ -78,9 +89,12 @@ DIRECT_URL=your_direct_connection_string
 NEXTAUTH_SECRET=generate_with_openssl_rand_base64_32
 NEXTAUTH_URL=https://your-deployment-url.com
 
-# Optional - only enable in development
-NEXT_PUBLIC_DEV_BYPASS=false
+# Optional - only enable in local development (server-side only)
+# DO NOT enable in production or staging environments
+DEV_AUTH_BYPASS=false
 ```
+
+**⚠️ Security Note:** `DEV_AUTH_BYPASS` is for local development only. Never set to `true` in production.
 
 ### Setup GitHub Secrets
 Add these secrets in GitHub Settings → Secrets and variables → Actions:

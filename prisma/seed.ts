@@ -35,7 +35,11 @@ async function main() {
       }
     });
     console.log(`👤 Created/Updated Admin: ${admin.email}`);
-    console.log(`🔑 DEV ONLY - Admin Password: admin123`);
+    console.log(`🛡️ Role: ${admin.role}`);
+    // Only log password in local development
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🔑 DEV ONLY - Admin Password: admin123`);
+    }
 
     // 3. CREATE THE AGENT
     const agentPassword = await bcrypt.hash("agent123", 10);
@@ -53,7 +57,10 @@ async function main() {
       }
     });
     console.log(`👤 Created Agent: ${agent.email}`);
-    console.log(`🔑 DEV ONLY - Agent Password: agent123`);
+    // Only log password in local development
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🔑 DEV ONLY - Agent Password: agent123`);
+    }
 
     // 4. CREATE THE SHOP
     await prisma.shop.create({
