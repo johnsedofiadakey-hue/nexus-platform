@@ -5,7 +5,7 @@ import {
   Home, Package, Plus, Settings, Zap, MessageSquare 
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
-import AuthProvider from "@/components/providers/SessionProvider";
+import { SessionProvider } from "@/components/Providers/SessionProvider";
 import { MobileThemeProvider, useMobileTheme } from "@/context/MobileThemeContext";
 // 🛡️ IMPORT THE BACKGROUND TRACKER
 import LocationGuard from "@/components/auth/LocationGuard";
@@ -88,7 +88,7 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
  */
 export default function MobilePOSLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
+    <SessionProvider>
       <MobileThemeProvider>
         <div className="min-h-screen bg-slate-950 flex justify-center overflow-hidden">
           {/* 🛡️ GPS GUARD APPLIED HERE */}
@@ -99,6 +99,6 @@ export default function MobilePOSLayout({ children }: { children: React.ReactNod
           </LocationGuard>
         </div>
       </MobileThemeProvider>
-    </AuthProvider>
+    </SessionProvider>
   );
 }
