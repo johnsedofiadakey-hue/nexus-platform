@@ -10,12 +10,14 @@ const { PrismaClient } = require('@prisma/client');
       process.exit(1);
     }
 
-    const m = await prisma.chatMessage.create({ data: { content: 'RUNTIME TEST: hello from script', senderId: admin.id, receiverId: staff.id } });
+    const m = await prisma.message.create({ data: { content: 'RUNTIME TEST: hello from script', senderId: admin.id, receiverId: staff.id } });
     console.log('Inserted message id:', m.id);
   } catch (e) {
-    console.error('Insert failed', e);
+    console.error('Insert failed:', e.message || e);
+    console.error('Full error:', e);
     process.exitCode = 1;
   } finally {
+    console.log('Disconnecting from database...');
     await prisma.$disconnect();
   }
 })();

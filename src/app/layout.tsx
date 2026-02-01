@@ -5,8 +5,8 @@ import { Toaster } from "react-hot-toast";
 import NextTopLoader from "nextjs-toploader";
 
 // 🛡️ PROVIDER IMPORTS
-import { AuthProvider } from "@/components/providers/AuthProvider";
-import { SessionProvider } from "@/components/providers/SessionProvider";
+import { AuthProvider } from "@/components/Providers/AuthProvider";
+import { SessionProvider } from "@/components/Providers/SessionProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 

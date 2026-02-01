@@ -37,11 +37,11 @@ async function main() {
     console.log('Staff id:', staff.id)
 
     // Create test messages both ways
-    await prisma.chatMessage.create({ data: { content: 'E2E test: admin -> staff', senderId: admin.id, receiverId: staff.id } })
-    await prisma.chatMessage.create({ data: { content: 'E2E test: staff -> admin', senderId: staff.id, receiverId: admin.id } })
+    await prisma.message.create({ data: { content: 'E2E test: admin -> staff', senderId: admin.id, receiverId: staff.id } })
+    await prisma.message.create({ data: { content: 'E2E test: staff -> admin', senderId: staff.id, receiverId: admin.id } })
 
     // Fetch conversation
-    const convo = await prisma.chatMessage.findMany({
+    const convo = await prisma.message.findMany({
       where: {
         OR: [
           { senderId: admin.id, receiverId: staff.id },
@@ -58,9 +58,11 @@ async function main() {
     })
 
   } catch (e) {
-    console.error('E2E test failed', e)
+    console.error('E2E test failed:', (e as Error).message || e)
+    console.error('Full error:', e)
     process.exitCode = 1
   } finally {
+    console.log('Disconnecting from database...')
     await prisma.$disconnect()
   }
 }
