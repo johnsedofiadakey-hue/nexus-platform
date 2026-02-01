@@ -14,11 +14,11 @@ export default withAuth(
       // ✅ PROPER AUTH CHECK: Verify token exists
       // This ensures users must be authenticated to access protected routes.
       // 
-      // To temporarily bypass in development, set NEXT_PUBLIC_DEV_BYPASS=true in .env
+      // To temporarily bypass in development (server-side only), set SERVER_DEV_BYPASS=true in .env
       // However, this is NOT recommended as it masks authentication issues.
       authorized: ({ token }) => {
-        // Check for dev bypass (use with caution)
-        if (process.env.NEXT_PUBLIC_DEV_BYPASS === 'true') {
+        // Check for dev bypass (server-side only - use with caution)
+        if (process.env.SERVER_DEV_BYPASS === 'true') {
           console.warn('⚠️  [Middleware] Auth bypass is ENABLED. Disable in production!');
           return true;
         }

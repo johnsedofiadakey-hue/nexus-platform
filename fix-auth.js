@@ -35,6 +35,7 @@ async function main() {
     console.log('--------------------------------------');
   } catch (error) {
     console.error('❌ Database Error:', error.message);
+    console.error('Failed to fix auth. Check your database connection and credentials.');
     throw error;
   }
 }

@@ -62,6 +62,7 @@ async function main() {
 
   } catch (e) {
      console.error("❌ Seed Failed:", e);
+     console.error("Failed during seed operation. Check your database connection and schema.");
      throw e;
   }
 }
