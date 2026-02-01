@@ -3,6 +3,14 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma"; 
 import bcrypt from "bcryptjs";
 
+// Validate required environment variables at startup
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error(
+    "❌ NEXTAUTH_SECRET is not defined. Please set it in your .env file.\n" +
+    "   Generate one with: openssl rand -base64 32"
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   // 🛡️ CRITICAL FIX 1: Explicitly bind the secret to prevent decryption errors
   secret: process.env.NEXTAUTH_SECRET,

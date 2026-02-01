@@ -1,34 +1,23 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-// --- 1. CONFIGURATION ---
-const PROJECT_ID = "lqkpyqcokdeaefmisgbs";
-const PASSWORD = "YOUR_ACTUAL_PASSWORD"; // Ensure no special characters are unencoded
-
-// This format is mandatory for Supabase's newer infrastructure
-const connectionString = `postgresql://postgres.${PROJECT_ID}:${PASSWORD}@db.${PROJECT_ID}.supabase.co:5432/postgres`;
-
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: connectionString,
-    },
-  },
-});
+const prisma = new PrismaClient();
 
 async function main() {
-  console.log(`🚀 Attempting to connect to Tenant: ${PROJECT_ID}...`);
+  console.log(`🚀 Resetting admin account...`);
   
-  const hashedPassword = await bcrypt.hash("password123", 10);
+  const email = "admin@nexus.com";
+  const password = "admin123";
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@nexus.com" },
+    where: { email },
     update: {
       password: hashedPassword,
       role: "ADMIN",
     },
     create: {
-      email: "admin@nexus.com",
+      email,
       name: "Super Admin",
       password: hashedPassword,
       role: "ADMIN",
@@ -39,7 +28,7 @@ async function main() {
   console.log("---");
   console.log("✅ SUCCESS! Admin record created/updated.");
   console.log(`📧 User: ${admin.email}`);
-  console.log("🔑 Pass: password123");
+  console.log(`🔑 Pass: ${password} (for dev/testing only)`);
   console.log("---");
 }
 
