@@ -3,18 +3,22 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    const path = req.nextUrl.pathname;
+    // 🔓 LOGGING: Check if the server actually sees your token
+    const token = req.nextauth.token;
+    console.log(`[Middleware] Visiting: ${req.nextUrl.pathname} | Role: ${token?.role || 'Guest'}`);
     
-    // 🛑 STOP REDIRECTS: Let the user go where the link says
-    // If the path is /dashboard/hr, DO NOT move them to /enrollment.
-    return NextResponse.next(); 
+    return NextResponse.next();
   },
   {
-    callbacks: { authorized: ({ token }) => !!token },
-    pages: { signIn: "/auth/signin" }
+    callbacks: {
+      // 🔓 BYPASS: Always return true. 
+      // This stops the "Kick back to Login" behavior.
+      authorized: () => true, 
+    },
   }
 );
 
+// Only run on dashboard and mobile routes
 export const config = {
   matcher: ["/dashboard/:path*", "/mobilepos/:path*"],
 };

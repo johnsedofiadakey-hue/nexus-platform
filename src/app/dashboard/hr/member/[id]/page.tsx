@@ -3,27 +3,28 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { 
-  ArrowLeft, Loader2, MessageSquare, LayoutDashboard, 
-  MapPin, ShieldAlert, UserCheck, Settings,
-  Zap, Power, Trash2, X
+  ArrowLeft, Loader2, MessageSquare, MapPin, 
+  Settings, Power, Trash2, X, Eye, EyeOff, 
+  Activity, Download, Shield, Mail, Briefcase,
+  Store, Key, UserCircle, Save, AlertTriangle,
+  Smartphone, Fingerprint, ShieldCheck, Info,
+  ChevronRight, Calendar, BarChart3
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import dynamic from 'next/dynamic';
-import { Eye, EyeOff } from "lucide-react";
 
 // UI Components
-import ProfileCard from "@/components/dashboard/hr/ProfileCard";
 import ChatConsole from "@/components/dashboard/hr/ChatConsole";
 import PerformanceBoard from "@/components/dashboard/hr/PerformanceBoard";
 import ComplianceBoard from "@/components/dashboard/hr/ComplianceBoard";
 
-// 🛰️ SATELLITE ENGINE
-const LiveMap = dynamic(() => import('@/components/maps/LiveMap'), { 
+// 🛰️ DYNAMIC MAP IMPORT (Client-side only)
+const GeofenceMap = dynamic(() => import('@/components/maps/GeofenceMap'), { 
   ssr: false,
   loading: () => (
-    <div className="h-full w-full bg-slate-50 flex flex-col items-center justify-center rounded-2xl border border-slate-200">
-        <Loader2 className="w-6 h-6 text-blue-600 animate-spin mb-3" />
-        <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Acquiring Signal...</span>
+    <div className="h-full w-full bg-slate-50 flex flex-col items-center justify-center border border-slate-200 rounded-2xl">
+        <Loader2 className="w-5 h-5 text-slate-400 animate-spin mb-2" />
+        <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Acquiring Satellite Link...</span>
     </div>
   )
 });
@@ -34,16 +35,27 @@ export default function MemberPortal() {
   const staffId = params?.id as string;
   const adminId = "SYSTEM_ADMIN_ID"; 
 
-  // --- STATE ---
+  // --- CORE STATE ---
   const [mounted, setMounted] = useState(false); 
   const [data, setData] = useState<any>(null);
   const [shops, setShops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showMap, setShowMap] = useState(true); // 🗺️ Map Toggle
-  const [showSettings, setShowSettings] = useState(false); // ⚙️ Settings Modal
+  const [showMap, setShowMap] = useState(false); 
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Hardened Form State for Edit Modal
+  const [formState, setFormState] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    shopId: "",
+    status: "",
+    password: ""
+  });
 
   useEffect(() => { setMounted(true); }, []);
 
+  // --- DATA SYNCHRONIZATION ---
   const sync = useCallback(async (silent = false) => {
     if (!staffId || !mounted) return;
     if (!silent) setLoading(true);
@@ -62,8 +74,20 @@ export default function MemberPortal() {
       
       setData({ ...userData, unreadCount: msgData?.unread || 0 });
       setShops(Array.isArray(shopData) ? shopData : (shopData.data || []));
+
+      // 🛡️ SYNC FORM STATE
+      setFormState({
+        name: userData?.name || "",
+        email: userData?.email || "",
+        phone: userData?.phone || "",
+        shopId: userData?.shopId || "",
+        status: userData?.status || "ACTIVE",
+        password: ""
+      });
+
     } catch (e) {
-      console.error("Sync Failure");
+      console.error("Nexus Sync Failure");
+      toast.error("Critical: Data link failed.");
     } finally {
       setLoading(false);
     }
@@ -71,12 +95,13 @@ export default function MemberPortal() {
 
   useEffect(() => { 
     sync();
-    const timer = setInterval(() => sync(true), 15000); 
+    const timer = setInterval(() => sync(true), 20000); // 20s heartbeat
     return () => clearInterval(timer);
   }, [sync]);
 
+  // --- SYSTEM ACTIONS ---
   const exec = async (action: string, payload: any) => {
-    const t = toast.loading(`Processing...`);
+    const t = toast.loading(`Uplinking...`);
     try {
       const endpoint = action === 'SEND_MESSAGE' ? '/api/mobile/messages' : `/api/hr/member/${staffId}`;
       const method = action === 'SEND_MESSAGE' ? 'POST' : (action === 'DELETE' ? 'DELETE' : 'PATCH');
@@ -84,222 +109,257 @@ export default function MemberPortal() {
       const res = await fetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: action !== 'DELETE' ? JSON.stringify(action === 'SEND_MESSAGE' 
-          ? { content: payload.content, senderId: adminId, receiverId: staffId }
-          : { action, ...payload }) : undefined
+        body: action !== 'DELETE' ? JSON.stringify({ action, ...payload }) : undefined
       });
       
       if (res.ok) { 
-        toast.success("Success", { id: t }); 
+        toast.success("Protocol Success", { id: t }); 
         if (action === 'DELETE') router.push('/dashboard/hr');
         else {
-           sync(true); 
+           await sync(true); 
            setShowSettings(false);
         }
-      } else {
-        throw new Error();
+      } else { 
+        const err = await res.json();
+        throw new Error(err.error || "Uplink Rejected");
       }
-    } catch (e) { 
-        toast.error("Action Failed", { id: t }); 
-    }
+    } catch (e: any) { toast.error(e.message || "Action Failed", { id: t }); }
+  };
+
+  const handleSaveChanges = () => {
+    exec('UPDATE_PROFILE', {
+      name: formState.name,
+      email: formState.email,
+      phone: formState.phone,
+      shopId: formState.shopId,
+      status: formState.status
+    });
+  };
+
+  const handleDownloadReport = () => {
+    if(!data) return;
+    const reportData = {
+        Name: data?.name || "Unknown",
+        Role: data?.role || "N/A",
+        Status: data?.status || "N/A",
+        Email: data?.email || "N/A",
+        Shop: data?.shop?.name || "Unassigned",
+        Total_Sales: data?.sales?.reduce((acc:number, s:any) => acc + (s.totalAmount || 0), 0) || 0,
+        Total_Logs: data?.attendance?.length || 0,
+        System_Timestamp: new Date().toISOString()
+    };
+    const csvContent = "data:text/csv;charset=utf-8," + Object.keys(reportData).join(",") + "\n" + Object.values(reportData).join(",");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `${(data?.name || "Operative").replace(/\s+/g, '_')}_Intel.csv`);
+    document.body.appendChild(link);
+    link.click();
+    toast.success("Intel Exported");
   };
 
   if (!mounted || loading || !data) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-white px-10 text-center">
-      <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-5" />
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Establishing Connection</p>
+    <div className="h-screen w-full bg-[#FAFAFA] flex flex-col items-center justify-center">
+      <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-4" />
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Acquiring Personnel Intel...</span>
     </div>
   );
 
-  // 🛡️ STICKY MAP LOGIC: Prefer the shop embedded in user profile
-  const targetShops = data.shop ? [data.shop] : shops.filter(s => s.id === data.shopId);
+  const assignedShop = data?.shop || shops.find(s => s.id === data?.shopId);
+  const isOnline = data?.lastLat && data?.lastLng;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-6 md:p-8 space-y-6 animate-in fade-in duration-700 font-sans text-slate-900">
+    <div className="min-h-screen bg-[#FDFDFD] font-sans text-slate-900 pb-20">
       
-      {/* --- HEADER: IDENTITY & CONTROLS --- */}
-      <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-5">
-          <button onClick={() => router.back()} className="h-12 w-12 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-500 transition-all active:scale-95">
+      {/* 🏛️ FIXED NAVIGATION BAR */}
+      <div className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-6">
+          <button onClick={() => router.back()} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
             <ArrowLeft size={20} />
           </button>
           
-          <div className="flex items-center gap-5">
-             <div className="w-14 h-14 bg-slate-100 rounded-xl border border-slate-100 shadow-sm overflow-hidden flex items-center justify-center">
-               {data.image ? <img src={data.image} alt={data.name} className="w-full h-full object-cover" /> : <span className="text-lg font-bold text-slate-400">{data.name.charAt(0)}</span>}
-             </div>
-             <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-xl font-bold text-slate-900 tracking-tight uppercase leading-none">{data.name}</h1>
-                  {data.status === 'SUSPENDED' && <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-bold uppercase rounded-md border border-rose-100">Suspended</span>}
-                </div>
-                <div className="flex items-center gap-2 mt-1.5">
-                   <div className={`w-1.5 h-1.5 rounded-full ${data.lastLat ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-slate-300'}`} />
-                   <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">{data.lastLat ? 'Online' : 'Offline'}</span>
-                   <span className="text-slate-300 mx-1">•</span>
-                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{data.role?.replace('_', ' ')}</span>
+          <div className="flex flex-col">
+             <div className="flex items-center gap-3">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900">{data?.name}</h1>
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-widest ${data?.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                    <div className={`w-1 h-1 rounded-full ${data?.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                    {data?.status}
                 </div>
              </div>
+             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+               Registry ID: {data?.id?.slice(-8)} • {data?.role}
+             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full xl:w-auto">
-          {/* 🗺️ MAP TOGGLE */}
+        <div className="flex items-center gap-4">
+          <button onClick={handleDownloadReport} className="hidden md:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
+            <Download size={14} /> Export Intel
+          </button>
+          
           <button 
             onClick={() => setShowMap(!showMap)}
-            className={`h-12 px-5 rounded-xl flex items-center gap-2.5 font-bold text-[11px] uppercase tracking-wide transition-all border ${showMap ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all border ${showMap ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
           >
-            {showMap ? <Eye size={16} /> : <EyeOff size={16} />}
-            {showMap ? 'Hide Map' : 'Show Map'}
+            {showMap ? <EyeOff size={14} /> : <MapPin size={14} />}
+            {showMap ? 'Hide Radar' : 'Locate'}
           </button>
 
-          {/* ⚙️ SETTINGS TOGGLE */}
           <button 
             onClick={() => setShowSettings(true)}
-            className="h-12 px-6 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase tracking-wide flex items-center gap-2.5 shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-lg text-[11px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-100"
           >
-            <Settings size={16} /> Controls
+            <Settings size={14} /> Configuration
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* --- SETTINGS & CONTROL MODAL --- */}
+      {/* ⚙️ CONFIGURATION MODAL */}
       {showSettings && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/20 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
-           <div className="bg-white w-full max-w-xl rounded-2xl p-8 shadow-2xl border border-slate-200 space-y-6 animate-in zoom-in-95 duration-200">
-              <div className="flex justify-between items-center">
-                 <h2 className="text-xl font-bold uppercase tracking-tight text-slate-900">System Controls</h2>
-                 <button onClick={() => setShowSettings(false)} className="p-2 bg-slate-50 rounded-lg hover:bg-slate-100 text-slate-500"><X size={18} /></button>
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-6">
+           <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95">
+              <div className="flex justify-between items-center px-8 py-5 border-b border-slate-100">
+                 <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">Operative Settings</h2>
+                 <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-rose-600"><X size={20} /></button>
               </div>
 
-              {/* 1. EDIT INFORMATION */}
-              <div className="space-y-3">
-                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Identity Record</h3>
-                 <div className="grid grid-cols-2 gap-3">
-                    <input id="edit-name" defaultValue={data.name} className="h-12 bg-slate-50 px-4 rounded-xl text-xs font-semibold border border-slate-200 focus:border-blue-500 focus:outline-none transition-colors" placeholder="Full Name" />
-                    <input id="edit-email" defaultValue={data.email} className="h-12 bg-slate-50 px-4 rounded-xl text-xs font-semibold border border-slate-200 focus:border-blue-500 focus:outline-none transition-colors" placeholder="Email Address" />
-                 </div>
-                 <button 
-                   onClick={() => exec('UPDATE_PROFILE', { 
-                      name: (document.getElementById('edit-name') as HTMLInputElement).value,
-                      email: (document.getElementById('edit-email') as HTMLInputElement).value,
-                   })}
-                   className="w-full h-11 bg-blue-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 shadow-md shadow-blue-100"
-                 >
-                   Save Changes
-                 </button>
-              </div>
+              <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
+                  
+                  {/* DATA FIELDS */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <ModalInput label="Legal Name" value={formState.name} onChange={(v) => setFormState({...formState, name: v})} />
+                    <ModalInput label="Signal Phone" value={formState.phone} onChange={(v) => setFormState({...formState, phone: v})} />
+                    <ModalInput label="Network Email" value={formState.email} onChange={(v) => setFormState({...formState, email: v})} />
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Hub</label>
+                      <select 
+                          value={formState.shopId} 
+                          onChange={(e) => setFormState({...formState, shopId: e.target.value})}
+                          className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-blue-500 focus:bg-white transition-all appearance-none"
+                      >
+                          <option value="">No Hub Selected</option>
+                          {shops.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
 
-              <div className="h-px bg-slate-100 w-full" />
+                  {/* SECURITY */}
+                  <div className="pt-8 border-t border-slate-100 space-y-4">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Key size={12}/> Primary Access Key</label>
+                     <div className="flex gap-3">
+                        <input 
+                            type="password"
+                            value={formState.password}
+                            onChange={(e) => setFormState({...formState, password: e.target.value})}
+                            className="flex-1 h-11 bg-slate-50 border border-slate-200 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500" 
+                            placeholder="New Password..." 
+                        />
+                        <button onClick={() => { if(!formState.password) return; exec('RESET_PASSWORD', { password: formState.password }); }} className="px-6 h-11 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-200 transition-all">
+                            Reset
+                        </button>
+                     </div>
+                  </div>
 
-              {/* 2. PASSWORD RESET */}
-              <div className="space-y-3">
-                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Security Override</h3>
-                 <div className="flex gap-3">
-                    <input id="new-pass" type="password" className="flex-1 h-12 bg-slate-50 px-4 rounded-xl text-xs font-semibold border border-slate-200 focus:border-blue-500 focus:outline-none transition-colors" placeholder="New Password" />
-                    <button 
-                       onClick={() => exec('RESET_PASSWORD', { password: (document.getElementById('new-pass') as HTMLInputElement).value })}
-                       className="px-6 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800"
-                    >
-                       Reset Key
+                  {/* CRITICAL ACTIONS */}
+                  <div className="pt-8 border-t border-slate-100 flex gap-4">
+                    <button onClick={handleSaveChanges} className="flex-1 h-12 bg-blue-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 shadow-lg shadow-blue-100">
+                      <Save size={16} /> Sync Profile
                     </button>
-                 </div>
-              </div>
-
-              <div className="h-px bg-slate-100 w-full" />
-
-              {/* 3. DANGER ZONE */}
-              <div className="space-y-3">
-                 <h3 className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-2"><ShieldAlert size={12} /> Critical Zone</h3>
-                 <div className="grid grid-cols-2 gap-3">
-                    {/* KILL SWITCH */}
-                    <button 
-                       onClick={() => confirm("Confirm: Suspend/Activate this agent?") && exec('UPDATE_PROFILE', { status: data.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' })}
-                       className={`h-12 border rounded-xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-wide transition-all ${data.status === 'SUSPENDED' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-amber-50 border-amber-200 text-amber-600'}`}
-                    >
-                       <Power size={14} /> {data.status === 'SUSPENDED' ? 'Re-Activate' : 'Suspend Account'}
+                    <button onClick={() => { if(confirm("Terminate operative profile?")) exec('DELETE', {}); }} className="px-6 h-12 border border-rose-100 text-rose-500 rounded-xl hover:bg-rose-50 transition-all">
+                      <Trash2 size={16} />
                     </button>
-
-                    {/* DELETE */}
-                    <button 
-                       onClick={() => {
-                          if (confirm("WARNING: PERMANENT DATA LOSS.\nAre you sure you want to delete this agent?")) {
-                             if (confirm("Double Check: This action cannot be undone.")) exec('DELETE', {});
-                          }
-                       }}
-                       className="h-12 bg-white border border-rose-100 text-rose-500 rounded-xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-wide hover:bg-rose-50 transition-all"
-                    >
-                       <Trash2 size={14} /> Delete Records
-                    </button>
-                 </div>
+                  </div>
               </div>
            </div>
         </div>
       )}
 
-      {/* --- MAIN GRID --- */}
-      <div className="grid grid-cols-12 gap-6">
+      {/* 📊 MAIN OPERATIONAL GRID */}
+      <div className="max-w-[1600px] mx-auto px-8 py-10 grid grid-cols-12 gap-8">
         
-        {/* LEFT COLUMN: CONTEXT (4/12) */}
-        <div className="col-span-12 xl:col-span-4 space-y-6">
-          <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-             <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-               <UserCheck size={14} /> Personnel Profile
-             </h3>
-             <ProfileCard profile={data} shops={shops} onSave={(f: any) => exec('UPDATE_PROFILE', f)} />
-          </section>
-
-          <section className="h-[550px] bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-             <div className="p-6 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <MessageSquare size={16} className="text-blue-600" />
-                  <span className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Direct Comms</span>
+        {/* LEFT PANEL: IDENTITY CARD & UPLINK */}
+        <div className="col-span-12 lg:col-span-4 xl:col-span-3 space-y-8">
+          
+          {/* Operative Passport */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm text-center">
+             <div className="relative w-32 h-32 mx-auto mb-6">
+                <div className="w-full h-full rounded-3xl bg-slate-50 border border-slate-100 shadow-inner flex items-center justify-center overflow-hidden">
+                   {data?.image ? <img src={data.image} className="w-full h-full object-cover"/> : <UserCircle size={48} className="text-slate-200" />}
                 </div>
+                {isOnline && <div className="absolute -bottom-2 -right-2 bg-emerald-500 w-6 h-6 rounded-full border-4 border-white shadow-lg" />}
+             </div>
+             
+             <h2 className="text-2xl font-black text-slate-900 tracking-tighter leading-tight">{data?.name}</h2>
+             <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-2">{assignedShop?.name || "Global Fleet"}</p>
+
+             <div className="grid grid-cols-1 gap-4 mt-10 pt-8 border-t border-slate-50 text-left">
+                <MiniInfo icon={Mail} label="Network Mail" value={data.email} />
+                <MiniInfo icon={Smartphone} label="Signal Line" value={data.phone || "Offline"} />
+                <MiniInfo icon={ShieldCheck} label="Identity ID" value={data.ghanaCard || "Unverified"} />
+             </div>
+          </div>
+
+          {/* Secure Uplink (Chat) */}
+          <div className="bg-white border border-slate-200 rounded-2xl flex flex-col h-[550px] overflow-hidden shadow-sm">
+             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                    <MessageSquare size={14} /> Secure Uplink
+                </span>
+                {data?.unreadCount > 0 && <span className="bg-blue-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full">{data.unreadCount}</span>}
              </div>
              <div className="flex-1 min-h-0">
-                <ChatConsole messages={data.messages || []} viewerId="ADMIN_SIDE" onSendMessage={(c: string) => exec('SEND_MESSAGE', { content: c })} />
+                <ChatConsole messages={data?.messages || []} viewerId="ADMIN_SIDE" onSendMessage={(c: string) => exec('SEND_MESSAGE', { content: c })} />
              </div>
-          </section>
+          </div>
         </div>
 
-        {/* RIGHT COLUMN: OPERATIONS (8/12) */}
-        <div className="col-span-12 xl:col-span-8 space-y-6">
+        {/* RIGHT PANEL: RADAR & ANALYTICS */}
+        <div className="col-span-12 lg:col-span-8 xl:col-span-9 space-y-8">
           
-          {/* MAP SECTION (TOGGLEABLE) */}
-          {showMap && (
-             <section className="h-[450px] bg-white p-2 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group animate-in slide-in-from-top-2">
-                {/* 🛡️ PASSING TARGET SHOPS DIRECTLY FOR STICKY LOGIC */}
-                <LiveMap shops={targetShops} reps={[data]} mapType="SATELLITE" />
-                
-                <div className="absolute bottom-6 left-6 z-[400] bg-white/95 backdrop-blur-md px-5 py-3 rounded-xl shadow-lg border border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600">
-                        <MapPin size={16} />
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Live Feed</p>
-                      <p className="text-[10px] font-bold text-slate-900 uppercase mt-0.5">Satellite Active</p>
-                    </div>
-                  </div>
+          {/* Live Radar Map */}
+          {showMap && assignedShop && (
+             <div className="bg-white border border-slate-200 rounded-3xl p-2 shadow-sm animate-in zoom-in-95 duration-300">
+                <div className="h-[500px] w-full relative z-0 rounded-[2rem] overflow-hidden bg-slate-100">
+                   <GeofenceMap 
+                     shopLat={assignedShop.latitude || 5.6037}
+                     shopLng={assignedShop.longitude || -0.1870}
+                     shopRadius={assignedShop.radius || 50}
+                     userLat={data?.lastLat}
+                     userLng={data?.lastLng}
+                   />
+                   <div className="absolute top-4 left-4 z-[400] bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-xl border border-slate-200 shadow-xl flex items-center gap-3">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-slate-800 tracking-widest leading-none">Radar Active</p>
+                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Monitoring Hub: {assignedShop.name}</p>
+                      </div>
+                   </div>
                 </div>
-             </section>
+             </div>
           )}
 
-          {/* PERFORMANCE METRICS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm">
+          {/* Core Analytics Blocks */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+               <div className="flex items-center gap-3 mb-6 px-2">
+                  <BarChart3 className="text-blue-500" size={18} />
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Revenue Performance</h3>
+               </div>
                <PerformanceBoard 
-                  sales={data.sales || []} 
-                  dailyReports={data.dailyReports || []} 
-                  targets={data.targets} 
-                  geofenceStats={data.geofenceStats || []} 
+                  sales={data?.sales || []} 
+                  dailyReports={data?.dailyReports || []} 
+                  targets={data?.targets} 
+                  geofenceStats={data?.geofenceStats || []} 
                />
             </div>
-            <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+               <div className="flex items-center gap-3 mb-6 px-2">
+                  <ShieldCheck className="text-emerald-500" size={18} />
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Compliance & Logs</h3>
+               </div>
                <ComplianceBoard 
-                  attendance={data.attendance || []} 
-                  leaveRequests={data.leaves || []} 
-                  disciplinaryLog={data.disciplinaryLog || []} 
+                  attendance={data?.attendance || []} 
+                  leaveRequests={data?.leaves || []} 
+                  disciplinaryLog={data?.disciplinaryLog || []} 
                   staffId={staffId} 
                   onUpdateLeave={(id: string, s: string) => exec('MANAGE_LEAVE', { leaveId: id, status: s })} 
                />
@@ -307,6 +367,36 @@ export default function MemberPortal() {
           </div>
         </div>
 
+      </div>
+    </div>
+  );
+}
+
+// --- 🧩 SAAS COMPONENTS ---
+
+function ModalInput({ label, value, onChange, type = "text" }: any) {
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+      <input 
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-11 bg-slate-50 border border-slate-200 px-4 rounded-xl text-xs font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm" 
+      />
+    </div>
+  );
+}
+
+function MiniInfo({ icon: Icon, label, value }: any) {
+  return (
+    <div className="flex items-center gap-4">
+      <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 border border-slate-100">
+        <Icon size={16} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">{label}</p>
+        <p className="text-xs font-bold text-slate-700 truncate">{value}</p>
       </div>
     </div>
   );

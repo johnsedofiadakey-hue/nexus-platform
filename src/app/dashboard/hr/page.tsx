@@ -2,25 +2,27 @@
 
 import React, { useEffect, useState } from "react";
 import { 
-  Users, UserPlus, Mail, Building2, 
-  ChevronRight, Loader2, Navigation,
-  SignalHigh, Search
+  Users, UserPlus, Mail, ChevronRight, Loader2, Navigation, Search
 } from "lucide-react";
 import Link from "next/link";
 
 export default function TeamPage() {
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchStaff = async () => {
     try {
-      // 🛰️ Refreshing live data with cache-busting
       const res = await fetch(`/api/hr/team/list?t=${Date.now()}`);
       const data = await res.json();
       const staffList = Array.isArray(data) ? data : (data.data || []);
-      setStaff(staffList);
+      
+      // 🛡️ LOGIC FIX: Exclude ADMIN accounts. Show only Agents/Managers.
+      const agentsOnly = staffList.filter((user: any) => user.role !== 'ADMIN');
+      
+      setStaff(agentsOnly);
     } catch (e) {
-      console.error("System Error: Team data currently unavailable.");
+      console.error("System Error: Team data unavailable.");
     } finally {
       setLoading(false);
     }
@@ -28,117 +30,124 @@ export default function TeamPage() {
 
   useEffect(() => { fetchStaff(); }, []);
 
+  // Filter Logic for Search Bar
+  const filteredStaff = staff.filter(person => 
+    person.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    person.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (loading) return (
     <div className="h-[70vh] flex flex-col items-center justify-center space-y-6">
       <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
       <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] animate-pulse">
-        Loading Team Members...
+        Loading Field Agents...
       </div>
     </div>
   );
 
   return (
-    <div className="max-w-[1600px] mx-auto py-8 animate-in fade-in duration-700">
+    <div className="max-w-[1600px] mx-auto py-8 animate-in fade-in duration-700 font-sans">
       
       {/* --- PAGE HEADER --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-8 px-2">
-        <div className="space-y-3">
-          <h1 className="text-5xl font-black text-[#0F172A] tracking-tighter uppercase">Team</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-8 px-4">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-black text-[#0F172A] tracking-tighter uppercase">Field Force</h1>
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 bg-emerald-500 rounded-full" />
-            <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">
-               Total Active Members: <span className="text-[#0F172A]">{staff.length}</span>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">
+               Active Personnel: <span className="text-[#0F172A]">{staff.length}</span>
             </p>
           </div>
         </div>
         
         <Link 
           href="/dashboard/hr/enrollment" 
-          className="h-14 px-8 bg-[#0F172A] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-4 hover:bg-blue-600 transition-all shadow-xl active:scale-95"
+          className="h-12 px-8 bg-[#0F172A] text-white rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center gap-3 hover:bg-blue-600 transition-all shadow-lg hover:shadow-xl active:scale-95"
         >
-          <UserPlus size={16} /> Add New Member
+          <UserPlus size={16} /> Enroll Agent
         </Link>
       </div>
 
-      {/* --- SEARCH & FILTERS BAR --- */}
-      <div className="mb-10 px-2">
-        <div className="relative max-w-md">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+      {/* --- SEARCH BAR --- */}
+      <div className="mb-10 px-4">
+        <div className="relative max-w-md group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
           <input 
             type="text" 
-            placeholder="Search by name or email..." 
-            className="w-full h-14 pl-12 pr-6 bg-white border border-slate-100 rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
+            placeholder="Search personnel directory..." 
+            className="w-full h-14 pl-12 pr-6 bg-white border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
       {/* --- MEMBER GRID --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {staff.length === 0 ? (
-          <div className="col-span-full py-32 bg-white rounded-[2.5rem] border border-slate-100 text-center flex flex-col items-center justify-center shadow-sm">
-             <Users className="w-12 h-12 text-slate-100 mb-6" />
-             <h3 className="text-xl font-black text-[#0F172A] tracking-tight uppercase">No Members Found</h3>
-             <p className="text-slate-400 font-bold max-w-xs mt-2 text-xs">The member directory is currently empty.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4">
+        {filteredStaff.length === 0 ? (
+          <div className="col-span-full py-40 bg-white rounded-[2rem] border border-dashed border-slate-200 text-center flex flex-col items-center justify-center">
+             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                <Users className="w-8 h-8 text-slate-300" />
+             </div>
+             <h3 className="text-lg font-bold text-[#0F172A] uppercase tracking-tight">Directory Empty</h3>
+             <p className="text-slate-400 text-xs font-medium mt-1">No matching personnel found.</p>
           </div>
         ) : (
-          staff.map((person) => {
+          filteredStaff.map((person) => {
             const isOnline = person.lastLat && person.lastLng;
             
             return (
               <div 
                 key={person.id} 
-                className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 group"
+                className="bg-white rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden"
               >
-                <div className="p-8">
+                <div className="p-6">
                   {/* Status Header */}
-                  <div className="flex justify-between items-start mb-8">
-                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${isOnline ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                  <div className="flex justify-between items-start mb-6">
+                    <div className={`px-3 py-1.5 rounded-lg flex items-center gap-2 border ${isOnline ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">
-                        {isOnline ? 'Active' : 'Offline'}
+                      <span className="text-[9px] font-bold uppercase tracking-widest">
+                        {isOnline ? 'Live' : 'Offline'}
                       </span>
                     </div>
-                    <div className="p-2 text-slate-300 group-hover:text-blue-500 transition-colors">
-                      <Navigation size={14} />
-                    </div>
+                    {/* Role Badge */}
+                    <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-blue-50 text-blue-600 border border-blue-100">
+                        {person.role === 'WORKER' ? 'Agent' : person.role}
+                    </span>
                   </div>
 
-                  {/* Member Photo & Bio */}
-                  <div className="flex flex-col items-center text-center mb-10">
-                    <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center border-4 border-white shadow-lg overflow-hidden mb-5">
+                  {/* Identity */}
+                  <div className="flex flex-col items-center text-center mb-8">
+                    <div className="w-24 h-24 bg-slate-50 rounded-[1.5rem] flex items-center justify-center border-4 border-white shadow-lg overflow-hidden mb-4 relative group-hover:scale-105 transition-transform">
                       {person.image ? (
                         <img src={person.image} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-2xl font-black text-slate-300">{person.name.charAt(0)}</span>
+                        <span className="text-3xl font-black text-slate-300">{person.name.charAt(0)}</span>
                       )}
                     </div>
-                    <h3 className="font-black text-[#0F172A] text-lg tracking-tighter uppercase leading-none">{person.name}</h3>
-                    <p className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] mt-2 bg-blue-50 px-3 py-1 rounded-lg">
-                      {person.role?.replace('_', ' ')}
-                    </p>
+                    <h3 className="font-bold text-[#0F172A] text-lg leading-tight mb-1">{person.name}</h3>
+                    <div className="flex items-center gap-2 text-slate-400 text-xs">
+                        <Mail size={10} />
+                        <span className="truncate max-w-[150px]">{person.email}</span>
+                    </div>
                   </div>
                   
-                  {/* Assignments & Contact */}
-                  <div className="space-y-3 mb-10">
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:border-blue-100 transition-colors">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Assigned Store</p>
-                      <span className="text-xs font-black text-[#0F172A] uppercase truncate block">
-                        {person.shop?.name || "Not Assigned"}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 px-2 text-slate-400">
-                      <Mail size={12} />
-                      <span className="text-[10px] font-bold truncate tracking-tight">{person.email}</span>
-                    </div>
+                  {/* Assignment Card */}
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 mb-6 group-hover:border-blue-100 transition-colors">
+                    <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-1 flex items-center gap-1">
+                        <Navigation size={10} /> Assigned Hub
+                    </p>
+                    <span className="text-xs font-bold text-[#0F172A] uppercase truncate block">
+                      {person.shop?.name || "Unassigned"}
+                    </span>
                   </div>
 
-                  {/* Navigation Action */}
+                  {/* Action */}
                   <Link 
                     href={`/dashboard/hr/member/${person.id}`} 
-                    className="w-full py-4 bg-[#0F172A] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-lg"
+                    className="w-full py-3.5 bg-[#0F172A] text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-md hover:shadow-lg"
                   >
-                    View Details <ChevronRight size={14} />
+                    Open Portal <ChevronRight size={14} />
                   </Link>
                 </div>
               </div>

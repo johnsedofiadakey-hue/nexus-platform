@@ -5,72 +5,78 @@ import { authOptions } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    // 🛡️ 1. SECURITY: Only authorized staff can change stock
+    // 🛡️ AUTH
     const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { sku, quantity, shopId, action } = await req.json();
 
-    if (!sku || !quantity || !shopId) {
-      return NextResponse.json({ error: "Missing SKU, Quantity, or Shop ID" }, { status: 400 });
+    if (!sku || !quantity || !shopId || !action) {
+      return NextResponse.json(
+        { error: "Missing sku, quantity, shopId, or action" },
+        { status: 400 }
+      );
     }
 
-    // 🔍 2. IDENTIFICATION
-    // We check if the product exists in the system
-    const existing = await prisma.product.findUnique({ 
-      where: { sku } 
-    });
+    if (!["ADD", "SELL"].includes(action)) {
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    }
 
-    let inventory;
+    // 🚀 ATOMIC TRANSACTION
+    const result = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findFirst({
+        where: { sku, shopId },
+        lock: { mode: "for update" }, // 👈 prevents race conditions
+      });
 
-    // 🚀 3. TRANSACTION LOGIC
-    if (existing) {
-      // ⛔ STOCK GUARD: Prevent selling more than you have
-      if (action !== 'ADD' && existing.quantity < quantity) {
-         return NextResponse.json({ 
-           success: false, 
-           error: `Insufficient stock. Only ${existing.quantity} remaining.` 
-         }, { status: 400 });
+      // ❌ SELLING NON-EXISTENT ITEM
+      if (!product && action !== "ADD") {
+        throw new Error("Product not found in this shop");
+      }
+
+      // ❌ INSUFFICIENT STOCK
+      if (product && action === "SELL" && product.quantity < quantity) {
+        throw new Error(
+          `Insufficient stock. Only ${product.quantity} remaining`
+        );
       }
 
       // ✅ UPDATE EXISTING
-      inventory = await prisma.product.update({
-        where: { sku },
-        data: {
-          quantity: action === 'ADD' ? { increment: quantity } : { decrement: quantity },
-          // Only update restock date if we are actually adding stock
-          lastRestock: action === 'ADD' ? new Date() : existing.lastRestock, 
-          updatedAt: new Date()
-        }
-      });
-    } else {
-      // ⚠️ CREATION GUARD: Only 'ADD' action can create new items
-      if (action !== 'ADD') {
-        return NextResponse.json({ error: "Product not found. Cannot sell unknown item." }, { status: 404 });
+      if (product) {
+        return tx.product.update({
+          where: { id: product.id },
+          data: {
+            quantity:
+              action === "ADD"
+                ? { increment: quantity }
+                : { decrement: quantity },
+          },
+        });
       }
 
-      // ✅ CREATE NEW (Safe Defaults)
-      inventory = await prisma.product.create({
+      // ✅ CREATE NEW PRODUCT (ADD ONLY)
+      return tx.product.create({
         data: {
           sku,
           shopId,
           quantity,
-          productName: "New Unlisted Item", // Friendly placeholder
-          priceGHS: 0, 
+          productName: "New Unlisted Item",
+          priceGHS: 0,
           category: "Uncategorized",
-          formulation: "Standard",
-          // Use undefined/null for relations if unknown, not empty strings
-          subCategoryId: undefined 
-        }
+          formulation: "FINISHED_GOOD",
+        },
       });
-    }
+    });
 
-    return NextResponse.json({ success: true, data: inventory });
-
+    return NextResponse.json({ success: true, data: result });
   } catch (error: any) {
-    console.error("📦 INVENTORY UPDATE FAILED:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("📦 INVENTORY UPDATE FAILED:", error.message);
+
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 400 }
+    );
   }
 }

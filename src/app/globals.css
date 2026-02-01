@@ -1,86 +1,75 @@
-@import "tailwindcss";
-
-/* NEXUS PROFESSIONAL THEME: SLATE & COBALT 
-  Optimized for Stormglide Logistics Operations
-*/
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --foreground-rgb: 15, 23, 42; /* Slate 900 */
-  --background-start-rgb: 248, 250, 252; /* Slate 50 */
-  --background-end-rgb: 255, 255, 255;
+  --background: #ffffff;
+  --foreground: #0f172a;
+  
+  /* Nexus Brand Palette */
+  --nexus-blue: #2563eb;
+  --nexus-dark: #0f172a;
+  --nexus-border: #e2e8f0;
+  --nexus-surface: #f8fafc;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: #f8fafc;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  transition: background-color 0.4s ease;
+@layer base {
+  body {
+    @apply bg-[var(--background)] text-[var(--foreground)] antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
 }
 
-/* --- PROFESSIONAL SCROLLBAR --- */
+@layer components {
+  /* High-End SaaS Card Style */
+  .nexus-card {
+    @apply bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+
+  /* Professional Technical Header */
+  .nexus-header {
+    @apply sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4;
+  }
+
+  /* Sharp Technical Input */
+  .nexus-input {
+    @apply h-10 px-3 bg-white border border-slate-200 rounded-md text-sm 
+           focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all;
+  }
+}
+
+/* 🛰️ Leaflet Map Customization: Making it look "Pro" */
+.leaflet-container {
+  @apply font-sans;
+  filter: grayscale(0.1) contrast(1.05);
+}
+
+.leaflet-popup-content-wrapper {
+  @apply rounded-md border border-slate-200 shadow-xl !p-0;
+}
+
+.leaflet-popup-tip {
+  @apply shadow-none;
+}
+
+.leaflet-control-zoom {
+  @apply !border-slate-200 !shadow-sm !rounded-md overflow-hidden;
+}
+
+.leaflet-control-zoom-in, .leaflet-control-zoom-out {
+  @apply !bg-white !text-slate-600 hover:!bg-slate-50 transition-colors;
+}
+
+/* 🧪 Scrollbar Styling for SaaS density */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9; /* Slate 100 */
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1; /* Slate 300 */
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #2563eb; /* Cobalt Blue */
-}
-
-/* --- MAP FIXES: PROFESSIONAL OVERRIDES --- */
-.leaflet-container {
-  background: #f1f5f9 !important; /* Matches Slate 100 */
-  outline: 0;
-  font-family: inherit;
-}
-
-/* Professional Tooltips and Popups */
-.leaflet-popup-content-wrapper {
-  background: #ffffff !important;
-  color: #1e293b !important; /* Slate 800 */
-  border-radius: 12px !important;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
-  border: 1px solid #e2e8f0;
-  padding: 0;
-}
-
-.leaflet-popup-content {
-  margin: 0 !important;
-}
-
-.leaflet-popup-tip {
-  background: #ffffff !important;
-}
-
-/* --- CUSTOM ANIMATIONS --- */
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.05); }
-}
-
-.animate-status-online {
-  animation: pulse-soft 2s infinite ease-in-out;
-}
-
-/* Clean UI utility for the Pulse Feed */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-}
-
-/* --- MOBILE POS SAFE AREA (iPhone Home Bar Fix) --- */
-.safe-area-pb {
-  padding-bottom: env(safe-area-inset-bottom, 20px);
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
 }

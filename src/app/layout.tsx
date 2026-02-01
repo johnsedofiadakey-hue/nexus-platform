@@ -1,32 +1,31 @@
-import type { Metadata, Viewport } from "next"; // Added Viewport for better PWA control
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import NextTopLoader from "nextjs-toploader";
 
+// 🛡️ PROVIDER IMPORTS
+import { AuthProvider } from "@/components/providers/AuthProvider";
+import { SessionProvider } from "@/components/providers/SessionProvider";
+
 const inter = Inter({ subsets: ["latin"] });
 
-// 📱 VIEWPORT: Critical for mobile "App" feel and status bar colors
 export const viewport: Viewport = {
   themeColor: "#0F172A",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1, // Prevents annoying zoom on input focus for mobile
+  maximumScale: 1, 
   userScalable: false,
 };
 
-// 🛰️ METADATA: Merged PWA Manifest and iOS standalone settings
 export const metadata: Metadata = {
   title: "Nexus Platform",
-  description: "Enterprise Command Center & Field Operations",
-  manifest: "/manifest.json", // Links the PWA manifest you created
+  description: "Enterprise Operations",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     title: "Nexus Agent",
     statusBarStyle: "black-translucent",
-  },
-  formatDetection: {
-    telephone: false,
   },
 };
 
@@ -36,41 +35,51 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
-        {/* iOS splash screen and home screen icon link */}
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body
-        className={`${inter.className} antialiased selection:bg-blue-100 selection:text-blue-900`}
-        suppressHydrationWarning
+      
+      {/* 🛡️ CRITICAL FIX: suppressHydrationWarning added to body.
+        This ignores attributes injected by browser extensions (Grammarly, LastPass, etc.)
+        that cause the "Hydration Mismatch" error.
+      */}
+      <body 
+        className={`${inter.className} antialiased selection:bg-blue-500/20 bg-[#FDFDFD]`}
+        suppressHydrationWarning={true}
       >
-        <NextTopLoader
-          color="#2563eb"
-          initialPosition={0.08}
-          crawlSpeed={200}
-          height={3}
-          showSpinner={false}
-          easing="ease"
-          speed={200}
-        />
+        
+        {/* 🛰️ NEXUS PROVIDER STACK */}
+        <SessionProvider>
+          <AuthProvider>
+            
+            <NextTopLoader
+              color="#2563eb"
+              initialPosition={0.08}
+              height={3}
+              showSpinner={false}
+            />
 
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            style: {
-              background: "#1e293b",
-              color: "#fff",
-              fontSize: "12px",
-              fontWeight: "bold",
-              borderRadius: "16px",
-              border: "1px solid rgba(255,255,255,0.1)",
-              backdropFilter: "blur(10px)",
-            },
-          }}
-        />
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                style: {
+                  background: "#0F172A",
+                  color: "#fff",
+                  fontSize: "11px",
+                  fontWeight: "900",
+                  textTransform: "uppercase",
+                  borderRadius: "12px",
+                },
+              }}
+            />
 
-        {children}
+            <main className="min-h-screen">
+              {children}
+            </main>
+
+          </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );

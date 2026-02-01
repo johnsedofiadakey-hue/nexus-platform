@@ -14,21 +14,34 @@ export async function GET(
     const shop = await prisma.shop.findUnique({
       where: { id },
       include: {
-        staff: { select: { id: true, name: true, role: true } },
-        inventory: { orderBy: { updatedAt: 'desc' } } // Sort by most recently touched
+        users: { 
+          select: { id: true, name: true, role: true } 
+        },
+        products: { 
+          orderBy: { updatedAt: 'desc' } 
+        } 
       }
     });
 
     if (!shop) return NextResponse.json({ error: "Shop not found" }, { status: 404 });
-    return NextResponse.json(shop);
+
+    // 🧠 MAPPING: Match Frontend Expectations
+    const response = {
+      ...shop,
+      staff: shop.users,       
+      inventory: shop.products 
+    };
+
+    return NextResponse.json(response);
 
   } catch (error: any) {
+    console.error("GET Shop Error:", error);
     return NextResponse.json({ error: "Sync Error" }, { status: 500 });
   }
 }
 
 // ----------------------------------------------------------------------
-// 2. POST: SMART INVENTORY HANDLER (CREATE & UPDATE)
+// 2. POST: INVENTORY ACTIONS (CREATE & UPDATE)
 // ----------------------------------------------------------------------
 export async function POST(
   req: Request,
@@ -41,11 +54,19 @@ export async function POST(
     console.log(`\n📦 INVENTORY ACTION [Shop: ${id}]`, body);
 
     // --- SHARED DATA SANITIZATION ---
-    const price = parseFloat(body.priceGHS);
-    const qty = parseInt(body.quantity);
-    const minLevel = parseInt(body.minStock);
+    const price = parseFloat(body.priceGHS || body.price || '0');
+    const qty = parseInt(body.quantity || body.stockLevel || '0');
+    const minLevel = parseInt(body.minStock || '5');
+    const productName = body.productName || body.name;
+    const subCat = body.subCategory || "Unsorted";
+    
+    // 🆕 NEW FIELDS (Model & Specs)
+    const modelNum = body.modelNumber || ""; 
+    const desc = body.description || body.notes || ""; 
 
-    if (isNaN(price)) return NextResponse.json({ error: "Invalid Price" }, { status: 400 });
+    if (isNaN(price) || !productName) {
+      return NextResponse.json({ error: "Invalid Price or Name" }, { status: 400 });
+    }
 
     // ======================================================
     // 🅰️ UPDATE MODE (Editing Existing Stock)
@@ -53,19 +74,18 @@ export async function POST(
     if (body.id) {
       console.log(`🔄 UPDATING ITEM: ${body.id}`);
       
-      // Calculate movement (Optional: for advanced logging)
-      // For now, we overwrite with the new "Total Count" from the UI
-      
       const updatedItem = await prisma.product.update({
         where: { id: body.id },
         data: {
-          productName: body.productName,
-          sku: body.sku,
-          priceGHS: price,
-          quantity: qty, // Updates to the new total
-          minStock: isNaN(minLevel) ? 5 : minLevel,
-          category: body.category,
-          subCat: body.subCategory
+          name: productName,
+          modelNumber: modelNum,      // 👈 SAVING UPDATE
+          description: desc,          // 👈 SAVING UPDATE
+          barcode: body.sku,
+          sellingPrice: price,
+          stockLevel: qty,
+          minStock: minLevel,
+          category: body.category || "General",
+          subCategory: subCat,
         }
       });
 
@@ -73,10 +93,7 @@ export async function POST(
         success: true, 
         data: updatedItem,
         message: "Inventory Updated",
-        audit: {
-          date: updatedItem.updatedAt,
-          newTotal: updatedItem.quantity
-        }
+        audit: { date: updatedItem.updatedAt, newTotal: updatedItem.stockLevel }
       });
     }
 
@@ -85,27 +102,32 @@ export async function POST(
     // ======================================================
     console.log(`✨ CREATING NEW ITEM`);
 
-    const finalSku = body.sku && body.sku.length > 2 
+    const finalBarcode = body.sku && body.sku.length > 2 
       ? body.sku 
       : `SKU-${Date.now().toString().slice(-6)}`;
 
-    // Duplicate Check
-    const existing = await prisma.product.findUnique({ where: { sku: finalSku } });
+    // Check for duplicates
+    const existing = await prisma.product.findFirst({ 
+      where: { barcode: finalBarcode } 
+    });
+    
     if (existing) {
-      return NextResponse.json({ error: `SKU ${finalSku} is already in use.` }, { status: 409 });
+      return NextResponse.json({ error: `Barcode ${finalBarcode} already exists.` }, { status: 409 });
     }
 
     const newItem = await prisma.product.create({
       data: {
         shopId: id,
-        productName: body.productName,
-        sku: finalSku,
-        priceGHS: price,
-        quantity: isNaN(qty) ? 0 : qty,
-        minStock: isNaN(minLevel) ? 5 : minLevel,
+        name: productName,
+        modelNumber: modelNum,      // 👈 SAVING NEW
+        description: desc,          // 👈 SAVING NEW
+        barcode: finalBarcode,
+        sellingPrice: price,
+        buyingPrice: 0,
+        stockLevel: qty,
+        minStock: minLevel,
         category: body.category || "General",
-        subCat: body.subCategory || "Unsorted",
-        formulation: "FINISHED_GOOD"
+        subCategory: subCat,
       }
     });
 
@@ -113,18 +135,14 @@ export async function POST(
       success: true, 
       data: newItem,
       message: "Item Added",
-      audit: {
-        date: newItem.createdAt,
-        qtyAdded: newItem.quantity
-      }
+      audit: { date: newItem.createdAt, qtyAdded: newItem.stockLevel }
     });
 
   } catch (error: any) {
     console.error("❌ TRANSACTION FAILED:", error);
     
-    // Friendly error for duplicates during Edit
     if (error.code === 'P2002') {
-      return NextResponse.json({ error: "This SKU is already taken by another item." }, { status: 409 });
+      return NextResponse.json({ error: "This Barcode/SKU is already taken." }, { status: 409 });
     }
     
     return NextResponse.json({ error: error.message || "Database Error" }, { status: 500 });
@@ -132,19 +150,50 @@ export async function POST(
 }
 
 // ----------------------------------------------------------------------
-// 3. DELETE: REMOVE ITEM
+// 3. DELETE: UNIVERSAL REMOVAL (SHOP OR INVENTORY)
 // ----------------------------------------------------------------------
 export async function DELETE(
   req: Request,
   props: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const body = await req.json();
-    if (!body.id) return NextResponse.json({ error: "ID Required" }, { status: 400 });
+  const { id } = await props.params;
 
-    await prisma.product.delete({ where: { id: body.id } });
-    return NextResponse.json({ success: true });
+  try {
+    let body = null;
+    try {
+      const text = await req.text();
+      body = text ? JSON.parse(text) : null;
+    } catch (e) {
+      // Ignore parse error
+    }
+
+    // === SCENARIO A: DELETE INVENTORY ITEM ===
+    if (body && body.type === 'INVENTORY' && body.id) {
+      console.log(`🗑️ DELETING STOCK ITEM: ${body.id}`);
+      await prisma.product.delete({ where: { id: body.id } });
+      return NextResponse.json({ success: true, message: "Item deleted" });
+    }
+
+    // === SCENARIO B: DELETE ENTIRE SHOP ===
+    console.log(`🔥 DELETING SHOP: ${id}`);
+
+    // 🛡️ Transactional Cleanup (Sales FIRST to prevent Foreign Key errors)
+    await prisma.$transaction([
+      prisma.sale.deleteMany({ where: { shopId: id } }),
+      prisma.expense.deleteMany({ where: { shopId: id } }),
+      prisma.customer.deleteMany({ where: { shopId: id } }),
+      prisma.product.deleteMany({ where: { shopId: id } }),
+      prisma.user.updateMany({
+        where: { shopId: id },
+        data: { shopId: null }
+      }),
+      prisma.shop.delete({ where: { id } })
+    ]);
+
+    return NextResponse.json({ success: true, message: "Shop and all related data purged." });
+
   } catch (error: any) {
-    return NextResponse.json({ error: "Delete Failed" }, { status: 500 });
+    console.error("❌ DELETE FAILED:", error);
+    return NextResponse.json({ error: "Delete operation failed." }, { status: 500 });
   }
 }

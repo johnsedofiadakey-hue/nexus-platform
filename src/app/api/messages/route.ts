@@ -6,7 +6,6 @@ import { authOptions } from "@/lib/auth";
 /**
  * -----------------------------------------
  * GET — Fetch conversation messages
- * Used by HQ dashboards
  * -----------------------------------------
  */
 export async function GET() {
@@ -21,13 +20,10 @@ export async function GET() {
 
     const messages = await prisma.message.findMany({
       where: {
-        OR: [
-          { senderId: userId },
-          { receiverId: userId }
-        ]
+        OR: [{ senderId: userId }, { receiverId: userId }],
       },
       orderBy: { createdAt: "asc" },
-      take: 100
+      take: 100,
     });
 
     return NextResponse.json(messages);
@@ -42,7 +38,7 @@ export async function GET() {
 
 /**
  * -----------------------------------------
- * POST — Send message (HQ → Staff OR Staff → HQ)
+ * POST — Send message
  * -----------------------------------------
  */
 export async function POST(req: Request) {
@@ -64,10 +60,9 @@ export async function POST(req: Request) {
 
     const senderId = session.user.id;
 
-    // Prevent sending message to self
     if (senderId === receiverId) {
       return NextResponse.json(
-        { error: "Cannot send message to yourself" },
+        { error: "Cannot message yourself" },
         { status: 400 }
       );
     }
@@ -76,8 +71,8 @@ export async function POST(req: Request) {
       data: {
         content,
         senderId,
-        receiverId
-      }
+        receiverId,
+      },
     });
 
     return NextResponse.json(message);

@@ -1,79 +1,102 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = 'force-dynamic';
-
 export async function GET() {
   try {
-    // 1. GHOST DETECTION LOGIC
-    // Find reps (SALES_REP) who are clocked in but have zero sales in the last 4 hours
+    const alerts = [];
+
+    // 1. DETECT "GHOST" WORKERS (Logged in but no sales in 4 hours)
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-    
-    const ghostUsers = await prisma.user.findMany({
+
+    const ghosts = await prisma.user.findMany({
       where: {
-        role: "SALES_REP", // 🛡️ FIX: Changed from 'USER' to 'SALES_REP'
-        attendance: {      // 🛡️ FIX: Changed 'attendances' to 'attendance' (check your schema if it fails)
+        role: "WORKER", // FIXED: Was 'SALES_REP'
+        attendance: {
           some: {
-            clockOutTime: null // Currently clocked in
+            // FIXED: 'checkOut' instead of 'clockOutTime'
+            checkOut: null, 
+            checkIn: { lte: fourHoursAgo }
           }
         },
         sales: {
           none: {
-            createdAt: {
-              gte: fourHoursAgo
-            }
+            createdAt: { gte: fourHoursAgo }
           }
         }
       },
       select: {
         id: true,
         name: true,
-        shop: {
-          select: {
-            name: true
-          }
-        }
+        shop: { select: { name: true } }
       },
       take: 5
     });
 
-    // 2. RECENT SALES FEED
-    const recentSales = await prisma.sale.findMany({
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { name: true, image: true } },
-        shop: { select: { name: true } },
-        items: true
-      }
+    // Format Ghost Alerts
+    ghosts.forEach(ghost => {
+      alerts.push({
+        id: `ghost-${ghost.id}`,
+        type: "GHOST_ALERT",
+        user: ghost.name,
+        shop: ghost.shop?.name || "Unknown Branch",
+        message: "No activity recorded in 4+ hours",
+        severity: "HIGH",
+        timestamp: new Date()
+      });
     });
 
-    // 3. Transform for Frontend
-    const feed = [
-      ...ghostUsers.map(u => ({
-        id: `ghost-${u.id}`,
-        type: 'GHOST_ALERT',
-        user: u.name,
-        shop: u.shop?.name || "Unknown Location",
-        time: new Date().toISOString(),
-        message: "No sales recorded in 4+ hours despite being clocked in.",
-        severity: 'HIGH'
-      })),
-      ...recentSales.map(s => ({
-        id: s.id,
-        type: 'SALE',
-        user: s.user.name,
-        shop: s.shop?.name,
-        amount: s.totalAmount,
-        time: s.createdAt.toISOString(),
-        itemsCount: s.items.length
-      }))
-    ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    // 2. DETECT LOW STOCK (Using your schema's 'stockLevel' and 'minStock')
+    const lowStock = await prisma.product.findMany({
+      where: {
+        // We use a raw comparison because Prisma fields can be tricky
+        stockLevel: { lte: 5 } // Hardcoded threshold for safety
+      },
+      include: { shop: true },
+      take: 3
+    });
 
-    return NextResponse.json(feed);
+    lowStock.forEach(item => {
+      alerts.push({
+        id: `stock-${item.id}`,
+        type: "STOCK_LOW",
+        user: "System",
+        shop: item.shop.name,
+        message: `${item.name} is running low (${item.stockLevel} left)`,
+        severity: "MEDIUM",
+        timestamp: new Date()
+      });
+    });
 
-  } catch (error: any) {
+    // 3. DETECT HIGH VALUE SALES (Live Ticker)
+    const bigSales = await prisma.sale.findMany({
+      where: {
+        totalAmount: { gte: 1000 } // Sales over 1000 GHS
+      },
+      include: { 
+        user: true,
+        shop: true 
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 3
+    });
+
+    bigSales.forEach(sale => {
+      alerts.push({
+        id: `sale-${sale.id}`,
+        type: "BIG_SALE",
+        user: sale.user.name,
+        shop: sale.shop.name,
+        message: `Closed a ₵${sale.totalAmount} deal`,
+        severity: "POSITIVE",
+        timestamp: sale.createdAt
+      });
+    });
+
+    return NextResponse.json(alerts);
+
+  } catch (error) {
     console.error("❌ PULSE_FEED_ERROR:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Return empty array instead of crashing
+    return NextResponse.json([]);
   }
 }

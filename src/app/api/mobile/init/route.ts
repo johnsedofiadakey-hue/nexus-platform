@@ -1,62 +1,73 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // 🔐 HARD AUTH GUARD
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
+    /**
+     * ✅ CRITICAL FIX
+     * JWT sessions may NOT contain user.id reliably.
+     * We must resolve the user using email (guaranteed).
+     */
+    if (!session.user.email) {
+      return NextResponse.json(
+        { error: "Invalid session" },
+        { status: 401 }
+      );
+    }
+
+    // 🧠 Resolve user safely
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: {
-        shop: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
-            latitude: true,
-            longitude: true,
-            radius: true,
-          },
-        },
-      },
+      include: { shop: true }
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Agent not found" },
+        { status: 404 }
+      );
     }
 
-    // 🚨 CRITICAL: If agent has no assigned shop, GPS MUST stay locked
+    // 🚫 UNASSIGNED AGENT (EXPLICIT FAILURE)
     if (!user.shop) {
-      return NextResponse.json({
-        agentName: user.name,
-        agentId: user.id,
-        role: user.role,
-        shopAssigned: false,
-      });
+      return NextResponse.json(
+        {
+          error: "UNASSIGNED",
+          agentName: user.name
+        },
+        { status: 409 } // ⬅️ IMPORTANT
+      );
     }
 
-    return NextResponse.json({
-      agentName: user.name,
-      agentId: user.id,
-      role: user.role,
-
-      shopAssigned: true,
-      shopId: user.shop.id,
-      shopName: user.shop.name,
-
-      // 🛰️ GPS PAYLOAD (THIS UNBLOCKS EVERYTHING)
-      shopLat: user.shop.latitude,
-      shopLng: user.shop.longitude,
-      radius: user.shop.radius ?? 200,
-    });
+    // ✅ SUCCESS (MOBILE SAFE CONTRACT)
+    return NextResponse.json(
+      {
+        agentName: user.name,
+        shopName: user.shop.name,
+        shopLat: Number(user.shop.latitude),
+        shopLng: Number(user.shop.longitude),
+        radius: Number(user.shop.radius ?? 100)
+      },
+      { status: 200 }
+    );
 
   } catch (error) {
     console.error("MOBILE INIT ERROR:", error);
-    return NextResponse.json({ error: "Init Failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: "SYSTEM_FAILURE" },
+      { status: 500 }
+    );
   }
 }

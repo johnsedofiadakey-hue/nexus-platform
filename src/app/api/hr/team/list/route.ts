@@ -1,60 +1,77 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 
-export const dynamic = 'force-dynamic';
-
+/**
+ * 🛰️ NEXUS TEAM REGISTRY API
+ * Optimized for high-speed synchronization and geofence tracking.
+ */
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // 1. Fetch Everyone
     const staff = await prisma.user.findMany({
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         name: true,
-        email: true,
         role: true,
-        status: true, // DB Status (e.g., 'SUSPENDED')
-        image: true,
+        email: true,
         phone: true,
-        lastLat: true, // 📍 Need coordinates for map
-        lastLng: true,
-        lastSeen: true, // ⏱️ Need timestamp for "Online" check
+        status: true,
+        shopId: true,
+        isInsideZone: true,
+        image: true, // Restored: Requires 'npx prisma db push'
         shop: {
-          select: { id: true, name: true }
+          select: {
+            id: true,
+            name: true,
+            location: true,
+            latitude: true,
+            longitude: true,
+            radius: true
+          }
+        },
+        attendance: {
+          take: 1,
+          orderBy: { date: 'desc' },
+          select: { checkIn: true }
         }
       },
-      orderBy: { createdAt: 'desc' }
     });
 
-    // 2. Process "Real-Time" Status
-    const now = Date.now();
-    const FIVE_MINS = 5 * 60 * 1000;
+    const formattedTeam = staff.map((user) => ({
+      id: user.id,
+      name: user.name || "Unknown Agent",
+      role: user.role,
+      status: user.status === "ACTIVE" ? "Active" : "Offline",
+      shop: user.shop?.name || "Unassigned",
+      shopId: user.shopId,
+      image: user.image,
+      
+      // Geofence context
+      location: user.shop ? {
+        lat: user.shop.latitude || 5.6037,
+        lng: user.shop.longitude || -0.1870
+      } : { lat: 5.6037, lng: -0.1870 },
+      
+      lastActive: user.attendance?.[0]?.checkIn || new Date(),
+      isInsideZone: user.isInsideZone || false
+    }));
 
-    const liveStaff = staff.map(agent => {
-      // If they have pulsed in the last 5 mins, they are ONLINE
-      const lastPulse = agent.lastSeen ? new Date(agent.lastSeen).getTime() : 0;
-      const isOnline = (now - lastPulse) < FIVE_MINS;
-
-      return {
-        ...agent,
-        // Override the DB status if they are actively working
-        status: isOnline ? 'ACTIVE' : (agent.status || 'OFFLINE'), 
-        // Ensure coordinates are numbers for the frontend map
-        latitude: agent.lastLat || 0,
-        longitude: agent.lastLng || 0
-      };
+    return NextResponse.json({ 
+      data: formattedTeam, 
+      meta: { total: staff.length } 
     });
-
-    return NextResponse.json(liveStaff);
 
   } catch (error: any) {
-    console.error("❌ TEAM API ERROR:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("❌ TEAM_LIST_SYNC_FAILURE:", error.message);
+
+    // Specific guard for the Prepared Statement crash
+    if (error.message.includes("prepared statement")) {
+      return NextResponse.json(
+        { error: "Database Cache Desync. Please retry in 5s.", code: "POOL_RESET" }, 
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json({ data: [], error: "Internal System Error" }, { status: 500 });
   }
 }

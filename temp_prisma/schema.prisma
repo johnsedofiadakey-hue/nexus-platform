@@ -1,0 +1,301 @@
+// -------------------------------------------------------------------------
+// NEXUS GLOBAL SCHEMA - v26.2.0 (GEOFENCE & PULSE READY)
+// -------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --- 1. IDENTITY & HR ---
+model User {
+  id               String                @id @default(uuid())
+  name             String
+  email            String                @unique
+  password         String
+  role             Role                  @default(SALES_REP)
+  
+  // Personal Details
+  phone            String?
+  ghanaCard        String?
+  dob              DateTime?             
+  
+  // Status & Media
+  status           Status                @default(ACTIVE)
+  image            String?               @db.Text 
+  
+  // 🚀 OPERATIONAL LINKS
+  shopId           String?    
+  shop             Shop?                 @relation("StaffAtShop", fields: [shopId], references: [id])
+  
+  // 🛡️ Admin Tracking
+  createdShops     Shop[]                @relation("CreatedBy")
+
+  // HR Data
+  attendance       Attendance[]
+  leaves           LeaveRequest[]
+  disciplinary     DisciplinaryRecord[]  @relation("ReceivedCitations")
+  issuedCitations  DisciplinaryRecord[]  @relation("IssuedCitations")
+  complianceLogs   ComplianceLog[]       // <--- Added for Geofence Breaches
+
+  // Sales Data
+  sales            Sale[]
+  dailyReports     DailyReport[]
+  
+  // Chat
+  sentMessages      Message[]             @relation("SentMessages")
+  receivedMessages  Message[]             @relation("ReceivedMessages")
+
+  // 🛰️ GPS Tracking & Pulse Data
+  lastLat           Float?
+  lastLng           Float?
+  lastSeen          DateTime?             // <--- RENAMED from lastSync to match API
+  isInsideZone      Boolean               @default(false)
+  
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([shopId])
+  @@index([role, status])
+  @@index([email])
+}
+
+enum Role {
+  SUPER_USER
+  ADMIN
+  HR_MANAGER
+  SALES_REP
+  AGENT // Added AGENT for clarity in code
+}
+
+enum Status {
+  ACTIVE
+  SUSPENDED
+  ON_LEAVE
+  TERMINATED
+}
+
+// --- 2. RETAIL NETWORK (SHOPS) ---
+model Shop {
+  id              String    @id @default(uuid())
+  name            String
+  location        String    
+  latitude        Float
+  longitude       Float
+  radius          Int       @default(150) 
+  
+  managerName     String?
+  managerPhone    String?
+  openingTime     String?   @default("08:00 AM")
+
+  // 🛡️ Ownership
+  createdById     String
+  createdBy       User      @relation("CreatedBy", fields: [createdById], references: [id])
+
+  // Relations
+  staff           User[]    @relation("StaffAtShop")
+  inventory       Product[]
+  sales           Sale[]
+  complianceLogs  ComplianceLog[] // <--- Added for shop-specific breaches
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([createdById])
+}
+
+// --- 3. SUPPLY CHAIN (INVENTORY) ---
+// Note: In API code, access this via prisma.product
+model Product {
+  id              String    @id @default(uuid())
+  productName     String
+  sku             String    @unique
+  
+  // Financials
+  priceGHS        Float
+  quantity        Int
+  minStock        Int       @default(5)
+  
+  // Categorization
+  formulation     String?   @default("FINISHED_GOOD") 
+  category        String?   
+  subCat          String?   
+  
+  // Linking
+  shopId          String?   
+  shop            Shop?     @relation(fields: [shopId], references: [id])
+  
+  subCategoryId   String?   
+  subCategory     SubCategory? @relation(fields: [subCategoryId], references: [id])
+
+  saleItems       SaleItem[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([shopId])
+  @@index([sku])
+}
+
+model Category {
+  id            String        @id @default(uuid())
+  name          String        @unique
+  subCategories SubCategory[]
+}
+
+model SubCategory {
+  id            String    @id @default(uuid())
+  name          String
+  categoryId    String    
+  category      Category  @relation(fields: [categoryId], references: [id])
+  products      Product[]
+
+  @@index([categoryId])
+}
+
+// --- 4. SALES ENGINE ---
+model Sale {
+  id              String       @id @default(uuid())
+  totalAmount     Float        // API uses this or 'total'
+  
+  source          String       @default("POS") 
+  paymentMethod   String       @default("CASH")
+  
+  latitude        Float?
+  longitude       Float?
+  
+  userId          String      
+  user            User         @relation(fields: [userId], references: [id])
+  
+  shopId          String?     
+  shop            Shop?        @relation(fields: [shopId], references: [id])
+  
+  items           SaleItem[]
+  
+  createdAt       DateTime     @default(now())
+
+  @@index([userId])
+  @@index([shopId])
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id              String    @id @default(uuid())
+  saleId          String    
+  sale            Sale      @relation(fields: [saleId], references: [id])
+  
+  productId       String    
+  product         Product   @relation(fields: [productId], references: [id])
+  
+  quantity        Int
+  priceAtSale     Float
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model DailyReport {
+  id              String    @id @default(uuid())
+  userId          String    
+  user            User      @relation(fields: [userId], references: [id])
+  
+  walkIns         Int       @default(0)
+  buyers          Int       @default(0) 
+  marketIntel     String?  
+  stockGaps       String?  
+  
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// --- 5. HR & COMPLIANCE ---
+model Attendance {
+  id              String    @id @default(uuid())
+  userId          String    
+  user            User      @relation(fields: [userId], references: [id])
+  
+  date            DateTime
+  clockInTime     DateTime?
+  clockOutTime    DateTime?
+  
+  gpsLat          Float?
+  gpsLng          Float?
+
+  @@index([userId, date])
+}
+
+model LeaveRequest {
+  id              String    @id @default(uuid())
+  userId          String    
+  user            User      @relation(fields: [userId], references: [id])
+  
+  type            String    
+  startDate       DateTime
+  endDate         DateTime
+  reason          String
+  status          String    @default("PENDING") 
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([userId, status])
+}
+
+model DisciplinaryRecord {
+  id              String    @id @default(uuid())
+  userId          String    
+  user            User      @relation("ReceivedCitations", fields: [userId], references: [id])
+  
+  issuerId        String    
+  issuer          User      @relation("IssuedCitations", fields: [issuerId], references: [id])
+  
+  type            String    
+  severity        String    
+  description     String
+  actionTaken     String?  
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// 🛡️ NEW MODEL: COMPLIANCE LOGS (For Geofence Breaches)
+model ComplianceLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  shopId    String?
+  shop      Shop?    @relation(fields: [shopId], references: [id])
+  
+  type      String   // 'GEOFENCE_BREACH'
+  severity  String   // 'CRITICAL', 'WARNING'
+  details   String
+  lat       String?
+  lng       String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+}
+
+model Message {
+  id              String    @id @default(uuid())
+  content         String
+  
+  senderId        String    
+  sender          User      @relation("SentMessages", fields: [senderId], references: [id])
+  
+  receiverId      String    
+  receiver        User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  read            Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  @@index([senderId, receiverId])
+  @@index([createdAt])
+}
