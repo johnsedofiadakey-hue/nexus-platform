@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    // 🔓 LOGGING: Check if the server actually sees your token
+    // Log access for debugging purposes
     const token = req.nextauth.token;
     console.log(`[Middleware] Visiting: ${req.nextUrl.pathname} | Role: ${token?.role || 'Guest'}`);
     
@@ -11,9 +11,21 @@ export default withAuth(
   },
   {
     callbacks: {
-      // 🔓 BYPASS: Always return true. 
-      // This stops the "Kick back to Login" behavior.
-      authorized: () => true, 
+      // ✅ PROPER AUTH CHECK: Verify token exists
+      // This ensures users must be authenticated to access protected routes.
+      // 
+      // To temporarily bypass in development, set NEXT_PUBLIC_DEV_BYPASS=true in .env
+      // However, this is NOT recommended as it masks authentication issues.
+      authorized: ({ token }) => {
+        // Check for dev bypass (use with caution)
+        if (process.env.NEXT_PUBLIC_DEV_BYPASS === 'true') {
+          console.warn('⚠️  [Middleware] Auth bypass is ENABLED. Disable in production!');
+          return true;
+        }
+        
+        // Require valid token with role
+        return !!token?.role;
+      }, 
     },
   }
 );

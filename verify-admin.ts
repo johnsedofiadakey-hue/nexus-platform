@@ -4,29 +4,34 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = 'admin@stormglide.com';
-  const password = 'NexusAdmin2026!';
+  const email = 'admin@nexus.com';
+  const password = 'admin123';
   
-  console.log('⏳ Connecting to Neon...');
+  console.log('⏳ Verifying admin account...');
   
-  // 1. Clear existing
-  await prisma.user.deleteMany({ where: { email } });
-  
-  // 2. Hash
+  // Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
   
-  // 3. Create Fresh
-  const user = await prisma.user.create({
-    data: {
+  // Upsert admin user (idempotent)
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: {
+      password: hashedPassword,
+      role: 'ADMIN',
+    },
+    create: {
       email,
       name: 'Nexus Admin',
       password: hashedPassword,
       role: 'ADMIN',
+      status: 'ACTIVE',
     }
   });
 
-  console.log('✅ DATABASE ENTRY CREATED');
+  console.log('✅ ADMIN ACCOUNT VERIFIED');
   console.log('User ID:', user.id);
+  console.log('📧 Email:', email);
+  console.log('🔑 Password:', password, '(for dev/testing only)');
   console.log('Hashed Password in DB:', user.password.substring(0, 10) + '...');
 }
 

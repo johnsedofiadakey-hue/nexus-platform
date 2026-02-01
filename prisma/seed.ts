@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -14,22 +15,21 @@ async function main() {
      });
      console.log("✅ Database cleared.");
 
-     // 2. CREATE THE AGENT
-     // Now this WORKS because we added 'position' and 'department' to the schema
+     // 2. CREATE THE AGENT with bcrypt-hashed password
+     const agentPassword = await bcrypt.hash("123", 10);
      const agent = await prisma.user.create({
        data: {
          email: "ernest@nexus.com",
          name: "Ernest Agent",
          role: "AGENT",
-         password: "123",
+         password: agentPassword,
          position: "Field Operative", 
          department: "Retail"
        },
      });
-     console.log(`👤 Created Agent: ${agent.email} | Password: 123`);
+     console.log(`👤 Created Agent: ${agent.email} | Password: 123 (hashed in DB)`);
 
      // 3. CREATE THE SHOP
-     // Now this WORKS because we added 'status' to the schema
      await prisma.shop.create({
        data: {
          name: "Nexus Retail - HQ",
@@ -42,8 +42,27 @@ async function main() {
      });
      console.log("🏢 Created Shop: Nexus HQ");
 
+     // 4. CREATE/UPDATE ADMIN USER with consistent email
+     const adminPassword = await bcrypt.hash("admin123", 10);
+     const admin = await prisma.user.upsert({
+       where: { email: "admin@nexus.com" },
+       update: {
+         password: adminPassword,
+         role: "ADMIN",
+       },
+       create: {
+         email: "admin@nexus.com",
+         name: "Admin User",
+         password: adminPassword,
+         role: "ADMIN",
+         status: "ACTIVE",
+       },
+     });
+     console.log(`👑 Admin User: ${admin.email} | Password: admin123 (hashed in DB)`);
+
   } catch (e) {
      console.error("❌ Seed Failed:", e);
+     throw e;
   }
 }
 

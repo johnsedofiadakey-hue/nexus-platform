@@ -11,6 +11,7 @@
     "db:push": "npx prisma db push",
     "db:seed": "npx prisma db seed",
     "db:generate": "npx prisma generate",
+    "seed": "tsx prisma/seed.ts",
     "e2e:messages": "ts-node scripts/e2e/messages-test.ts"
   },
   "dependencies": {
