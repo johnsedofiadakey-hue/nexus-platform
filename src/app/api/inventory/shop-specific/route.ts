@@ -19,27 +19,25 @@ export async function GET() {
     // Safety: If an agent isn't assigned to a hub, they see an empty list (Security First)
     if (!userShopId) {
       console.log(`⚠️ Inventory blocked: User ${session.user.email} has no assigned shop.`);
-      return NextResponse.json([]); 
+      return NextResponse.json([]);
     }
 
     // 3. FETCH INVENTORY (Filtered for Speed)
     const inventory = await prisma.product.findMany({
       where: {
         shopId: userShopId,
-        quantity: { gt: 0 } // 🚀 OPTIMIZATION: Only fetch items currently in stock
+        stockLevel: { gt: 0 } // 🚀 OPTIMIZATION: Only fetch items currently in stock
       },
       select: {
         id: true,
-        productName: true, // ✅ Correct field name (matches schema)
-        sku: true,
-        priceGHS: true,
-        quantity: true,
+        name: true,
+        barcode: true,
+        sellingPrice: true,
+        stockLevel: true,
         category: true,
-        formulation: true
+        // formulation: true // Not in schema
       },
-      orderBy: {
-        productName: 'asc'
-      }
+      orderBy: { name: 'asc' }
     });
 
     return NextResponse.json(inventory);

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 // ----------------------------------------------------------------------
 // 1. GET: FETCH SHOP & INVENTORY
@@ -11,15 +13,23 @@ export async function GET(
   const { id } = await props.params;
 
   try {
-    const shop = await prisma.shop.findUnique({
-      where: { id },
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const shop = await prisma.shop.findFirst({
+      where: {
+        id,
+        organizationId: session.user.organizationId // 🔐 Security Check
+      },
       include: {
-        users: { 
-          select: { id: true, name: true, role: true } 
+        users: {
+          select: { id: true, name: true, role: true }
         },
-        products: { 
-          orderBy: { updatedAt: 'desc' } 
-        } 
+        products: {
+          orderBy: { updatedAt: 'desc' }
+        }
       }
     });
 
@@ -28,8 +38,8 @@ export async function GET(
     // 🧠 MAPPING: Match Frontend Expectations
     const response = {
       ...shop,
-      staff: shop.users,       
-      inventory: shop.products 
+      staff: shop.users,
+      inventory: shop.products
     };
 
     return NextResponse.json(response);
@@ -50,6 +60,17 @@ export async function POST(
   const { id } = await props.params;
 
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Verify ownership of the shop first
+    const shopOwner = await prisma.shop.findFirst({
+      where: { id, organizationId: session.user.organizationId }
+    });
+    if (!shopOwner) return NextResponse.json({ error: "Shop not found or access denied" }, { status: 403 });
+
     const body = await req.json();
     console.log(`\n📦 INVENTORY ACTION [Shop: ${id}]`, body);
 
@@ -59,10 +80,10 @@ export async function POST(
     const minLevel = parseInt(body.minStock || '5');
     const productName = body.productName || body.name;
     const subCat = body.subCategory || "Unsorted";
-    
+
     // 🆕 NEW FIELDS (Model & Specs)
-    const modelNum = body.modelNumber || ""; 
-    const desc = body.description || body.notes || ""; 
+    const modelNum = body.modelNumber || "";
+    const desc = body.description || body.notes || "";
 
     if (isNaN(price) || !productName) {
       return NextResponse.json({ error: "Invalid Price or Name" }, { status: 400 });
@@ -73,13 +94,13 @@ export async function POST(
     // ======================================================
     if (body.id) {
       console.log(`🔄 UPDATING ITEM: ${body.id}`);
-      
+
       const updatedItem = await prisma.product.update({
         where: { id: body.id },
         data: {
           name: productName,
-          modelNumber: modelNum,      // 👈 SAVING UPDATE
-          description: desc,          // 👈 SAVING UPDATE
+          modelNumber: modelNum,
+          description: desc,
           barcode: body.sku,
           sellingPrice: price,
           stockLevel: qty,
@@ -89,8 +110,8 @@ export async function POST(
         }
       });
 
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         data: updatedItem,
         message: "Inventory Updated",
         audit: { date: updatedItem.updatedAt, newTotal: updatedItem.stockLevel }
@@ -102,15 +123,15 @@ export async function POST(
     // ======================================================
     console.log(`✨ CREATING NEW ITEM`);
 
-    const finalBarcode = body.sku && body.sku.length > 2 
-      ? body.sku 
+    const finalBarcode = body.sku && body.sku.length > 2
+      ? body.sku
       : `SKU-${Date.now().toString().slice(-6)}`;
 
     // Check for duplicates
-    const existing = await prisma.product.findFirst({ 
-      where: { barcode: finalBarcode } 
+    const existing = await prisma.product.findFirst({
+      where: { barcode: finalBarcode, shopId: id } // Scope to shop!
     });
-    
+
     if (existing) {
       return NextResponse.json({ error: `Barcode ${finalBarcode} already exists.` }, { status: 409 });
     }
@@ -119,11 +140,11 @@ export async function POST(
       data: {
         shopId: id,
         name: productName,
-        modelNumber: modelNum,      // 👈 SAVING NEW
-        description: desc,          // 👈 SAVING NEW
+        modelNumber: modelNum,
+        description: desc,
         barcode: finalBarcode,
         sellingPrice: price,
-        buyingPrice: 0,
+        buyingPrice: 0, // Default
         stockLevel: qty,
         minStock: minLevel,
         category: body.category || "General",
@@ -131,8 +152,8 @@ export async function POST(
       }
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: newItem,
       message: "Item Added",
       audit: { date: newItem.createdAt, qtyAdded: newItem.stockLevel }
@@ -140,11 +161,9 @@ export async function POST(
 
   } catch (error: any) {
     console.error("❌ TRANSACTION FAILED:", error);
-    
     if (error.code === 'P2002') {
       return NextResponse.json({ error: "This Barcode/SKU is already taken." }, { status: 409 });
     }
-    
     return NextResponse.json({ error: error.message || "Database Error" }, { status: 500 });
   }
 }
@@ -159,6 +178,17 @@ export async function DELETE(
   const { id } = await props.params;
 
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Verify ownership of the shop first
+    const shopOwner = await prisma.shop.findFirst({
+      where: { id, organizationId: session.user.organizationId }
+    });
+    if (!shopOwner) return NextResponse.json({ error: "Access denied" }, { status: 403 });
+
     let body = null;
     try {
       const text = await req.text();
@@ -170,6 +200,10 @@ export async function DELETE(
     // === SCENARIO A: DELETE INVENTORY ITEM ===
     if (body && body.type === 'INVENTORY' && body.id) {
       console.log(`🗑️ DELETING STOCK ITEM: ${body.id}`);
+      // Ensure product belongs to this shop
+      const product = await prisma.product.findFirst({ where: { id: body.id, shopId: id } })
+      if (!product) return NextResponse.json({ error: "Item not found in this shop" }, { status: 404 });
+
       await prisma.product.delete({ where: { id: body.id } });
       return NextResponse.json({ success: true, message: "Item deleted" });
     }
@@ -177,7 +211,7 @@ export async function DELETE(
     // === SCENARIO B: DELETE ENTIRE SHOP ===
     console.log(`🔥 DELETING SHOP: ${id}`);
 
-    // 🛡️ Transactional Cleanup (Sales FIRST to prevent Foreign Key errors)
+    // 🛡️ Transactional Cleanup
     await prisma.$transaction([
       prisma.sale.deleteMany({ where: { shopId: id } }),
       prisma.expense.deleteMany({ where: { shopId: id } }),

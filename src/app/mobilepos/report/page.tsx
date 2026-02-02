@@ -2,11 +2,11 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  BarChart2, Zap, PackageSearch, Send, 
+import {
+  BarChart2, Zap, PackageSearch, Send,
   Loader2, CheckCircle2, ArrowLeft
 } from "lucide-react";
-import { useMobileTheme } from "@/context/MobileThemeContext"; 
+import { useMobileTheme } from "@/context/MobileThemeContext";
 
 const getColorHex = (color: string) => {
   const colors: Record<string, string> = {
@@ -25,9 +25,10 @@ export default function FieldReportPage() {
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     walkIns: "",
+    inquiries: "",
     buyers: "",
     marketIntel: "",
     stockGaps: "",
@@ -37,7 +38,7 @@ export default function FieldReportPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
       const response = await fetch("/api/operations/reports", {
         method: "POST",
@@ -58,8 +59,8 @@ export default function FieldReportPage() {
         <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-4" />
         <h2 className={`text-xl font-black uppercase tracking-tighter ${themeClasses.text}`}>Report Synchronized</h2>
         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Intelligence logged to Command Center</p>
-        <button 
-          onClick={() => router.push("/mobilepos")} 
+        <button
+          onClick={() => router.push("/mobilepos")}
           className="mt-10 px-8 py-4 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all"
           style={{ backgroundColor: accentHex }}
         >
@@ -71,7 +72,7 @@ export default function FieldReportPage() {
 
   return (
     <div className={`min-h-screen font-sans pb-24 transition-colors duration-500 ${themeClasses.bg}`}>
-      
+
       {/* HEADER */}
       <div className={`px-6 py-6 border-b sticky top-0 z-20 shadow-sm ${themeClasses.nav} ${themeClasses.border}`}>
         <div className="flex items-center justify-between">
@@ -91,7 +92,7 @@ export default function FieldReportPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-8">
-        
+
         {/* SECTION: FOOT TRAFFIC */}
         <section className="space-y-4">
           <div className="flex items-center gap-2 mb-2">
@@ -101,20 +102,29 @@ export default function FieldReportPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Walk-ins</label>
-              <input 
+              <input
                 type="number" required placeholder="0"
                 className={`w-full border h-14 px-4 rounded-xl text-sm font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
                 style={{ borderColor: darkMode ? undefined : accentHex }}
-                onChange={(e) => setFormData({...formData, walkIns: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, walkIns: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Inquiries</label>
+              <input
+                type="number" required placeholder="0"
+                className={`w-full border h-14 px-4 rounded-xl text-sm font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                style={{ borderColor: darkMode ? undefined : accentHex }}
+                onChange={(e) => setFormData({ ...formData, inquiries: e.target.value })}
               />
             </div>
             <div className="space-y-2">
               <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Actual Buyers</label>
-              <input 
+              <input
                 type="number" required placeholder="0"
                 className={`w-full border h-14 px-4 rounded-xl text-sm font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
                 style={{ borderColor: darkMode ? undefined : accentHex }}
-                onChange={(e) => setFormData({...formData, buyers: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, buyers: e.target.value })}
               />
             </div>
           </div>
@@ -127,13 +137,13 @@ export default function FieldReportPage() {
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Market Intelligence</h3>
           </div>
           <div className="space-y-3">
-             <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Competitor Activity</label>
-             <textarea 
-               rows={3}
-               className={`w-full border p-4 rounded-xl text-xs font-bold outline-none transition-all resize-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-               placeholder="Example: Competitor X is offering 10% discount..."
-               onChange={(e) => setFormData({...formData, competitorNotes: e.target.value})}
-             />
+            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Competitor Activity</label>
+            <textarea
+              rows={3}
+              className={`w-full border p-4 rounded-xl text-xs font-bold outline-none transition-all resize-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+              placeholder="Example: Competitor X is offering 10% discount..."
+              onChange={(e) => setFormData({ ...formData, competitorNotes: e.target.value })}
+            />
           </div>
         </section>
 
@@ -144,18 +154,18 @@ export default function FieldReportPage() {
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory & Stock Gaps</h3>
           </div>
           <div className="space-y-3">
-             <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Urgent Low Availability</label>
-             <textarea 
-               rows={2}
-               className={`w-full border-dashed border-2 p-4 rounded-xl text-xs font-bold outline-none transition-all resize-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-               placeholder="Which models are out of stock?"
-               onChange={(e) => setFormData({...formData, stockGaps: e.target.value})}
-             />
+            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Urgent Low Availability</label>
+            <textarea
+              rows={2}
+              className={`w-full border-dashed border-2 p-4 rounded-xl text-xs font-bold outline-none transition-all resize-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+              placeholder="Which models are out of stock?"
+              onChange={(e) => setFormData({ ...formData, stockGaps: e.target.value })}
+            />
           </div>
         </section>
 
         {/* SYNC BUTTON */}
-        <button 
+        <button
           disabled={loading}
           className="w-full h-16 rounded-2xl text-white font-black uppercase tracking-[0.25em] flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl"
           style={{ backgroundColor: accentHex, boxShadow: `0 10px 25px -5px ${accentHex}50` }}

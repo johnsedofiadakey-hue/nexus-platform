@@ -14,7 +14,7 @@ export default function StaffChat() {
     const fetchMessages = async () => {
       try {
         const res = await fetch('/api/messages?t=' + Date.now());
-        const data = await safeJson(res as any);
+        const data = await res.json();
         if (!mounted) return;
         setMessages(data);
       } catch (e) {
@@ -28,7 +28,7 @@ export default function StaffChat() {
       let myId: string | null = null;
       try {
         const pr = await fetch('/api/user/profile');
-        myId = pr.ok ? (await safeJson(pr as any)).id : null;
+        myId = pr.ok ? (await pr.json()).id : null;
       } catch (e) { console.warn('Could not load profile for SSE mapping', e); }
 
       // open SSE first; fallback to polling if SSE doesn't activate
@@ -102,14 +102,13 @@ export default function StaffChat() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => (
           <div key={msg.id || msg.createdAt} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] p-4 rounded-3xl shadow-sm ${
-              msg.isMe 
-                ? 'bg-blue-600 text-white rounded-tr-none' 
-                : 'bg-white text-slate-800 rounded-tl-none border border-slate-100'
-            }`}>
+            <div className={`max-w-[80%] p-4 rounded-3xl shadow-sm ${msg.isMe
+              ? 'bg-blue-600 text-white rounded-tr-none'
+              : 'bg-white text-slate-800 rounded-tl-none border border-slate-100'
+              }`}>
               <p className="text-sm font-medium">{msg.content}</p>
               <div className="flex justify-end items-center gap-1 mt-1 opacity-50">
-                <span className="text-[8px] font-bold uppercase">{new Date(msg.createdAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                <span className="text-[8px] font-bold uppercase">{new Date(msg.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {msg.isMe && <CheckCheck size={10} />}
               </div>
             </div>
@@ -121,14 +120,14 @@ export default function StaffChat() {
       {/* Input Area */}
       <div className="p-4 bg-white border-t border-slate-100 pb-10">
         <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200">
-          <input 
+          <input
             className="flex-1 bg-transparent px-4 py-2 focus:outline-none text-sm"
             placeholder="Type operational message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
           />
-          <button 
+          <button
             onClick={sendMessage}
             className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-colors"
           >

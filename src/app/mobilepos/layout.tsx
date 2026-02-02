@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { 
-  Home, Package, Plus, Settings, Zap, MessageSquare 
+import {
+  Home, Package, Plus, Settings, Zap, MessageSquare
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
-import AuthProvider from "@/components/providers/SessionProvider";
+import { SessionProvider as AuthProvider } from "@/components/providers/SessionProvider";
 import { MobileThemeProvider, useMobileTheme } from "@/context/MobileThemeContext";
 // 🛡️ IMPORT THE BACKGROUND TRACKER
 import LocationGuard from "@/components/auth/LocationGuard";
@@ -23,7 +23,7 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`w-full max-w-[480px] h-screen relative shadow-2xl flex flex-col overflow-hidden transition-colors duration-500 ${themeClasses.bg}`}>
-      
+
       {/* 🟢 MAIN CONTENT AREA 
           Fixed height with hidden overflow on parent.
           ✅ UPDATED: Added 'pb-28' (padding-bottom) to ensure content scrolls 
@@ -35,7 +35,7 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
 
       {/* 📱 THE DOCK (Flex container at bottom) */}
       <div className={`p-4 pb-8 border-t flex justify-around items-end gap-1 shrink-0 z-50 ${themeClasses.nav} ${themeClasses.border}`}>
-        
+
         {/* HUB */}
         <button onClick={() => router.push('/mobilepos')} className="flex flex-col items-center gap-1 group w-14">
           <div className={`p-3 rounded-2xl transition-all active:scale-90 ${isActive('/mobilepos') ? 'bg-blue-600/10' : themeClasses.card}`}>
@@ -54,12 +54,12 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
 
         {/* ➕ THE ICONIC ACTION BUTTON (Floating) */}
         <div className="relative -top-6">
-           <button 
-             onClick={() => router.push('/mobilepos/pos')}
-             className="w-16 h-16 rounded-full flex items-center justify-center bg-slate-900 text-white shadow-2xl shadow-blue-900/20 active:scale-90 transition-all border-[5px] border-white dark:border-slate-800"
-           >
-             <Plus size={28} strokeWidth={3} />
-           </button>
+          <button
+            onClick={() => router.push('/mobilepos/pos')}
+            className="w-16 h-16 rounded-full flex items-center justify-center bg-slate-900 text-white shadow-2xl shadow-blue-900/20 active:scale-90 transition-all border-[5px] border-white dark:border-slate-800"
+          >
+            <Plus size={28} strokeWidth={3} />
+          </button>
         </div>
 
         {/* HQ CHAT */}

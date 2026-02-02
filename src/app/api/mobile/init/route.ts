@@ -9,6 +9,7 @@ export async function GET() {
 
     // 🔐 HARD AUTH GUARD
     if (!session?.user) {
+      console.log("❌ Init Rejected: No Session", { session });
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -40,16 +41,39 @@ export async function GET() {
       );
     }
 
-    // 🚫 UNASSIGNED AGENT (EXPLICIT FAILURE)
+    // 🚫 UNASSIGNED AGENT Handling
+    // Instead of failing with 409, provide a "Roaming" mode for admins
     if (!user.shop) {
+      // If Admin/Manager, allow access with default coordinates (e.g. Accra)
+      if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'MANAGER') {
+        return NextResponse.json({
+          agentName: user.name,
+          shopName: "Roaming Admin",
+          shopLat: 5.6037,
+          shopLng: -0.1870,
+          radius: 5000,
+          managerName: "Self",
+          managerPhone: user.phone || ""
+        }, { status: 200 });
+      }
+
+      // Regular workers strictly need a shop
       return NextResponse.json(
         {
           error: "UNASSIGNED",
           agentName: user.name
         },
-        { status: 409 } // ⬅️ IMPORTANT
+        { status: 409 }
       );
     }
+
+    // 🔍 Find Manager (Admin assigned to this shop)
+    const manager = await prisma.user.findFirst({
+      where: {
+        shopId: user.shop.id,
+        role: 'ADMIN'
+      }
+    });
 
     // ✅ SUCCESS (MOBILE SAFE CONTRACT)
     return NextResponse.json(
@@ -58,7 +82,9 @@ export async function GET() {
         shopName: user.shop.name,
         shopLat: Number(user.shop.latitude),
         shopLng: Number(user.shop.longitude),
-        radius: Number(user.shop.radius ?? 100)
+        radius: Number(user.shop.radius ?? 100),
+        managerName: manager?.name || "HQ Admin",
+        managerPhone: manager?.phone || "N/A"
       },
       { status: 200 }
     );

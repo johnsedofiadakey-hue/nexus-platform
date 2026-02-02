@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 /**
  * 🔐 NEXUS ENROLLMENT ENGINE
@@ -8,28 +10,34 @@ import bcrypt from "bcryptjs";
  */
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized: Organization required" }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { 
-      name, 
-      email, 
-      password, 
-      role, 
-      phone, 
-      ghanaCard, 
-      dob, 
-      shopId, 
-      image 
+    const {
+      name,
+      email,
+      password,
+      role,
+      phone,
+      ghanaCard,
+      dob,
+      shopId,
+      image
     } = body;
 
     // 1. DATA VALIDATION: Strict verification of core identity markers
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: "Incomplete Identity: Name, email, and access key are mandatory." }, 
+        { error: "Incomplete Identity: Name, email, and access key are mandatory." },
         { status: 400 }
       );
     }
 
     // 2. DUPLICATE CHECK: Normalize email to prevent duplicate entries
+    // Also check if user exists in ANY org (email must be unique globally in NextAuth usually)
     const normalizedEmail = email.toLowerCase().trim();
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail }
@@ -37,7 +45,7 @@ export async function POST(req: Request) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Collision Detected: This email is already active in the network." }, 
+        { error: "Collision Detected: This email is already active in the network." },
         { status: 409 }
       );
     }
@@ -46,7 +54,6 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // 4. DATA TRANSFORMATION: Standardize Date for PostgreSQL
-    // This logic handles both the ISO string from our frontend and empty inputs.
     let birthDate = null;
     if (dob) {
       const parsedDate = new Date(dob);
@@ -58,6 +65,7 @@ export async function POST(req: Request) {
     // 5. ATOMIC PERSISTENCE: Save Operative to Database
     const newUser = await prisma.user.create({
       data: {
+        organization: { connect: { id: session.user.organizationId } }, // 🔐 TENANT LINK
         name: name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
@@ -94,25 +102,23 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("❌ ENROLLMENT_ENGINE_CRITICAL_FAILURE:", error);
-    
-    // Handle Prisma specific errors (e.g., trying to save to a field that doesn't exist)
+
     if (error.name === 'PrismaClientValidationError') {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Schema Mismatch: The database does not recognize some provided fields.",
         details: "Action: Run 'npx prisma db push' to sync your database."
       }, { status: 500 });
     }
 
-    // Handle Supabase/Connection Pooler issues
     if (error.code === 'P2002') {
       return NextResponse.json({ error: "Duplicate identity data found." }, { status: 400 });
     }
 
     return NextResponse.json(
-      { 
+      {
         error: "Database Rejection: System failed to save operative credentials.",
-        details: error.message 
-      }, 
+        details: error.message
+      },
       { status: 500 }
     );
   }

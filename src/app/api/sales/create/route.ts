@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       for (const item of items) {
         await tx.product.update({
           where: { id: item.id },
-          data: { quantity: { decrement: item.qty } }
+          data: { stockLevel: { decrement: item.qty } }
         });
       }
 

@@ -19,10 +19,11 @@ export async function POST(req: Request) {
     // Accept both legacy and new naming
     const {
       walkIns,
+      inquiries, // 🆕 ADDED
       buyers,
       conversions,
       marketIntel,
-      notes, // mapped to stockGaps
+      notes,
     } = body;
 
     const resolvedUser = await resolveSessionUser(session);
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
     }
 
     const walkInsNum = Number(walkIns) || 0;
+    const inquiriesNum = Number(inquiries) || 0;
     const buyersNum = Number(conversions ?? buyers ?? 0) || 0;
 
     // 🛡️ PGBOUNCER-SAFE WRITE (NO EXTRA FIELDS)
@@ -41,6 +43,7 @@ export async function POST(req: Request) {
       data: {
         userId: resolvedUser.id,
         walkIns: walkInsNum,
+        inquiries: inquiriesNum,
         buyers: buyersNum,
         marketIntel: marketIntel ?? null,
         stockGaps: notes ?? null,

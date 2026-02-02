@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { 
-  Users, UserPlus, Mail, ChevronRight, Loader2, Navigation, Search
+import {
+  Users, UserPlus, Mail, ChevronRight, Loader2, Navigation, Search,
+  Shield, Activity, UserCircle
 } from "lucide-react";
 import Link from "next/link";
 
@@ -16,10 +17,10 @@ export default function TeamPage() {
       const res = await fetch(`/api/hr/team/list?t=${Date.now()}`);
       const data = await res.json();
       const staffList = Array.isArray(data) ? data : (data.data || []);
-      
+
       // 🛡️ LOGIC FIX: Exclude ADMIN accounts. Show only Agents/Managers.
       const agentsOnly = staffList.filter((user: any) => user.role !== 'ADMIN');
-      
+
       setStaff(agentsOnly);
     } catch (e) {
       console.error("System Error: Team data unavailable.");
@@ -31,129 +32,146 @@ export default function TeamPage() {
   useEffect(() => { fetchStaff(); }, []);
 
   // Filter Logic for Search Bar
-  const filteredStaff = staff.filter(person => 
-    person.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredStaff = staff.filter(person =>
+    person.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     person.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Stats Calculation
+  const stats = {
+    total: staff.length,
+    online: staff.filter(s => s.lastLat && s.lastLng).length,
+    managers: staff.filter(s => s.role === 'MANAGER').length,
+    active: staff.filter(s => s.status === 'ACTIVE').length
+  };
 
   if (loading) return (
     <div className="h-[70vh] flex flex-col items-center justify-center space-y-6">
       <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
       <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] animate-pulse">
-        Loading Field Agents...
+        Acquiring Roster...
       </div>
     </div>
   );
 
   return (
-    <div className="max-w-[1600px] mx-auto py-8 animate-in fade-in duration-700 font-sans">
-      
-      {/* --- PAGE HEADER --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-8 px-4">
+    <div className="max-w-[1600px] mx-auto py-10 px-8 animate-in fade-in duration-700 font-sans pb-20">
+
+      {/* 📊 MISSION CONTROL HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-8">
         <div className="space-y-2">
-          <h1 className="text-4xl font-black text-[#0F172A] tracking-tighter uppercase">Field Force</h1>
-          <div className="flex items-center gap-3">
-            <div className="h-2 w-2 bg-emerald-500 rounded-full" />
-            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">
-               Active Personnel: <span className="text-[#0F172A]">{staff.length}</span>
-            </p>
-          </div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Personnel Command</h1>
+          <p className="text-slate-500 font-medium text-sm">Manage field agents, grant permissions, and monitor activity.</p>
         </div>
-        
-        <Link 
-          href="/dashboard/hr/enrollment" 
-          className="h-12 px-8 bg-[#0F172A] text-white rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center gap-3 hover:bg-blue-600 transition-all shadow-lg hover:shadow-xl active:scale-95"
+
+        <Link
+          href="/dashboard/hr/enrollment"
+          className="h-11 px-6 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center gap-3 hover:bg-blue-600 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5"
         >
-          <UserPlus size={16} /> Enroll Agent
+          <UserPlus size={16} /> Recruit Agent
         </Link>
       </div>
 
-      {/* --- SEARCH BAR --- */}
-      <div className="mb-10 px-4">
-        <div className="relative max-w-md group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search personnel directory..." 
-            className="w-full h-14 pl-12 pr-6 bg-white border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+      {/* 📈 STATS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <StatCard label="Total Force" value={stats.total} icon={Users} color="text-blue-600" bg="bg-blue-50" />
+        <StatCard label="Online Agents" value={stats.online} icon={Navigation} color="text-emerald-600" bg="bg-emerald-50" pulse />
+        <StatCard label="Managers" value={stats.managers} icon={Shield} color="text-indigo-600" bg="bg-indigo-50" />
+        <StatCard label="Active Status" value={`${Math.round((stats.active / (stats.total || 1)) * 100)}%`} icon={Activity} color="text-slate-600" bg="bg-slate-50" />
       </div>
 
-      {/* --- MEMBER GRID --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4">
+      {/* 🔍 FILTER & SEARCH */}
+      <div className="mb-8 flex items-center bg-white p-2 rounded-2xl border border-slate-200 shadow-sm max-w-lg">
+        <div className="w-12 h-12 flex items-center justify-center text-slate-400">
+          <Search size={20} />
+        </div>
+        <input
+          type="text"
+          placeholder="Filter by name or email..."
+          className="flex-1 h-full bg-transparent text-sm font-medium outline-none text-slate-700 placeholder:text-slate-400"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {/* 📇 ROSTER GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredStaff.length === 0 ? (
-          <div className="col-span-full py-40 bg-white rounded-[2rem] border border-dashed border-slate-200 text-center flex flex-col items-center justify-center">
-             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                <Users className="w-8 h-8 text-slate-300" />
-             </div>
-             <h3 className="text-lg font-bold text-[#0F172A] uppercase tracking-tight">Directory Empty</h3>
-             <p className="text-slate-400 text-xs font-medium mt-1">No matching personnel found.</p>
+          <div className="col-span-full py-32 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200 text-center flex flex-col items-center justify-center">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-sm border border-slate-100">
+              <Users className="w-6 h-6 text-slate-300" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest">No Records Found</h3>
           </div>
         ) : (
           filteredStaff.map((person) => {
             const isOnline = person.lastLat && person.lastLng;
-            
+
             return (
-              <div 
-                key={person.id} 
-                className="bg-white rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden"
+              <div
+                key={person.id}
+                className="group bg-white rounded-3xl border border-slate-200 p-1 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 flex flex-col"
               >
-                <div className="p-6">
-                  {/* Status Header */}
+                <div className="p-6 pb-0 flex-1">
                   <div className="flex justify-between items-start mb-6">
-                    <div className={`px-3 py-1.5 rounded-lg flex items-center gap-2 border ${isOnline ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                      <span className="text-[9px] font-bold uppercase tracking-widest">
+                    <div className={`pl-2 pr-3 py-1 rounded-full flex items-center gap-2 border ${isOnline ? 'bg-emerald-50 border-emerald-100/50 text-emerald-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                      <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse ring-4 ring-emerald-100' : 'bg-slate-300'}`} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">
                         {isOnline ? 'Live' : 'Offline'}
                       </span>
                     </div>
-                    {/* Role Badge */}
-                    <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-blue-50 text-blue-600 border border-blue-100">
-                        {person.role === 'WORKER' ? 'Agent' : person.role}
-                    </span>
                   </div>
 
-                  {/* Identity */}
-                  <div className="flex flex-col items-center text-center mb-8">
-                    <div className="w-24 h-24 bg-slate-50 rounded-[1.5rem] flex items-center justify-center border-4 border-white shadow-lg overflow-hidden mb-4 relative group-hover:scale-105 transition-transform">
+                  <div className="text-center">
+                    <div className="w-20 h-20 mx-auto bg-slate-100 rounded-2xl mb-4 overflow-hidden border-2 border-white shadow-lg group-hover:scale-110 transition-transform duration-500">
                       {person.image ? (
-                        <img src={person.image} alt="" className="w-full h-full object-cover" />
+                        <img src={person.image} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-3xl font-black text-slate-300">{person.name.charAt(0)}</span>
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <UserCircle size={32} />
+                        </div>
                       )}
                     </div>
-                    <h3 className="font-bold text-[#0F172A] text-lg leading-tight mb-1">{person.name}</h3>
-                    <div className="flex items-center gap-2 text-slate-400 text-xs">
-                        <Mail size={10} />
-                        <span className="truncate max-w-[150px]">{person.email}</span>
+                    <h3 className="text-base font-bold text-slate-900 mb-1">{person.name}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">{person.role}</p>
+
+                    <div className="bg-slate-50 rounded-xl p-3 mb-6 space-y-2 border border-slate-100">
+                      <div className="flex items-center gap-3 text-xs text-slate-600">
+                        <Mail size={12} className="text-slate-400" />
+                        <span className="truncate">{person.email}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-600">
+                        <Navigation size={12} className="text-slate-400" />
+                        <span className="truncate font-medium">{person.shop?.name || "Unassigned"}</span>
+                      </div>
                     </div>
                   </div>
-                  
-                  {/* Assignment Card */}
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 mb-6 group-hover:border-blue-100 transition-colors">
-                    <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-1 flex items-center gap-1">
-                        <Navigation size={10} /> Assigned Hub
-                    </p>
-                    <span className="text-xs font-bold text-[#0F172A] uppercase truncate block">
-                      {person.shop?.name || "Unassigned"}
-                    </span>
-                  </div>
-
-                  {/* Action */}
-                  <Link 
-                    href={`/dashboard/hr/member/${person.id}`} 
-                    className="w-full py-3.5 bg-[#0F172A] text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-md hover:shadow-lg"
-                  >
-                    Open Portal <ChevronRight size={14} />
-                  </Link>
                 </div>
+
+                <Link
+                  href={`/dashboard/hr/member/${person.id}`}
+                  className="mx-2 mb-2 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-blue-600 transition-colors"
+                >
+                  View Intel <ChevronRight size={12} />
+                </Link>
               </div>
             );
           })
         )}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon: Icon, color, bg, pulse }: any) {
+  return (
+    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5 hover:scale-[1.02] transition-transform">
+      <div className={`w-14 h-14 rounded-2xl ${bg} ${color} flex items-center justify-center ${pulse ? 'animate-pulse' : ''}`}>
+        <Icon size={24} />
+      </div>
+      <div>
+        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">{label}</p>
+        <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">{value}</p>
       </div>
     </div>
   );

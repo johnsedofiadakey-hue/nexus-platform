@@ -12,7 +12,7 @@ async function main() {
       email: "admin@stormglide.com",
       name: "Commander Truth",
       password: password,
-      role: "SUPER_USER",
+      role: "SUPER_ADMIN",
     },
   });
   console.log("✅ OPERATIVE CREATED: admin@stormglide.com / nexus2026");

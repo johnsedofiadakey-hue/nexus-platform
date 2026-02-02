@@ -13,11 +13,11 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  return R * c; 
+  return R * c;
 }
 
 export async function POST(req: Request) {
@@ -31,35 +31,33 @@ export async function POST(req: Request) {
     });
 
     if (!agent || !agent.shop) {
-      return NextResponse.json({ 
-        authorized: false, 
-        error: "Access Denied: No hub link found" 
+      return NextResponse.json({
+        authorized: false,
+        error: "Access Denied: No hub link found"
       }, { status: 404 });
     }
 
     // 2. Compute Precision Distance
     const distance = calculateDistance(
-      lat, lng, 
-      parseFloat(agent.shop.latitude), 
-      parseFloat(agent.shop.longitude)
+      lat, lng,
+      agent.shop.latitude,
+      agent.shop.longitude
     );
 
-    const radius = parseFloat(agent.shop.radius) || 200;
+    const radius = agent.shop.radius || 200;
     const isInside = distance <= radius;
 
     // 3. 🛡️ AUTOMATED COMPLIANCE LOGGER
     // If a breach is detected, we file a permanent record before responding
     if (!isInside) {
-      await prisma.complianceLog.create({
+      await prisma.disciplinaryRecord.create({
         data: {
           userId: userId,
-          shopId: agent.shop.id,
           type: 'GEOFENCE_BREACH',
           // Severity scales based on how far they've drifted
           severity: distance > (radius + 500) ? 'CRITICAL' : 'WARNING',
-          details: `Geofence breach: Agent was ${Math.round(distance - radius)}m outside perimeter.`,
-          lat: lat.toString(),
-          lng: lng.toString()
+          description: `Geofence breach: Agent was ${Math.round(distance - radius)}m outside perimeter. GPS: ${lat}, ${lng}`,
+          actionTaken: 'SYSTEM_AUTO_LOG'
         }
       });
     }
@@ -70,7 +68,7 @@ export async function POST(req: Request) {
       data: {
         lastLat: lat,
         lastLng: lng,
-        status: agent.status 
+        status: agent.status
       }
     });
 
@@ -80,8 +78,8 @@ export async function POST(req: Request) {
       boundary: radius,
       identity: agent.name,
       hub: agent.shop.name,
-      message: isInside 
-        ? "Within Authorized Hub Zone" 
+      message: isInside
+        ? "Within Authorized Hub Zone"
         : `Breach Logged: ${Math.round(distance - radius)}m outside perimeter`
     });
   } catch (error: any) {

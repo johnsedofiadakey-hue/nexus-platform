@@ -27,8 +27,7 @@ export async function POST(req: Request) {
     // 🚀 ATOMIC TRANSACTION
     const result = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findFirst({
-        where: { sku, shopId },
-        lock: { mode: "for update" }, // 👈 prevents race conditions
+        where: { barcode: sku, shopId },
       });
 
       // ❌ SELLING NON-EXISTENT ITEM
@@ -37,9 +36,9 @@ export async function POST(req: Request) {
       }
 
       // ❌ INSUFFICIENT STOCK
-      if (product && action === "SELL" && product.quantity < quantity) {
+      if (product && action === "SELL" && product.stockLevel < quantity) {
         throw new Error(
-          `Insufficient stock. Only ${product.quantity} remaining`
+          `Insufficient stock. Only ${product.stockLevel} remaining`
         );
       }
 
@@ -48,7 +47,7 @@ export async function POST(req: Request) {
         return tx.product.update({
           where: { id: product.id },
           data: {
-            quantity:
+            stockLevel:
               action === "ADD"
                 ? { increment: quantity }
                 : { decrement: quantity },
@@ -59,13 +58,13 @@ export async function POST(req: Request) {
       // ✅ CREATE NEW PRODUCT (ADD ONLY)
       return tx.product.create({
         data: {
-          sku,
+          barcode: sku,
           shopId,
-          quantity,
-          productName: "New Unlisted Item",
-          priceGHS: 0,
+          stockLevel: quantity,
+          name: "New Unlisted Item",
+          sellingPrice: 0,
           category: "Uncategorized",
-          formulation: "FINISHED_GOOD",
+          // formulation: "FINISHED_GOOD", // Not in schema
         },
       });
     });

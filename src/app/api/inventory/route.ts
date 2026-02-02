@@ -13,24 +13,23 @@ export async function GET(req: Request) {
 
   try {
     const products = await prisma.product.findMany({
-      where: { 
+      where: {
         shopId: shopId,
-        quantity: { gt: 0 } // Only show items in stock
+        stockLevel: { gt: 0 } // Only show items in stock
       },
       // 🛡️ FIX: Changed 'name' to 'productName' to match your schema
-      orderBy: { productName: 'asc' } 
+      // 🛡️ FIX: Changed 'productName' to 'name' to match your schema
+      orderBy: { name: 'asc' }
     });
 
     // MAP DATABASE FIELDS TO YOUR FRONTEND EXPECTATIONS
-    const mappedProducts = products.map(p => ({
+    return NextResponse.json(products.map(p => ({
       id: p.id,
-      productName: p.productName, // Database field is already 'productName'
-      sku: p.sku || p.id.substring(0, 6).toUpperCase(), 
-      quantity: p.quantity,
-      priceGHS: p.priceGHS // Database field is already 'priceGHS'
-    }));
-
-    return NextResponse.json(mappedProducts);
+      productName: p.name,
+      sku: p.barcode || p.id.substring(0, 6).toUpperCase(), // Use barcode if available, otherwise fallback
+      quantity: p.stockLevel,
+      priceGHS: p.sellingPrice
+    })));
   } catch (error: any) {
     console.error("Inventory Fetch Error:", error.message);
     return NextResponse.json({ error: "Failed to fetch inventory" }, { status: 500 });

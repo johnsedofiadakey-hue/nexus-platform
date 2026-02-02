@@ -37,12 +37,17 @@ export async function processSale(data: {
   const transaction = await prisma.$transaction([
     prisma.sale.create({
       data: {
-        staffId: data.staffId,
+        userId: data.staffId,
         shopId: data.shopId,
         totalAmount: data.total,
-        items: data.items,
-        latitude: data.latitude,
-        longitude: data.longitude,
+        items: {
+          create: data.items.map((item: any) => ({
+            productId: item.productId,
+            quantity: item.quantity || item.qty,
+            price: item.price
+          }))
+        }
+        // latitude/longitude not supported in schema
       }
     }),
     // Logic to loop through items and decrement shop inventory here...

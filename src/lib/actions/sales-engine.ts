@@ -12,12 +12,12 @@ export async function submitSaleAction(formData: {
 }) {
   // 1. ENGINE CHECK: Verify Location
   const shop = await prisma.shop.findUnique({ where: { id: formData.shopId } });
-  
+
   const isValid = checkGeofence(
-    formData.location.lat, 
-    formData.location.lng, 
-    shop!.latitude, 
-    shop!.longitude, 
+    formData.location.lat,
+    formData.location.lng,
+    shop!.latitude,
+    shop!.longitude,
     shop!.radius
   );
 
@@ -29,20 +29,25 @@ export async function submitSaleAction(formData: {
       // Create the Sale Record
       const sale = await tx.sale.create({
         data: {
-          staffId: formData.staffId,
+          userId: formData.staffId,
           shopId: formData.shopId,
           totalAmount: formData.items.reduce((acc, item) => acc + (item.price * item.qty), 0),
-          items: formData.items as any,
-          latitude: formData.location.lat,
-          longitude: formData.location.lng,
+          items: {
+            create: formData.items.map(item => ({
+              productId: item.productId,
+              quantity: item.qty,
+              price: item.price
+            }))
+          }
+          // Removed latitude/longitude as they are not in the Sale schema
         }
       });
 
       // Update Inventory Spokes (Reduce stock for each item)
       for (const item of formData.items) {
-        await tx.inventory.updateMany({
-          where: { shopId: formData.shopId, productId: item.productId },
-          data: { quantity: { decrement: item.qty } }
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stockLevel: { decrement: item.qty } }
         });
       }
 

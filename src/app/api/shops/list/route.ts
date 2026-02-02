@@ -1,13 +1,36 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 // ----------------------------------------------------------------------
 // 1. GET: FETCH ALL SHOPS (Registry Grid)
 // ----------------------------------------------------------------------
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Relaxed Check: Allow Super Admin or return empty if no Org
+    const orgId = session.user.organizationId;
+    const userId = session.user.id;
+    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+
+    // Query Strategy:
+    // 1. If Super Admin -> All shops
+    // 2. If Org ID exists -> Shops in Org
+    // 3. Fallback: Shops created by this user
+    const whereClause = isSuperAdmin
+      ? {}
+      : orgId
+        ? { organizationId: orgId }
+        : { users: { some: { id: userId } } }; // Fallback: Shops user is assigned to
+
     const shops = await prisma.shop.findMany({
-      orderBy: { createdAt: "desc" }, // Show newest shops first
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         name: true,
@@ -16,16 +39,16 @@ export async function GET() {
         longitude: true,
         radius: true,
         openingTime: true,
-        phone: true, 
-        
+        phone: true,
+
         // Count relations
         _count: {
           select: {
-            products: true, // Matches 'products' in schema
-            users: true     // Matches 'users' in schema
+            products: true,
+            users: true
           }
         },
-        
+
         // Fetch one manager for display
         users: {
           where: { role: 'MANAGER' },
@@ -40,7 +63,7 @@ export async function GET() {
       id: shop.id,
       name: shop.name,
       location: shop.location || "",
-      
+
       // ⚠️ IMPORTANT: Expose these at the top level for the "Edit Form"
       latitude: shop.latitude || 0,
       longitude: shop.longitude || 0,
@@ -48,23 +71,23 @@ export async function GET() {
       managerName: shop.users[0]?.name || "",
       managerPhone: shop.phone || shop.users[0]?.phone || "",
       openingTime: shop.openingTime || "08:00 AM",
-      
+
       // UI Helper Data
       contact: shop.phone || shop.users[0]?.phone || "N/A",
-      inventoryCount: shop._count.products, // For the grid card
-      
+      inventoryCount: shop._count.products,
+
       // Legacy structure for Map components (if needed)
       geo: {
         lat: shop.latitude || 5.6037,
         lng: shop.longitude || -0.1870,
         radius: shop.radius || 50
       },
-      
+
       // Pass the raw counts object for components using _count
-      _count: shop._count 
+      _count: shop._count
     }));
 
-    return NextResponse.json(formattedShops); // Return array directly (easier for frontend)
+    return NextResponse.json(formattedShops);
 
   } catch (error) {
     console.error("❌ Shop List Failure:", error);
@@ -77,6 +100,22 @@ export async function GET() {
 // ----------------------------------------------------------------------
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Handle Admin Logic
+    let orgId = session.user.organizationId;
+    if (!orgId && session.user.role === 'SUPER_ADMIN') {
+      const defaultOrg = await prisma.organization.findFirst();
+      orgId = defaultOrg?.id;
+    }
+
+    if (!orgId) {
+      return NextResponse.json({ error: "Organization Context Required" }, { status: 400 });
+    }
+
     const body = await req.json();
     console.log("📝 REGISTERING HUB:", body);
 
@@ -90,23 +129,22 @@ export async function POST(req: Request) {
     // 2. Validate
     if (!name || isNaN(lat) || isNaN(lng)) {
       return NextResponse.json(
-        { error: "Name and valid Coordinates are required" }, 
+        { error: "Name and valid Coordinates are required" },
         { status: 400 }
       );
     }
 
     // 3. Create
-    // Note: We don't save managerName directly because it's not in the Shop schema.
-    // In a real app, you would create a User account for the manager here.
     const newShop = await prisma.shop.create({
       data: {
+        organizationId: orgId, // 🔐 Link to Organization
         name,
         location,
         latitude: lat,
         longitude: lng,
         radius: rad,
         openingTime: body.openingTime || "08:00 AM",
-        phone: body.managerPhone // Saving manager phone to shop contact for now
+        phone: body.managerPhone
       }
     });
 

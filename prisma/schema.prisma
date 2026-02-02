@@ -9,9 +9,68 @@ datasource db {
   relationMode = "prisma"
 }
 
-// --- 1. ORGANIZATION ---
+// --- 1. SUPER ADMIN (SAAS OWNER) ---
+// See User Role: 'SUPER_ADMIN'
+
+// --- 2. TENANCY (ORGANIZATIONS) ---
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  status      String   @default("ACTIVE") // ACTIVE, SUSPENDED, LOCKED_PAYMENT
+  ownerId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Billing
+  plan        String   @default("FREE")
+  nextBillingDate DateTime?
+
+  // Relations
+  shops       Shop[]
+  users       User[]
+  subscriptions Subscription[]
+  invoices    Invoice[]
+}
+
+model Subscription {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  planType       String       // MONTHLY, ANNUAL
+  amount         Float
+  currency       String       @default("GHS")
+  status         String       // ACTIVE, CANCELLED, PAST_DUE
+  startDate      DateTime     @default(now())
+  endDate        DateTime
+  paystackSubCode String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model Invoice {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  amount         Float
+  status         String       // PAID, PENDING, FAILED
+  invoiceDate    DateTime     @default(now())
+  paidDate       DateTime?
+  pdfUrl         String?
+  
+  @@index([organizationId])
+}
+
+// --- 3. ORGANIZATION ASSETS ---
 model Shop {
   id          String    @id @default(cuid())
+  
+  // 🔗 TENANCY LINK
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   name        String
   location    String?
   phone       String?
@@ -36,6 +95,8 @@ model Shop {
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([organizationId])
 }
 
 // --- 1.1 DYNAMIC CATEGORIES ---
@@ -61,6 +122,11 @@ model InventorySubCategory {
 // --- 2. USERS (HR) ---
 model User {
   id               String    @id @default(cuid())
+  
+  // 🔗 TENANCY LINK
+  organizationId   String?   // Optional for Super Admin
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  
   email            String    @unique
   password         String
   name             String?
@@ -74,9 +140,15 @@ model User {
   dob              DateTime? 
   image            String?   
 
-  role             String    @default("WORKER") 
+  role             String    @default("WORKER") // WORKER, MANAGER, ADMIN, SUPER_ADMIN
   status           String    @default("ACTIVE") 
   isInsideZone     Boolean   @default(false)
+  
+  // 📍 GPS TRACKING
+  lastLat          Float?
+  lastLng          Float?
+  lastSeen         DateTime?
+
   shopId           String?
   shop             Shop?     @relation(fields: [shopId], references: [id])
   
@@ -93,6 +165,7 @@ model User {
   updatedAt        DateTime  @updatedAt
 
   @@index([shopId])
+  @@index([organizationId])
 }
 
 // --- 3. INVENTORY ---
@@ -207,6 +280,13 @@ model DailyReport {
   totalSales Float    @default(0)
   totalCash  Float    @default(0)
   totalMomo  Float    @default(0)
+  // 📊 FUNNEL & INTEL
+  walkIns    Int      @default(0)
+  inquiries  Int      @default(0)
+  buyers     Int      @default(0)
+  marketIntel String?
+  stockGaps   String?
+
   notes      String?
   userId     String
   user       User     @relation(fields: [userId], references: [id])

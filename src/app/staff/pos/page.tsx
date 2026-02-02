@@ -16,11 +16,11 @@ export default function StaffPOS() {
 
   // Shop Data should ideally be fetched from the session or a shop API
   // Using coordinates provided in the blueprint for Accra Mall
-  const shopData = { 
-    lat: session?.user?.shopLat ?? 5.6037, 
-    lng: session?.user?.shopLng ?? -0.1870, 
-    radius: 100 
-  }; 
+  const shopData = {
+    lat: 5.6037,
+    lng: -0.1870,
+    radius: 100
+  };
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -32,7 +32,7 @@ export default function StaffPOS() {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setLocation({ lat: latitude, lng: longitude });
-        
+
         const inside = checkGeofence(latitude, longitude, shopData.lat, shopData.lng, shopData.radius);
         setIsInside(inside);
         setLoading(false);
@@ -42,10 +42,10 @@ export default function StaffPOS() {
         toast.error("GPS Signal Lost. Move to an open area.");
         setLoading(false);
       },
-      { 
+      {
         enableHighAccuracy: true,
         maximumAge: 10000,
-        timeout: 5000 
+        timeout: 5000
       }
     );
 
@@ -79,8 +79,8 @@ export default function StaffPOS() {
 
       if (response.success) {
         toast.success("Transaction Secured & Inventory Updated", {
-            icon: '✅',
-            style: { borderRadius: '15px', background: '#333', color: '#fff' }
+          icon: '✅',
+          style: { borderRadius: '15px', background: '#333', color: '#fff' }
         });
         // You could reset a local cart state here
       } else {
@@ -116,7 +116,7 @@ export default function StaffPOS() {
               {isInside ? 'SYSTEM ACTIVE' : 'LOCKED'}
             </h2>
             <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
-              <MapPin size={12} className={isInside ? 'text-emerald-500' : 'text-rose-500'} /> 
+              <MapPin size={12} className={isInside ? 'text-emerald-500' : 'text-rose-500'} />
               {isInside ? 'Authorized Zone' : 'Unauthorized Area'}
             </p>
           </div>
@@ -130,37 +130,37 @@ export default function StaffPOS() {
       {/* POS Content */}
       <div className={`${!isInside || isSubmitting ? 'opacity-40 pointer-events-none grayscale' : ''} transition-all duration-700`}>
         <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl shadow-slate-200 border border-white">
-            <h3 className="text-2xl font-black mb-6 flex items-center gap-3 text-slate-900">
-                <div className="bg-blue-100 p-2 rounded-xl"><Scan className="text-blue-600" size={24} /></div>
-                CHECKOUT
-            </h3>
-            
-            <div className="space-y-4">
-                <div className="flex justify-between items-center p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white p-3 rounded-2xl shadow-sm"><PackageOpen className="text-slate-400" size={20} /></div>
-                        <div>
-                            <p className="font-black text-slate-800">Nexus Premium Unit</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Inventory Spoke: 14 units</p>
-                        </div>
-                    </div>
-                    <p className="font-black text-blue-600">GHS 450</p>
+          <h3 className="text-2xl font-black mb-6 flex items-center gap-3 text-slate-900">
+            <div className="bg-blue-100 p-2 rounded-xl"><Scan className="text-blue-600" size={24} /></div>
+            CHECKOUT
+          </h3>
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-5 bg-slate-50 rounded-3xl border border-slate-100">
+              <div className="flex items-center gap-4">
+                <div className="bg-white p-3 rounded-2xl shadow-sm"><PackageOpen className="text-slate-400" size={20} /></div>
+                <div>
+                  <p className="font-black text-slate-800">Nexus Premium Unit</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Inventory Spoke: 14 units</p>
                 </div>
-                
-                <button 
-                  onClick={handleCompleteSale}
-                  disabled={isSubmitting}
-                  className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-lg flex items-center justify-center gap-3 hover:bg-black active:scale-[0.97] transition-all shadow-2xl shadow-slate-300"
-                >
-                    {isSubmitting ? <Loader2 className="animate-spin" /> : <><ShoppingCart size={22} /> COMPLETE SALE</>}
-                </button>
+              </div>
+              <p className="font-black text-blue-600">GHS 450</p>
             </div>
+
+            <button
+              onClick={handleCompleteSale}
+              disabled={isSubmitting}
+              className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-lg flex items-center justify-center gap-3 hover:bg-black active:scale-[0.97] transition-all shadow-2xl shadow-slate-300"
+            >
+              {isSubmitting ? <Loader2 className="animate-spin" /> : <><ShoppingCart size={22} /> COMPLETE SALE</>}
+            </button>
+          </div>
         </div>
-        
+
         {!isInside && (
           <div className="mt-8 text-center p-8 bg-white rounded-[2.5rem] border-2 border-dashed border-rose-200">
             <div className="bg-rose-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShieldAlert className="text-rose-600" />
+              <ShieldAlert className="text-rose-600" />
             </div>
             <p className="text-rose-600 font-black text-lg uppercase tracking-tight">Geofence Violation</p>
             <p className="text-sm text-slate-500 font-medium px-4 mt-1">Terminal locked. You must be within the assigned physical shop location to process transactions.</p>
@@ -170,18 +170,18 @@ export default function StaffPOS() {
 
       {/* Modern Mobile Bottom Nav */}
       <nav className="fixed bottom-6 left-6 right-6 bg-slate-900/90 backdrop-blur-xl border border-white/10 p-4 rounded-[2rem] flex justify-around shadow-2xl shadow-black/20">
-          <button className="flex flex-col items-center gap-1 text-blue-400">
-              <ShoppingCart size={24} />
-              <span className="text-[10px] font-black uppercase tracking-widest">POS</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-slate-500">
-              <MapPin size={24} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Map</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-slate-500">
-              <ShieldCheck size={24} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Log</span>
-          </button>
+        <button className="flex flex-col items-center gap-1 text-blue-400">
+          <ShoppingCart size={24} />
+          <span className="text-[10px] font-black uppercase tracking-widest">POS</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-slate-500">
+          <MapPin size={24} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Map</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-slate-500">
+          <ShieldCheck size={24} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Log</span>
+        </button>
       </nav>
     </div>
   );

@@ -9,35 +9,51 @@ export async function deployStock(data: {
 }) {
   return await prisma.$transaction(async (tx) => {
     // 1. Reduce HQ Stock
-    const product = await tx.inventory.update({
+    const product = await tx.product.update({
       where: { id: data.productId },
-      data: { quantity: { decrement: data.quantity } }
+      data: { stockLevel: { decrement: data.quantity } }
     });
 
-    if (product.quantity < 0) {
+    if (product.stockLevel < 0) {
       throw new Error("Insufficient HQ Stock");
     }
 
-    // 2. Upsert Shop Stock
-    // This finds the item in the shop's inventory or creates it if it's the first time
-    const shopStock = await tx.inventory.upsert({
-      where: { 
-        // Unique constraint on productId + shopId
-        productShopIdentifier: {
-          productId: data.productId,
-          shopId: data.targetShopId
-        }
-      },
-      update: { quantity: { increment: data.quantity } },
-      create: {
-        productId: data.productId,
+    // 2. Add to Shop Stock
+    // Find matching product in target shop by name (approximate match)
+    const existing = await tx.product.findFirst({
+      where: {
         shopId: data.targetShopId,
-        quantity: data.quantity,
-        productName: product.productName,
-        priceGHS: product.priceGHS
+        name: product.name
       }
     });
 
-    return { success: true, shopStock };
+    if (existing) {
+      // Update existing
+      return {
+        success: true,
+        shopStock: await tx.product.update({
+          where: { id: existing.id },
+          data: { stockLevel: { increment: data.quantity } }
+        })
+      };
+    } else {
+      // Create new
+      return {
+        success: true,
+        shopStock: await tx.product.create({
+          data: {
+            shopId: data.targetShopId,
+            stockLevel: data.quantity,
+            name: product.name,
+            sellingPrice: product.sellingPrice,
+            buyingPrice: product.buyingPrice,
+            category: product.category,
+            // Barcode must be unique, so we omit it or append shopId to make it unique? 
+            // Better to leave blank for now to avoid collision error
+            barcode: null
+          }
+        })
+      };
+    }
   });
 }
