@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       // and assume the caller is authenticated via middleware.
 
       // B. Process Items (Check & Decrement)
-      const saleLineItems = [];
+      const finalizedItems = [];
 
       for (const item of items) {
         // Lock the product row for update
@@ -89,7 +89,8 @@ export async function POST(req: Request) {
           data: { stockLevel: { decrement: item.quantity } }
         });
 
-        saleLineItems.push({
+        // 🛡️ SANITIZED INPUT: Explicitly map only valid schema fields
+        finalizedItems.push({
           productId: item.productId,
           quantity: item.quantity,
           price: item.price
@@ -102,11 +103,10 @@ export async function POST(req: Request) {
           shopId,
           userId: session.user.id,
           totalAmount,
-          paymentMethod: "CASH", // Default for now
+          paymentMethod: "CASH",
           status: "COMPLETED",
-          // metadata: { gps, source }, // Removed as not in schema
           items: {
-            create: saleLineItems
+            create: finalizedItems
           }
         }
       });
