@@ -4,9 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // PATCH: Mark as Read
+// PATCH: Mark as Read
 export async function PATCH(
     req: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -14,6 +15,7 @@ export async function PATCH(
     }
 
     try {
+        const params = await props.params;
         const { id } = params;
 
         const notification = await prisma.notification.update({
