@@ -37,11 +37,11 @@ export async function GET(req: Request) {
 }
 
 // ----------------------------------------------------------------------
-// ⚡️ HIGH-SPEED TRANSACTION ENGINE
+// ⚡️ HIGH-SPEED TRANSACTION ENGINE (V4 - FRESH BUILD)
 // ----------------------------------------------------------------------
 export async function POST(req: Request) {
   try {
-    console.log("🛒 SALES_API_V3_FIXED: Processing Sale...");
+    console.log("🛒 SALES_API_V4_FINAL: Processing Sale...");
     const body = await req.json();
     const { shopId, items, totalAmount, gps, source = "MOBILE" } = body;
 
