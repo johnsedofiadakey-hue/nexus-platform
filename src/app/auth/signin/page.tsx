@@ -70,25 +70,43 @@ function SignInForm() {
   // 1. Prevents Hydration Mismatch
   useEffect(() => { setMounted(true); }, []);
 
-  // 🛰️ 2. FALLBACK AUTO-ROUTING
+  // 🛰️ 2. STRICT PORTAL GUARD & AUTO-ROUTING
   useEffect(() => {
     if (status === "authenticated" && session?.user && mounted) {
       const role = (session.user as any).role;
-      const callbackUrl = searchParams.get("callbackUrl");
+      const isAgentRole = ['WORKER', 'AGENT', 'ASSISTANT'].includes(role);
+      const isAdminRole = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'AUDITOR'].includes(role);
 
+      // 🛡️ ENFORCEMENT RULES
+      if (mode === 'AGENT' && !isAgentRole) {
+        toast.error("Access Denied: Admin account cannot use Field Agent Portal.");
+        // Force sign out if they tried to cross-login
+        import("next-auth/react").then(({ signOut }) => signOut({ redirect: false }));
+        return;
+      }
+
+      if (mode === 'HQ' && !isAdminRole) {
+        toast.error("Access Denied: Field Agents cannot access HQ Command.");
+        import("next-auth/react").then(({ signOut }) => signOut({ redirect: false }));
+        return;
+      }
+
+      // ✅ VALID ACCESS - Redirect
+      const callbackUrl = searchParams.get("callbackUrl");
       if (callbackUrl && !callbackUrl.includes("/auth/signin")) {
         window.location.href = callbackUrl;
         return;
       }
 
-      // Hard Redirects based on Role
-      if (['WORKER', 'AGENT', 'ASSISTANT'].includes(role)) {
+      if (isAgentRole) {
+        toast.success("Uplink Established");
         window.location.href = "/mobilepos";
       } else {
+        toast.success("Command Access Granted");
         window.location.href = "/dashboard";
       }
     }
-  }, [session, status, mounted, searchParams]);
+  }, [session, status, mounted, searchParams, mode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,13 +124,19 @@ function SignInForm() {
         toast.error("Invalid Credentials. Please check your inputs.");
         setIsSubmitting(false);
       } else {
-        toast.success(mode === 'AGENT' ? "Uplink Established" : "Dashboard Access Granted");
-        // Manual Redirect
-        if (mode === 'AGENT' || email.toLowerCase().includes("agent")) {
-          window.location.href = "/mobilepos";
-        } else {
-          window.location.href = "/dashboard";
-        }
+        // 🛡️ STRICT PORTAL SEPARATION
+        // We need to check the role *before* redirecting.
+        // Since `signIn` with redirect:false doesn't return the session object directly,
+        // we rely on the session update which happens automatically.
+        // However, to be instant, we can do a quick check via a server action or just rely on the next effect?
+        // A cleaner way in client-side handling: fetch the session manually properly or strictly redirect.
+
+        // Actually, the `useEffect` above handles the redirect. 
+        // We will modify the `useEffect` to enforce the BAN instead of just redirecting.
+
+        // For now, let's allow the Effect to handle the decision, 
+        // but we will Modify the Effect to REJECT/LOGOUT if mismatched.
+        window.location.reload(); // Trigger session update & effect check
       }
     } catch (error) {
       toast.error("Connection Error");
@@ -234,8 +258,8 @@ function SignInForm() {
       <button
         disabled={isSubmitting || status === "loading"}
         className={`group w-full h-14 text-white rounded-2xl font-bold text-sm tracking-wide flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-xl shadow-slate-300/50 disabled:opacity-70 disabled:shadow-none ${mode === 'AGENT'
-            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-            : 'bg-slate-900 hover:bg-black'
+          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+          : 'bg-slate-900 hover:bg-black'
           }`}
       >
         {isSubmitting || status === "loading" ? (

@@ -12,7 +12,7 @@ export async function GET() {
 
     const users = await prisma.user.findMany({
       where: {
-        role: { in: ['SUPER_ADMIN', 'ADMIN', 'ASSISTANT', 'AUDITOR'] },
+        role: { in: ['ADMIN', 'ASSISTANT', 'AUDITOR'] }, // 👻 GHOST MODE: Hide Super Admin
         // organizationId: session.user.organizationId
       },
       select: {
@@ -21,8 +21,7 @@ export async function GET() {
         email: true,
         role: true,
         status: true,
-        lastSeen: true,
-        permissions: true
+        lastSeen: true
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -38,17 +37,17 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
+
     // Check Permissions (Only ADMIN/SUPER_ADMIN can invite)
     if (!['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
-         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
     const { name, email, password, role, permissions } = body;
 
     if (!email || !password || !name) {
-        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     // Check if user exists
@@ -58,15 +57,14 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const newUser = await prisma.user.create({
-        data: {
-            name,
-            email: email.toLowerCase(),
-            password: hashedPassword,
-            role: role || 'ASSISTANT',
-            permissions: permissions || [], 
-            organizationId: session.user.organizationId,
-            status: 'ACTIVE'
-        }
+      data: {
+        name,
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        role: role || 'ASSISTANT',
+        organizationId: session.user.organizationId,
+        status: 'ACTIVE'
+      }
     });
 
     return NextResponse.json(newUser);
@@ -79,11 +77,17 @@ export async function POST(req: Request) {
 
 // DELETE: Remove Access
 export async function DELETE(req: Request) {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
 
-    if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+  if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
-    await prisma.user.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+  // 🛡️ SECURITY: Prevent deleting Super Admin
+  const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+  if (target?.role === 'SUPER_ADMIN') {
+    return NextResponse.json({ error: "Cannot delete the Owner" }, { status: 403 });
+  }
+
+  await prisma.user.delete({ where: { id } });
+  return NextResponse.json({ success: true });
 }
