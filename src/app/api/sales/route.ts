@@ -90,7 +90,6 @@ export async function POST(req: Request) {
 
         saleLineItems.push({
           productId: item.productId,
-          productName: product.name, // Snapshot name in case it changes
           quantity: item.quantity,
           price: item.price,
           total: item.quantity * item.price
