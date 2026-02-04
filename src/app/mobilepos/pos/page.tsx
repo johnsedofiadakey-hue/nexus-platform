@@ -133,33 +133,30 @@ export default function MobilePOS() {
         } catch (e) { console.log("GPS Timeout - Using Last Known"); }
       }
 
-      const payload = {
-        shopId: identity?.shopId,
-        items: cart.map(i => ({ productId: i.id, quantity: i.cartQty, price: i.priceGHS })),
-        totalAmount: cartTotal,
-        gps
-      };
+      const payloadItems = cart.map(i => ({
+        productId: i.id,
+        quantity: i.cartQty,
+        price: i.priceGHS
+      }));
 
-      const res = await fetch("/api/sales?source=MOBILE", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      // ⚡️ SERVER ACTION INVOCATION
+      const result = await processTransaction(
+        identity!.id,
+        identity!.shopId,
+        cartTotal,
+        payloadItems,
+        "CASH"
+      );
 
-      const data = await res.json();
-
-      if (res.ok) {
-        setLastSaleId(data.saleId);
+      if (result.success) {
+        setLastSaleId(result.saleId);
         setView('SUCCESS');
         setCart([]);
         if (identity?.shopId) {
           fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`).then(r => r.json()).then(d => setInventory(d));
         }
       } else {
-        // 🚨 PRECISE ERROR FEEDBACK
-        // If the backend says "Stockout: Cola (Req: 5, Avail: 2)", show that exactly.
-        const errorMsg = data.error || "Transaction Rejected";
-        alert(`⚠️ TRANSACTION FAILED\n\n${errorMsg}`);
+        alert(`⚠️ TRANSACTION FAILED\n\n${result.error}`);
       }
 
     } catch (err) {
