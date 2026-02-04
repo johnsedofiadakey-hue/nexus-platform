@@ -19,14 +19,14 @@ export async function GET() {
     const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
 
     // Query Strategy:
-    // 1. If Super Admin -> All shops
+    // 1. If Super Admin -> All shops (Show everything, even unlinked ones)
     // 2. If Org ID exists -> Shops in Org
     // 3. Fallback: Shops created by this user
     const whereClause = isSuperAdmin
-      ? {}
+      ? {} // SHOW ALL
       : orgId
         ? { organizationId: orgId }
-        : { users: { some: { id: userId } } }; // Fallback: Shops user is assigned to
+        : { users: { some: { id: userId } } };
 
     const shops = await prisma.shop.findMany({
       where: whereClause,
