@@ -221,6 +221,10 @@ export default function MobilePOS() {
             <button onClick={fetchData} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors active:scale-90">
               <RefreshCw className="w-4 h-4" />
             </button>
+            <Link href="/mobilepos/history" className="p-2 bg-slate-50 text-slate-500 rounded-full hover:bg-slate-100 transition-colors active:scale-90" title="Sales History">
+              <span className="sr-only">History</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /></svg>
+            </Link>
             <Link href="/mobilepos" className="p-2 bg-slate-50 text-slate-500 rounded-full hover:bg-slate-100 transition-colors active:scale-90">
               <Home className="w-4 h-4" />
             </Link>
