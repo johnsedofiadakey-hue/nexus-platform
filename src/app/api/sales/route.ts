@@ -91,8 +91,7 @@ export async function POST(req: Request) {
         saleLineItems.push({
           productId: item.productId,
           quantity: item.quantity,
-          price: item.price,
-          total: item.quantity * item.price
+          price: item.price
         });
       }
 
