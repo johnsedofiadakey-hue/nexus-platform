@@ -26,11 +26,18 @@ model Organization {
   plan        String   @default("FREE")
   nextBillingDate DateTime?
 
+  // 🎨 BRANDING (White-Label)
+  primaryColor   String?   @default("#2563EB") // Blue 600
+  secondaryColor String?   @default("#0F172A") // Slate 900
+  accentColor    String?   @default("#F59E0B") // Amber 500
+  logoUrl        String?   // Base64 or URL
+
   // Relations
   shops       Shop[]
   users       User[]
   subscriptions Subscription[]
   invoices    Invoice[]
+  notifications Notification[]
 }
 
 model Subscription {
@@ -143,6 +150,7 @@ model User {
   role             String    @default("WORKER") // WORKER, MANAGER, ADMIN, SUPER_ADMIN
   status           String    @default("ACTIVE") 
   isInsideZone     Boolean   @default(false)
+  bypassGeofence   Boolean   @default(false)
   
   // 📍 GPS TRACKING
   lastLat          Float?
@@ -338,4 +346,22 @@ model Message {
 
   @@index([senderId])
   @@index([receiverId])
+}
+
+// --- 8. SYSTEM NOTIFICATIONS ---
+model Notification {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  
+  type           String       // MESSAGE, LEAVE, ALERT
+  title          String
+  message        String
+  link           String?      // URL to redirect to
+  
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([isRead])
 }

@@ -11,11 +11,17 @@ export async function GET(
   const { id } = await props.params;
   const session = await getServerSession(authOptions);
 
-  // Implicit security: If you know the shop ID you can see categories? 
-  // Better: check if shop belongs to org
-  if (!session?.user?.organizationId) return NextResponse.json([], { status: 401 });
+  if (!session?.user?.id) return NextResponse.json([], { status: 401 });
 
-  const shop = await prisma.shop.findFirst({ where: { id, organizationId: session.user.organizationId } });
+  // 🛡️ SECURITY: Allow if Super Admin OR if belongs to Organization
+  const isSuper = (session.user as any).role === 'SUPER_ADMIN';
+  if (!isSuper && !session.user.organizationId) {
+    return NextResponse.json([], { status: 401 });
+  }
+
+  const shopQuery = isSuper ? { id } : { id, organizationId: session.user.organizationId };
+
+  const shop = await prisma.shop.findFirst({ where: shopQuery });
   if (!shop) return NextResponse.json([], { status: 403 });
 
   const categories = await prisma.inventoryCategory.findMany({
@@ -34,9 +40,16 @@ export async function POST(
   const { id } = await props.params;
 
   const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const shop = await prisma.shop.findFirst({ where: { id, organizationId: session.user.organizationId } });
+  const isSuper = (session.user as any).role === 'SUPER_ADMIN';
+  if (!isSuper && !session.user.organizationId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const shopQuery = isSuper ? { id } : { id, organizationId: session.user.organizationId };
+  const shop = await prisma.shop.findFirst({ where: shopQuery });
+
   if (!shop) return NextResponse.json({ error: "Access Denied" }, { status: 403 });
 
   const body = await req.json();

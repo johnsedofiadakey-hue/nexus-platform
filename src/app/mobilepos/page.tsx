@@ -55,6 +55,7 @@ export default function MobileGpsGate() {
     radius: number;
     managerName?: string;
     managerPhone?: string;
+    bypassGeofence?: boolean;
   } | null>(null);
 
   const [distance, setDistance] = useState<number | null>(null);
@@ -109,7 +110,8 @@ export default function MobileGpsGate() {
           shopLng: data.shopLng,
           radius: data.radius || 100,
           managerName: data.managerName,
-          managerPhone: data.managerPhone
+          managerPhone: data.managerPhone,
+          bypassGeofence: data.bypassGeofence
         });
       } catch {
         setGpsStatus("ERROR");
@@ -215,144 +217,102 @@ export default function MobileGpsGate() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-6 pt-10 pb-24">
+    <div className="min-h-full px-6 pt-8 pb-32 space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-10">
+      <div className="flex justify-between items-center animate-in slide-in-from-top-4 duration-700">
         <div className="flex items-center gap-4">
-          <UserCircle2 size={36} />
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[2px] shadow-lg shadow-blue-500/30">
+            <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden">
+              <UserCircle2 size={32} className="text-slate-400" />
+            </div>
+          </div>
           <div>
-            <p className="text-xs text-slate-400">Active Agent</p>
-            <p className="font-bold">{identity?.agentName || "—"}</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Welcome Back</p>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{identity?.agentName || "Agent"}</h1>
           </div>
         </div>
 
-        <button onClick={() => setShowSettings((v) => !v)}>
-          <Settings />
+        <button
+          onClick={() => setShowSettings((v) => !v)}
+          className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-500 transition-all active:scale-95 shadow-sm"
+        >
+          <Settings size={20} />
         </button>
       </div>
 
-      {/* 🏪 SHOP INFO CARD */}
+      {/* 🏪 SHOP INFO CARD (Glassmorphism) */}
       {identity && (
-        <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 shadow-sm relative overflow-hidden">
-          <div className="flex justify-between items-start mb-4 relative z-10">
+        <div className="relative group overflow-hidden rounded-[2rem] p-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-2xl shadow-slate-900/20 active:scale-[0.98] transition-all duration-300">
+          {/* Dynamic Background */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-12 translate-x-12 group-hover:bg-blue-500/20 transition-all duration-700" />
+
+          <div className="relative z-10 flex justify-between items-start mb-6">
             <div>
-              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Assigned Unit</p>
-              <h3 className="text-lg font-black text-slate-900 leading-none">{identity.shopName}</h3>
+              <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-widest backdrop-blur-md text-blue-200">
+                Assigned Unit
+              </span>
+              <h2 className="mt-4 text-3xl font-black tracking-tighter text-white">{identity.shopName}</h2>
             </div>
-            <div className="bg-white p-3 rounded-xl shadow-lg shadow-slate-200/50 text-blue-600">
-              <Store size={20} />
+            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/5">
+              <Store size={24} className="text-blue-300" />
             </div>
           </div>
 
-          <div className="flex items-center gap-4 pt-4 border-t border-slate-200/60 relative z-10">
-            <div className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center shadow-sm">
-              <UserCircle2 size={20} className="text-slate-400" />
+          <div className="relative z-10 flex items-center gap-3 pt-6 border-t border-white/10">
+            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300">
+              <Phone size={14} />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Manager</p>
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-bold text-slate-900">{identity.managerName}</p>
-                <span className="text-[10px] text-slate-300">•</span>
-                <div className="flex items-center gap-1 text-slate-500">
-                  <Phone size={10} />
-                  <p className="text-[10px] font-mono font-bold">{identity.managerPhone}</p>
-                </div>
-              </div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Manager Line</p>
+              <p className="text-sm font-bold text-white">{identity.managerPhone || "N/A"}</p>
             </div>
           </div>
-
-          {/* Decor */}
-          <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-blue-500/5 rounded-full blur-xl" />
-        </div>
-      )}
-
-      {/* SETTINGS */}
-      {showSettings && (
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <DrawerButton
-            icon={<MessageSquare />}
-            label="HQ Messages"
-            onClick={() => router.push("/mobilepos/messages")}
-          />
-          <DrawerButton
-            icon={<CalendarDays />}
-            label="Daily Report"
-            onClick={() => router.push("/mobilepos/report")}
-          />
         </div>
       )}
 
       {/* NEW: SMART ATTENDANCE */}
       {identity && mounted && (
-        <div className="mb-10">
+        <div className="animate-in slide-in-from-bottom-4 duration-700 delay-100">
           <SmartAttendance
             shopLat={identity.shopLat}
             shopLng={identity.shopLng}
             radius={identity.radius}
-            status={isLocating ? 'CLOCKED_OUT' : 'CLOCKED_OUT'} // TODO: Connect to real status
-            onClockIn={async () => {
-              toast.success("Shift Started");
-              // TODO: Call API
-            }}
+            bypassGeofence={identity.bypassGeofence}
           />
         </div>
       )}
 
-      <div className="flex flex-col items-center gap-8 opacity-50 pointer-events-none grayscale">
-        <div className="flex items-center gap-2">
-          {gpsStatus === "SEARCHING" && <Loader2 className="animate-spin" />}
-          {gpsStatus === "ERROR" && <WifiOff className="text-red-500" />}
-          {gpsStatus === "LOCKED" && <ShieldCheck className="text-green-600" />}
-          <span className="text-xs font-bold uppercase">
-            {gpsStatus === "SEARCHING"
-              ? "Locating"
-              : gpsStatus === "LOCKED"
-                ? "Secure"
-                : "GPS Error"}
-          </span>
-        </div>
-
-        {/* LOCK */}
-        <div className="w-48 h-48 rounded-full border flex items-center justify-center">
-          {isLocating ? (
-            <Loader2 className="animate-spin" size={48} />
-          ) : inRange ? (
-            <Unlock size={48} />
-          ) : (
-            <Lock size={48} />
-          )}
-        </div>
-
-        <p className="font-mono text-sm">
-          {distance !== null
-            ? `${distance}m from ${identity?.shopName}`
-            : "—"}
-        </p>
-
+      {/* QUICK ACTIONS GRID */}
+      <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-bottom-8 duration-700 delay-200">
         <button
-          disabled={!inRange}
-          onClick={() => router.push("/mobilepos/pos")}
-          className={`w-full h-16 rounded-xl flex items-center justify-between px-6 ${inRange
-            ? "bg-black text-white"
-            : "bg-slate-200 text-slate-400"
-            }`}
+          onClick={() => router.push("/mobilepos/messages")}
+          className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm active:scale-95 transition-all text-left group hover:border-blue-500/30"
         >
-          <span className="uppercase text-xs font-bold">
-            {inRange ? "Start POS" : "Outside Zone"}
-          </span>
-          <ArrowRight />
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <MessageSquare size={20} />
+          </div>
+          <p className="font-extrabold text-slate-900 dark:text-white">HQ Chat</p>
+          <p className="text-[10px] font-bold text-slate-400 mt-1">Direct Support Line</p>
         </button>
 
-        {gpsStatus === "ERROR" && (
-          <button
-            onClick={() => window.location.reload()}
-            className="flex items-center gap-2 text-blue-600 mt-4"
-          >
-            <RefreshCcw size={14} />
-            Retry GPS
-          </button>
-        )}
+        <button
+          onClick={() => router.push("/mobilepos/report")}
+          className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm active:scale-95 transition-all text-left group hover:border-emerald-500/30"
+        >
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <CalendarDays size={20} />
+          </div>
+          <p className="font-extrabold text-slate-900 dark:text-white">Daily Report</p>
+          <p className="text-[10px] font-bold text-slate-400 mt-1">Submit End of Day</p>
+        </button>
       </div>
+
+      {/* GPS STATUS (Subtle) */}
+      <div className="flex items-center justify-center gap-2 opacity-40 grayscale py-4">
+        <div className={`w-2 h-2 rounded-full ${gpsStatus === 'LOCKED' ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
+        <p className="text-[10px] font-mono text-slate-400">{gpsStatus === 'LOCKED' ? `GPS LOCKED • ${distance}m` : 'SEARCHING...'}</p>
+      </div>
+
     </div>
   );
 }

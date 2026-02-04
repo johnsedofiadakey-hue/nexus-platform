@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
     const sender = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true, shopId: true }
+      select: { id: true, shopId: true, name: true, organizationId: true }
     });
 
     if (!sender) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -88,6 +88,19 @@ export async function POST(req: Request) {
         isRead: false
       }
     });
+
+    // 🔔 NOTIFICATION TRIGGER
+    if (session.user.organizationId) {
+      await prisma.notification.create({
+        data: {
+          organizationId: session.user.organizationId,
+          type: 'MESSAGE',
+          title: 'New Field Message',
+          message: `${sender.name || 'Agent'}: ${content.substring(0, 40)}${content.length > 40 ? '...' : ''}`,
+          link: `/dashboard/hr/member/${sender.id}?tab=CHAT`
+        }
+      });
+    }
 
     return NextResponse.json(message);
   } catch (error) {

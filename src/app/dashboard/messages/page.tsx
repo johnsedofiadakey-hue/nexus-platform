@@ -9,7 +9,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useSession } from "next-auth/react";
 
 export default function MessagingPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [agents, setAgents] = useState<any[]>([]);
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [messages, setMessages] = useState<any[]>([]);
@@ -17,12 +17,13 @@ export default function MessagingPage() {
     const [loadingAgents, setLoadingAgents] = useState(true);
 
     const bottomRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     // 1. Fetch Agents for Sidebar
     useEffect(() => {
         async function fetchAgents() {
             try {
-                const res = await fetch('/api/dashboard/agents'); // Reuse existing endpoint
+                const res = await fetch('/api/dashboard/agents');
                 if (res.ok) setAgents(await res.json());
             } finally {
                 setLoadingAgents(false);
@@ -38,31 +39,41 @@ export default function MessagingPage() {
         const fetchMessages = async () => {
             try {
                 const res = await fetch(`/api/messages?userId=${activeChatId}`);
-                if (res.ok) setMessages(await res.json());
+                if (res.ok) {
+                    const latestMatches = await res.json();
+                    // Basic duplicate check or state replacement
+                    setMessages(latestMatches);
+                    // Note: In a real "WhatsApp" speed app, we'd merge or use SWR. 
+                    // For now, replacing state is "correct" but maybe jittery if scrolled up.
+                }
             } catch (e) {
                 console.error("Poll failed", e);
             }
         };
 
         fetchMessages(); // Initial load
-        const interval = setInterval(fetchMessages, 3000); // Poll every 3s
+        const interval = setInterval(fetchMessages, 2000); // Poll every 2s for "fast" feel
         return () => clearInterval(interval);
     }, [activeChatId]);
 
     // 3. Scroll to bottom on new message
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+        if (bottomRef.current) {
+            bottomRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [messages.length, activeChatId]); // Only scroll when message count changes or chat changes
 
     const handleSend = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (!inputText.trim() || !activeChatId) return;
+        const userId = (session?.user as any)?.id;
 
-        const tempId = Date.now().toString();
+        if (!inputText.trim() || !activeChatId || !userId) return;
+
+        const tempId = "temp-" + Date.now();
         const tempMsg = {
             id: tempId,
             content: inputText,
-            senderId: session?.user?.id,
+            senderId: userId,
             createdAt: new Date().toISOString(),
             pending: true
         };
@@ -81,13 +92,22 @@ export default function MessagingPage() {
             });
 
             if (!res.ok) throw new Error("Failed");
+
+            // The polling will naturally start picking up the real message, 
+            // but we can also manually refresh immediately for instant sync
+            // triggerPoll() -> implemented by calling fetch again if we moved logic out
         } catch (e) {
-            // Revert or show error (Todo)
             console.error("Send failed");
+            // Ideally: mark message as failed (red exclamation)
         }
     };
 
     const activeAgent = agents.find(a => a.id === activeChatId);
+    const myId = (session?.user as any)?.id;
+
+    if (status === "loading") {
+        return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-slate-400" /></div>;
+    }
 
     return (
         <div className="flex h-[calc(100vh-80px)] bg-slate-50 overflow-hidden">
@@ -125,7 +145,6 @@ export default function MessagingPage() {
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-center mb-0.5">
                                     <h3 className="font-bold text-slate-900 truncate">{agent.name}</h3>
-                                    {/* <span className="text-[10px] text-slate-400 font-medium">12:30 PM</span> */}
                                 </div>
                                 <p className="text-xs text-slate-500 truncate font-medium">
                                     {agent.shopName} • {agent.role}
@@ -166,19 +185,23 @@ export default function MessagingPage() {
                         </header>
 
                         {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto p-6 z-0 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-6 z-0 space-y-4" ref={scrollRef}>
                             {messages.map((msg, idx) => {
-                                const isMe = msg.senderId === session?.user?.id;
+                                const isMe = msg.senderId === myId;
                                 return (
-                                    <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                    <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}>
                                         <div className={`max-w-[70%] p-3 px-4 rounded-xl shadow-sm text-sm font-medium leading-relaxed relative ${isMe
-                                                ? 'bg-emerald-500 text-white rounded-tr-none'
-                                                : 'bg-white text-slate-800 rounded-tl-none'
+                                            ? 'bg-emerald-500 text-white rounded-tr-none'
+                                            : 'bg-white text-slate-800 rounded-tl-none'
                                             }`}>
                                             {msg.content}
-                                            <p className={`text-[9px] mt-1 text-right opacity-70 ${isMe ? 'text-emerald-100' : 'text-slate-400'}`}>
-                                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
+                                            <div className={`text-[9px] mt-1 text-right opacity-70 flex justify-end gap-1 items-center ${isMe ? 'text-emerald-100' : 'text-slate-400'}`}>
+                                                {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                                                {/* Checkmarks / Status for "Me" */}
+                                                {isMe && (
+                                                    msg.pending ? <Loader2 size={10} className="animate-spin" /> : <span>✓✓</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )
@@ -196,7 +219,7 @@ export default function MessagingPage() {
                                 className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder-slate-400"
                             />
                             {inputText.trim() ? (
-                                <button type="submit" className="p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 transition-all shadow-md">
+                                <button type="submit" className="p-3 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 transition-all shadow-md active:scale-95">
                                     <Send size={18} className="translate-x-0.5 translate-y-0.5" />
                                 </button>
                             ) : (

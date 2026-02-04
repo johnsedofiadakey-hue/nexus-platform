@@ -37,9 +37,9 @@ export async function GET(
           }
         },
         sales: { take: 20, orderBy: { createdAt: 'desc' } },
-        dailyReports: { take: 10, orderBy: { createdAt: 'desc' } },
-        attendance: { take: 10, orderBy: { date: 'desc' } },
-        leaves: { take: 10, orderBy: { createdAt: 'desc' } },
+        dailyReports: { take: 50, orderBy: { createdAt: 'desc' } },
+        attendance: { take: 30, orderBy: { date: 'desc' } },
+        leaves: { take: 50, orderBy: { createdAt: 'desc' } },
         disciplinary: { take: 30, orderBy: { createdAt: 'desc' } },
         sentMessages: { take: 20, orderBy: { createdAt: 'desc' } },
         receivedMessages: { take: 20, orderBy: { createdAt: 'desc' } },
@@ -119,20 +119,28 @@ export async function PATCH(
     if (!targetUser) return NextResponse.json({ error: "Access Denied" }, { status: 403 });
 
     if (action === 'UPDATE_PROFILE') {
+      const updateData: any = {
+        name: payload.name,
+        email: payload.email?.toLowerCase().trim(),
+        phone: payload.phone,
+        status: payload.status,
+        shopId: payload.shopId || null,
+        bypassGeofence: payload.bypassGeofence
+      };
+
+      if (payload.password && payload.password.length > 0) {
+        updateData.password = await bcrypt.hash(payload.password, 12);
+      }
+
       const updated = await prisma.user.update({
         where: { id },
-        data: {
-          name: payload.name,
-          email: payload.email?.toLowerCase().trim(),
-          phone: payload.phone,
-          status: payload.status,
-          shopId: payload.shopId || null
-        }
+        data: updateData
       });
       return NextResponse.json({ success: true, data: updated });
     }
 
     if (action === 'RESET_PASSWORD') {
+      // Standalone action (Legacy/Specific)
       if (!payload.password) return NextResponse.json({ error: "Password required" }, { status: 400 });
       const hashedPassword = await bcrypt.hash(payload.password, 12);
       await prisma.user.update({

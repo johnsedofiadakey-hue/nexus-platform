@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { 
-  User, Mail, Phone, Building2, 
+import {
+  User, Mail, Phone, Building2,
   ShieldCheck, CreditCard, Calendar, Edit3, Save,
-  Navigation, ShieldAlert, Radio
+  Navigation, ShieldAlert, Radio, Globe
 } from "lucide-react";
 
 interface ProfileCardProps {
@@ -15,12 +15,14 @@ interface ProfileCardProps {
 
 export default function ProfileCard({ profile, shops = [], onSave }: ProfileCardProps) {
   const [isEditing, setIsEditing] = useState(false);
-  
+
   // 🛡️ CRITICAL FIX: Initialize state with optional chaining to prevent 500 crashes
   const [formData, setFormData] = useState({
     name: profile?.name || "",
     phone: profile?.phone || "",
-    shopId: profile?.shopId || ""
+    shopId: profile?.shopId || "",
+    password: "",
+    bypassGeofence: profile?.bypassGeofence || false
   });
 
   // --- 🛰️ LIVE GEOFENCE VERIFICATION ---
@@ -40,8 +42,8 @@ export default function ProfileCard({ profile, shops = [], onSave }: ProfileCard
     const dLon = toRad(lng2 - lng1);
 
     const a = Math.sin(dLat / 2) ** 2 +
-              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-              Math.sin(dLon / 2) ** 2;
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;
 
@@ -77,7 +79,7 @@ export default function ProfileCard({ profile, shops = [], onSave }: ProfileCard
               {geofence.isInside ? "Authorized Access" : "Geofence Breach"}
             </span>
           </div>
-          <button 
+          <button
             onClick={() => isEditing ? handleSave() : setIsEditing(true)}
             className="p-2.5 hover:bg-slate-50 rounded-xl transition-all text-slate-400 hover:text-blue-600 border border-transparent hover:border-slate-100"
           >
@@ -88,9 +90,8 @@ export default function ProfileCard({ profile, shops = [], onSave }: ProfileCard
         {/* --- IDENTITY SECTION --- */}
         <div className="flex items-center gap-6 mb-10">
           <div className="relative">
-            <div className={`w-20 h-20 rounded-[2rem] border-2 flex items-center justify-center bg-slate-50 transition-all ${
-              geofence.isInside ? 'border-emerald-100' : 'border-rose-100'
-            }`}>
+            <div className={`w-20 h-20 rounded-[2rem] border-2 flex items-center justify-center bg-slate-50 transition-all ${geofence.isInside ? 'border-emerald-100' : 'border-rose-100'
+              }`}>
               {profile?.image ? (
                 <img src={profile.image} alt="" className="w-full h-full object-cover rounded-[2rem]" />
               ) : (
@@ -103,20 +104,20 @@ export default function ProfileCard({ profile, shops = [], onSave }: ProfileCard
               </div>
             )}
           </div>
-          
+
           <div className="flex-1">
             {isEditing ? (
-              <input 
+              <input
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full text-xl font-black text-slate-900 border-b-2 border-blue-500 outline-none bg-transparent uppercase tracking-tight"
               />
             ) : (
               <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{profile?.name || "Unverified Agent"}</h2>
             )}
             <div className="flex items-center gap-2 mt-1">
-               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nexus-ID:</span>
-               <span className="text-[10px] font-bold text-blue-600 font-mono">{(profile?.id || "---").slice(0, 8)}</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nexus-ID:</span>
+              <span className="text-[10px] font-bold text-blue-600 font-mono">{(profile?.id || "---").slice(0, 8)}</span>
             </div>
           </div>
         </div>
@@ -132,17 +133,65 @@ export default function ProfileCard({ profile, shops = [], onSave }: ProfileCard
             </div>
           </div>
 
+          {/* 🛡️ SECURITY & ACCESS CONTROL (Admin Only) */}
+          {isEditing && (
+            <div className="p-4 rounded-2xl border border-blue-100 bg-blue-50/30 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck size={14} className="text-blue-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500">Security Clearance</span>
+              </div>
+
+              {/* Password Reset */}
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Reset Password</label>
+                <input
+                  type="password"
+                  placeholder="Enter new password to reset"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full text-xs font-bold p-2 rounded-lg border border-blue-200 outline-none focus:border-blue-500 bg-white"
+                />
+              </div>
+
+              {/* Bypass Toggle */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-600">Global GPS Override</span>
+                <button
+                  onClick={() => setFormData({ ...formData, bypassGeofence: !formData.bypassGeofence })}
+                  className={`w-10 h-5 rounded-full relative transition-colors ${formData.bypassGeofence ? 'bg-blue-600' : 'bg-slate-300'}`}
+                >
+                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all shadow-sm ${formData.bypassGeofence ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+              {formData.bypassGeofence && (
+                <p className="text-[9px] text-blue-600 font-bold leading-tight">
+                  ⚠️ Remote Access Authorized. Agent can clock-in from anywhere.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* View Mode: Security Badge */}
+          {!isEditing && profile?.bypassGeofence && (
+            <div className="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+              <Globe size={16} className="text-indigo-600" />
+              <div>
+                <p className="text-[10px] font-black text-indigo-600 uppercase">Remote Access Active</p>
+                <p className="text-[9px] text-indigo-400 font-bold">GPS Geofence Bypassed</p>
+              </div>
+            </div>
+          )}
+
           {/* Hub Card with Dynamic Location */}
-          <div className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${
-            isEditing ? 'bg-white border-blue-200 ring-2 ring-blue-50' : 'bg-slate-50/50 border-slate-100'
-          }`}>
+          <div className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${isEditing ? 'bg-white border-blue-200 ring-2 ring-blue-50' : 'bg-slate-50/50 border-slate-100'
+            }`}>
             <Navigation size={16} className={geofence.isInside ? "text-emerald-500" : "text-rose-400"} />
             <div className="flex flex-col w-full">
               <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Assigned Retail Hub</span>
               {isEditing ? (
-                <select 
+                <select
                   value={formData.shopId}
-                  onChange={(e) => setFormData({...formData, shopId: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, shopId: e.target.value })}
                   className="text-xs font-bold text-slate-900 bg-transparent outline-none w-full"
                 >
                   <option value="">Pending Hub Assignment</option>
@@ -164,9 +213,9 @@ export default function ProfileCard({ profile, shops = [], onSave }: ProfileCard
             <div className="flex flex-col">
               <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Secure Line</span>
               {isEditing ? (
-                <input 
+                <input
                   value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="text-xs font-bold text-slate-900 bg-transparent outline-none"
                 />
               ) : (

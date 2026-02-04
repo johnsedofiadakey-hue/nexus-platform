@@ -1,81 +1,104 @@
 "use client";
 
-import React from "react";
-import {
-  Home, Package, Plus, Settings, Zap, MessageSquare
-} from "lucide-react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { SessionProvider as AuthProvider } from "@/components/providers/SessionProvider";
 import { MobileThemeProvider, useMobileTheme } from "@/context/MobileThemeContext";
-// 🛡️ IMPORT THE BACKGROUND TRACKER
 import LocationGuard from "@/components/auth/LocationGuard";
+import SyncManager from "@/components/mobile/SyncManager";
+import LeaveLockout from "@/components/mobile/LeaveLockout";
+import { useEffect, useState } from "react";
+import { Loader2, Plus, Home, Package, MessageSquare, Menu } from "lucide-react";
 
 /**
  * 📱 MOBILE FRAME WRAPPER
- * This component is the "Source of Truth" for the navigation dock.
+ * High-End SaaS Overhaul
  */
 function MobileFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { themeClasses } = useMobileTheme();
+  const [lockout, setLockout] = useState<{ active: boolean; returnDate?: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/mobile/init").then(r => r.json()).then(data => {
+      if (data.lockout && data.lockout.active) {
+        setLockout({ active: true, returnDate: new Date(data.lockout.endDate).toDateString() });
+      } else {
+        setLockout({ active: false });
+      }
+    }).catch(() => setLockout({ active: false }));
+  }, []);
+
+  if (lockout === null) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
+        <Loader2 className="animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (lockout.active) {
+    return <LeaveLockout returnDate={lockout.returnDate!} />;
+  }
 
   const isActive = (path: string) => pathname === path;
 
   return (
-    <div className={`w-full max-w-[480px] h-screen relative shadow-2xl flex flex-col overflow-hidden transition-colors duration-500 ${themeClasses.bg}`}>
+    <div className={`w-full max-w-[480px] h-screen relative flex flex-col overflow-hidden transition-all duration-500 bg-slate-50 dark:bg-slate-900 mx-auto shadow-2xl rounded-xl border border-slate-200 dark:border-slate-800 overscroll-none select-none`}>
 
-      {/* 🟢 MAIN CONTENT AREA 
-          Fixed height with hidden overflow on parent.
-          ✅ UPDATED: Added 'pb-28' (padding-bottom) to ensure content scrolls 
-          ABOVE the floating + button so nothing gets hidden behind it.
-      */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-28">
+      {/* 🔴 Status Bar Area (Visual Only) */}
+      <div className="h-2 w-full bg-transparent z-50 shrink-0" />
+
+      {/* 🟢 MAIN CONTENT AREA */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-32">
+        <SyncManager />
         {children}
       </main>
 
-      {/* 📱 THE DOCK (Flex container at bottom) */}
-      <div className={`p-4 pb-8 border-t flex justify-around items-end gap-1 shrink-0 z-50 ${themeClasses.nav} ${themeClasses.border}`}>
+      {/* 📱 THE DOCK (Floating Glass) */}
+      <div className="absolute bottom-6 left-4 right-4 h-20 rounded-3xl bg-[var(--glass-bg)] border border-[var(--glass-border)] shadow-[var(--glass-shadow)] backdrop-blur-xl flex justify-between items-center px-6 z-50">
 
         {/* HUB */}
-        <button onClick={() => router.push('/mobilepos')} className="flex flex-col items-center gap-1 group w-14">
-          <div className={`p-3 rounded-2xl transition-all active:scale-90 ${isActive('/mobilepos') ? 'bg-blue-600/10' : themeClasses.card}`}>
-            <Home size={20} className={isActive('/mobilepos') ? 'text-blue-500' : 'text-slate-400'} />
+        <button onClick={() => router.push('/mobilepos')} className="group flex flex-col items-center gap-1 transition-all">
+          <div className={`p-2 rounded-full transition-all duration-300 ${isActive('/mobilepos') ? 'bg-blue-100 text-blue-600 translate-y-[-4px]' : 'text-slate-400'}`}>
+            <Home size={22} className={isActive('/mobilepos') ? 'fill-blue-600' : ''} />
           </div>
-          <span className={`text-[9px] font-black uppercase tracking-widest ${isActive('/mobilepos') ? 'text-blue-500' : 'text-slate-400'}`}>Hub</span>
+          {isActive('/mobilepos') && <span className="w-1 h-1 rounded-full bg-blue-600 animate-in fade-in" />}
         </button>
 
         {/* STOCK */}
-        <button onClick={() => router.push('/mobilepos/inventory')} className="flex flex-col items-center gap-1 group w-14">
-          <div className={`p-3 rounded-2xl transition-all active:scale-90 ${isActive('/mobilepos/inventory') ? 'bg-blue-600/10' : themeClasses.card}`}>
-            <Package size={20} className={isActive('/mobilepos/inventory') ? 'text-blue-500' : 'text-slate-400'} />
+        <button onClick={() => router.push('/mobilepos/inventory')} className="group flex flex-col items-center gap-1 transition-all">
+          <div className={`p-2 rounded-full transition-all duration-300 ${isActive('/mobilepos/inventory') ? 'bg-blue-100 text-blue-600 translate-y-[-4px]' : 'text-slate-400'}`}>
+            <Package size={22} className={isActive('/mobilepos/inventory') ? 'fill-blue-600' : ''} />
           </div>
-          <span className={`text-[9px] font-black uppercase tracking-widest ${isActive('/mobilepos/inventory') ? 'text-blue-500' : 'text-slate-400'}`}>Stock</span>
+          {isActive('/mobilepos/inventory') && <span className="w-1 h-1 rounded-full bg-blue-600 animate-in fade-in" />}
         </button>
 
-        {/* ➕ THE ICONIC ACTION BUTTON (Floating) */}
-        <div className="relative -top-6">
+        {/* ➕ ACTION BUTTON (Floating Gradient) */}
+        <div className="relative -top-8">
           <button
             onClick={() => router.push('/mobilepos/pos')}
-            className="w-16 h-16 rounded-full flex items-center justify-center bg-slate-900 text-white shadow-2xl shadow-blue-900/20 active:scale-90 transition-all border-[5px] border-white dark:border-slate-800"
+            className="w-16 h-16 rounded-full flex items-center justify-center bg-[var(--nexus-primary)] text-white shadow-2xl shadow-blue-900/30 active:scale-90 transition-all border-[4px] border-white dark:border-slate-800"
           >
             <Plus size={28} strokeWidth={3} />
           </button>
         </div>
 
         {/* HQ CHAT */}
-        <button onClick={() => router.push('/mobilepos/messages')} className="flex flex-col items-center gap-1 group w-14">
-          <div className={`p-3 rounded-2xl transition-all active:scale-90 ${isActive('/mobilepos/messages') ? 'bg-blue-600/10' : themeClasses.card}`}>
-            <MessageSquare size={20} className={isActive('/mobilepos/messages') ? 'text-blue-500' : 'text-slate-400'} />
+        <button onClick={() => router.push('/mobilepos/messages')} className="group flex flex-col items-center gap-1 transition-all">
+          <div className={`p-2 rounded-full transition-all duration-300 ${isActive('/mobilepos/messages') ? 'bg-blue-100 text-blue-600 translate-y-[-4px]' : 'text-slate-400'}`}>
+            <MessageSquare size={22} className={isActive('/mobilepos/messages') ? 'fill-blue-600' : ''} />
           </div>
-          <span className={`text-[9px] font-black uppercase tracking-widest ${isActive('/mobilepos/messages') ? 'text-blue-500' : 'text-slate-400'}`}>Chat</span>
+          {isActive('/mobilepos/messages') && <span className="w-1 h-1 rounded-full bg-blue-600 animate-in fade-in" />}
         </button>
 
-        {/* VIBE / SETTINGS */}
-        <button onClick={() => router.push('/mobilepos/settings')} className="flex flex-col items-center gap-1 group w-14">
-          <div className={`p-3 rounded-2xl transition-all active:scale-90 ${isActive('/mobilepos/settings') ? 'bg-blue-600/10' : themeClasses.card}`}>
-            <Settings size={20} className={isActive('/mobilepos/settings') ? 'text-blue-500' : 'text-slate-400'} />
+        {/* MENU */}
+        <button onClick={() => router.push('/mobilepos/settings')} className="group flex flex-col items-center gap-1 transition-all">
+          <div className={`p-2 rounded-full transition-all duration-300 ${isActive('/mobilepos/settings') ? 'bg-blue-100 text-blue-600 translate-y-[-4px]' : 'text-slate-400'}`}>
+            <Menu size={22} />
           </div>
-          <span className={`text-[9px] font-black uppercase tracking-widest ${isActive('/mobilepos/settings') ? 'text-blue-500' : 'text-slate-400'}`}>Vibe</span>
+          {isActive('/mobilepos/settings') && <span className="w-1 h-1 rounded-full bg-blue-600 animate-in fade-in" />}
         </button>
 
       </div>
@@ -90,7 +113,7 @@ export default function MobilePOSLayout({ children }: { children: React.ReactNod
   return (
     <AuthProvider>
       <MobileThemeProvider>
-        <div className="min-h-screen bg-slate-950 flex justify-center overflow-hidden">
+        <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex justify-center items-center overflow-hidden font-sans antialiased selection:bg-blue-100">
           {/* 🛡️ GPS GUARD APPLIED HERE */}
           <LocationGuard>
             <MobileFrame>

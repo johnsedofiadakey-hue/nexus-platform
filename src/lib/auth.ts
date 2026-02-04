@@ -71,5 +71,11 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     }
+  },
+
+  // 🚪 CUSTOM PAGES
+  pages: {
+    signIn: '/auth/signin',
+    error: '/auth/signin', // Redirect errors back to login
   }
 };

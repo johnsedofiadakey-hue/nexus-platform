@@ -1,11 +1,16 @@
 "use client";
 import React, { useEffect, useRef } from "react";
 import { toast } from "react-hot-toast"; // 🔔 Import Toast
+import { useSession } from "next-auth/react";
 
 export default function LocationGuard({ children }: { children: React.ReactNode }) {
   const lastPulse = useRef<number>(0);
+  const { status } = useSession();
 
   useEffect(() => {
+    // 🛑 STOP: If not logged in, don't track.
+    if (status !== "authenticated") return;
+
     if (typeof window === 'undefined' || !navigator.geolocation) return;
 
     // Security Check
@@ -17,8 +22,8 @@ export default function LocationGuard({ children }: { children: React.ReactNode 
 
     const sendPulse = async (lat: number, lng: number) => {
       const now = Date.now();
-      // Throttle: Send once every 15 seconds (made it faster for testing)
-      if (now - lastPulse.current < 15000) return;
+      // Throttle: Send once every 30 seconds (Optimized)
+      if (now - lastPulse.current < 30000) return;
 
       try {
         const res = await fetch('/api/mobile/pulse', {
@@ -31,14 +36,12 @@ export default function LocationGuard({ children }: { children: React.ReactNode 
         if (res.ok) {
           // ✅ SUCCESS: Update Ref
           lastPulse.current = now;
-          // 🔔 DEBUG: Show user it worked (Remove this line later)
-          console.log("💓 Pulse Sent");
         } else {
           // ❌ FAILURE: Usually 401 Unauthorized
-          console.error("Pulse Rejected (401)");
+          // Silent fail - don't spam console
         }
       } catch (e) {
-        console.error("Pulse Network Error");
+        // Silent fail
       }
     };
 
@@ -56,7 +59,7 @@ export default function LocationGuard({ children }: { children: React.ReactNode 
     );
 
     return () => navigator.geolocation.clearWatch(watcher);
-  }, []);
+  }, [status]); // Re-run when status changes
 
   return <>{children}</>;
 }

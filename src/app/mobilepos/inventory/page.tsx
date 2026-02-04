@@ -23,6 +23,18 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // RECONCILIATION STATE
+  const [isReconciling, setIsReconciling] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
+  const handleReconcileSubmit = async () => {
+    // For now, we just reset because the user asked for "provision" and we don't have a backend endpoint for this yet.
+    // In a real app, this would POST /api/inventory/adjustment
+    setIsReconciling(false);
+    setCounts({});
+    alert("Inventory counts updated locally. (Backend sync pending implementation)");
+  };
+
   // --- 1. SYNC WITH ASSIGNED HUB ---
   const fetchInventory = async () => {
     setLoading(true);
@@ -87,6 +99,13 @@ export default function InventoryPage() {
             <h1 className={`text-xl font-black tracking-tighter ${themeClasses.text}`}>Stock Room</h1>
           </div>
           <button
+            onClick={() => setIsReconciling(!isReconciling)}
+            className={`p-3 rounded-2xl active:scale-90 transition-all duration-300 mr-2 ${isReconciling ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/40' : ''}`}
+            style={!isReconciling ? { backgroundColor: `${accentHex}15`, color: accentHex } : {}}
+          >
+            <Zap className="w-4 h-4" fill={isReconciling ? "currentColor" : "none"} />
+          </button>
+          <button
             onClick={fetchInventory}
             className="p-3 rounded-2xl active:rotate-180 transition-transform duration-500"
             style={{ backgroundColor: `${accentHex}15`, color: accentHex }}
@@ -112,25 +131,52 @@ export default function InventoryPage() {
         {filteredProducts.length > 0 ? (
           filteredProducts.map((product) => {
             const isLow = product.status === "Low Stock";
-            return (
-              <div key={product.dbId} className={`p-5 rounded-[2rem] border shadow-sm flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 ${themeClasses.card} ${themeClasses.border}`}>
+            // RECONCILIATION LOGIC
+            const manualCount = counts[product.dbId] ?? product.stock;
+            const variance = manualCount - product.stock;
 
-                <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isLow ? "bg-red-500/10 text-red-500" : `bg-blue-500/10`
+            return (
+              <div key={product.dbId} className={`p-5 rounded-[2rem] border shadow-sm flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 ${themeClasses.card} ${themeClasses.border}`}>
+
+                <div className="flex items-center gap-4 flex-1">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${isLow ? "bg-red-500/10 text-red-500" : `bg-blue-500/10`
                     }`} style={!isLow ? { backgroundColor: `${accentHex}15`, color: accentHex } : {}}>
                     {isLow ? <AlertTriangle className="w-6 h-6" /> : <Package className="w-6 h-6" />}
                   </div>
-                  <div>
-                    <h3 className={`font-black text-sm leading-tight ${themeClasses.text}`}>{product.name}</h3>
+                  <div className="min-w-0">
+                    <h3 className={`font-black text-sm leading-tight truncate ${themeClasses.text}`}>{product.name}</h3>
                     <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">SKU: {product.sku}</p>
+                    {isReconciling && variance !== 0 && (
+                      <p className={`text-[10px] font-black uppercase mt-1 ${variance < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                        Gap: {variance > 0 ? '+' : ''}{variance}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <p className={`text-lg font-black ${isLow ? "text-red-500" : themeClasses.text}`}>
-                    {product.stock}
-                  </p>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">In Stock</p>
+                <div className="text-right pl-4">
+                  {isReconciling ? (
+                    <div className="flex flex-col items-end">
+                      <input
+                        type="number"
+                        className={`w-20 h-10 rounded-lg text-center font-black outline-none border focus:border-blue-500 ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                        value={counts[product.dbId] ?? product.stock}
+                        onClick={(e) => e.currentTarget.select()}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setCounts(prev => ({ ...prev, [product.dbId]: val }));
+                        }}
+                      />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mt-1">Actual</span>
+                    </div>
+                  ) : (
+                    <>
+                      <p className={`text-lg font-black ${isLow ? "text-red-500" : themeClasses.text}`}>
+                        {product.stock}
+                      </p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">In Stock</p>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -142,6 +188,17 @@ export default function InventoryPage() {
           </div>
         )}
       </div>
+
+      {isReconciling && (
+        <div className="fixed bottom-24 left-6 right-6 z-30">
+          <button
+            onClick={handleReconcileSubmit}
+            className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+          >
+            <RefreshCw className="w-4 h-4" /> Sync Inventory
+          </button>
+        </div>
+      )}
     </div>
   );
 }

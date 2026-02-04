@@ -19,10 +19,11 @@ export async function POST(req: Request) {
     // Accept both legacy and new naming
     const {
       walkIns,
-      inquiries, // 🆕 ADDED
+      inquiries,
       buyers,
       conversions,
       marketIntel,
+      stockGaps, // 🆕 ADDED
       notes,
     } = body;
 
@@ -46,7 +47,8 @@ export async function POST(req: Request) {
         inquiries: inquiriesNum,
         buyers: buyersNum,
         marketIntel: marketIntel ?? null,
-        stockGaps: notes ?? null,
+        stockGaps: stockGaps ?? null,
+        notes: notes ?? null,
       },
     });
 

@@ -32,7 +32,7 @@ export async function GET() {
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: { shop: true }
-    });
+    }) as any; // Cast for bypassGeofence logic
 
     if (!user) {
       return NextResponse.json(
@@ -75,16 +75,40 @@ export async function GET() {
       }
     });
 
+    // 🔒 CHECK LOCKOUT (APPROVED LEAVE or SUSPENDED)
+    const today = new Date();
+    const activeLeave = await prisma.leaveRequest.findFirst({
+      where: {
+        userId: user.id,
+        status: 'APPROVED',
+        startDate: { lte: today },
+        endDate: { gte: today }
+      }
+    });
+
+    const lockout = activeLeave ? {
+      active: true,
+      reason: 'LEAVE',
+      endDate: activeLeave.endDate
+    } : null;
+
+    if (user.status === 'SUSPENDED') {
+      return NextResponse.json({ error: "ACCOUNT_SUSPENDED" }, { status: 403 });
+    }
+
     // ✅ SUCCESS (MOBILE SAFE CONTRACT)
     return NextResponse.json(
       {
         agentName: user.name,
+        shopId: user.shop.id,
         shopName: user.shop.name,
         shopLat: Number(user.shop.latitude),
         shopLng: Number(user.shop.longitude),
         radius: Number(user.shop.radius ?? 100),
         managerName: manager?.name || "HQ Admin",
-        managerPhone: manager?.phone || "N/A"
+        managerPhone: manager?.phone || "N/A",
+        lockout,
+        bypassGeofence: user.bypassGeofence // 🔓 Added Bypass Flag
       },
       { status: 200 }
     );

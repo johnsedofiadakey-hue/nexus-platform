@@ -14,15 +14,19 @@ export async function GET(
 
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.organizationId) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const isSuper = (session.user as any).role === 'SUPER_ADMIN';
+    if (!isSuper && !session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const shopQuery = isSuper ? { id } : { id, organizationId: session.user.organizationId };
+
     const shop = await prisma.shop.findFirst({
-      where: {
-        id,
-        organizationId: session.user.organizationId // 🔐 Security Check
-      },
+      where: shopQuery,
       include: {
         users: {
           select: { id: true, name: true, role: true }
@@ -61,14 +65,19 @@ export async function POST(
 
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.organizationId) {
+    if (!session || !session.user || !session.user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isSuper = (session.user as any).role === 'SUPER_ADMIN';
+    if (!isSuper && !session.user.organizationId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Verify ownership of the shop first
-    const shopOwner = await prisma.shop.findFirst({
-      where: { id, organizationId: session.user.organizationId }
-    });
+    const shopQuery = isSuper ? { id } : { id, organizationId: session.user.organizationId };
+    const shopOwner = await prisma.shop.findFirst({ where: shopQuery });
+
     if (!shopOwner) return NextResponse.json({ error: "Shop not found or access denied" }, { status: 403 });
 
     const body = await req.json();

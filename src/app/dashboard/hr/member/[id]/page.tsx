@@ -9,15 +9,17 @@ import {
   Store, Key, UserCircle, Save, AlertTriangle,
   Smartphone, Fingerprint, ShieldCheck, Info,
   ChevronRight, Calendar, BarChart3, Clock,
-  Map as MapIcon, Globe, Lock
+  Map as MapIcon, Globe, Lock, FileText, Layout
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useSession } from "next-auth/react";
 import dynamic from 'next/dynamic';
 
 // UI Components
 import ChatConsole from "@/components/dashboard/hr/ChatConsole";
 import PerformanceBoard from "@/components/dashboard/hr/PerformanceBoard";
 import ComplianceBoard from "@/components/dashboard/hr/ComplianceBoard";
+import IntelBoard from "@/components/dashboard/hr/IntelBoard";
 
 // 🛰️ DYNAMIC MAP IMPORT (Client-side only)
 const GeofenceMap = dynamic(() => import('@/components/maps/GeofenceMap'), {
@@ -33,6 +35,7 @@ const GeofenceMap = dynamic(() => import('@/components/maps/GeofenceMap'), {
 export default function MemberPortal() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const staffId = params?.id as string;
 
   // --- CORE STATE ---
@@ -42,7 +45,9 @@ export default function MemberPortal() {
   const [loading, setLoading] = useState(true);
   const [showMap, setShowMap] = useState(true); // Default to visible
   const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'COMMS' | 'LOGS'>('OVERVIEW');
+
+  // TABS: 'OVERVIEW' | 'INTEL' | 'COMPLIANCE' | 'CHAT'
+  const [activeTab, setActiveTab] = useState('OVERVIEW');
 
   // Hardened Form State for Edit Modal
   const [formState, setFormState] = useState({
@@ -51,54 +56,81 @@ export default function MemberPortal() {
     phone: "",
     shopId: "",
     status: "",
-    password: ""
+    password: "",
+    bypassGeofence: false
   });
 
   useEffect(() => { setMounted(true); }, []);
 
   // --- DATA SYNCHRONIZATION ---
-  const sync = useCallback(async (silent = false) => {
+  const sync = useCallback(async (full = false) => {
     if (!staffId || !mounted) return;
-    if (!silent) setLoading(true);
+    // Only show loader on full sync (initial load)
+    if (full) setLoading(true);
 
     try {
       const timestamp = Date.now();
-      const [uRes, sRes, mRes] = await Promise.all([
-        fetch(`/api/hr/member/${staffId}?t=${timestamp}`),
-        fetch(`/api/shops/list?t=${timestamp}`),
-        fetch(`/api/mobile/messages?userId=${staffId}&countOnly=true&t=${timestamp}`)
-      ]);
 
-      const userData = await uRes.json();
-      const shopData = await sRes.json();
-      // Messages are typically included in userData 'messages' array from the API logic
+      // LIGHT HEARTBEAT: Only fetch essential live data (Messages & Last Known Location)
+      // To strictly minimize load, we'd want a dedicated lightweight endpoint.
+      // But re-fetching the member route is "okay" if the backend is fast. 
+      // The USER complained about lag. The current member route returns EVERYTHING (Sales, Attendance, Reports). That's heavy!
+      // Let's optimize: fetch messages separately (already doing that).
+      // But for location, we need the user object.
+      // FIX: Only do full fetch on mount.
 
-      setData(userData);
-      setShops(Array.isArray(shopData) ? shopData : (shopData.data || []));
+      if (full) {
+        const [uRes, sRes, mRes] = await Promise.all([
+          fetch(`/api/hr/member/${staffId}?t=${timestamp}`),
+          fetch(`/api/shops/list?t=${timestamp}`),
+          fetch(`/api/mobile/messages?userId=${staffId}&countOnly=true&t=${timestamp}`)
+        ]);
 
-      // 🛡️ SYNC FORM STATE
-      setFormState({
-        name: userData?.name || "",
-        email: userData?.email || "",
-        phone: userData?.phone || "",
-        shopId: userData?.shopId || "",
-        status: userData?.status || "ACTIVE",
-        password: ""
-      });
+        const userData = await uRes.json();
+        const shopData = await sRes.json();
+        setData(userData);
+        setShops(Array.isArray(shopData) ? shopData : (shopData.data || []));
+
+        setFormState({
+          name: userData?.name || "",
+          email: userData?.email || "",
+          phone: userData?.phone || "",
+          shopId: userData?.shopId || "",
+          status: userData?.status || "ACTIVE",
+          password: "",
+          bypassGeofence: userData?.bypassGeofence || false
+        });
+      } else {
+        // LIGHT UPDATE: Just refresh critical status without blocking UI
+        // Ideally we have a specific endpoint, but calling the main one quietly is better than blocking.
+        // Is `setLoading(true)` the cause of lag? YES. It unmounts/remounts components if dependent on `loading`.
+        // I removed `setLoading(true)` for non-full syncs.
+
+        fetch(`/api/hr/member/${staffId}?t=${timestamp}`).then(r => r.json()).then(userData => {
+          // Only update if data changed significantly? React reconciliation handles this usually.
+          // But setting state causes re-render.
+          // We just update `data` quietly.
+          setData(userData);
+        });
+      }
 
     } catch (e) {
       console.error("Nexus Sync Failure");
-      toast.error("Critical: Data link failed.");
+      if (full) toast.error("Critical: Data link failed.");
     } finally {
-      setLoading(false);
+      if (full) setLoading(false);
     }
   }, [staffId, mounted]);
 
   useEffect(() => {
-    sync();
-    const timer = setInterval(() => sync(true), 15000); // 15s heartbeat
+    sync(true); // Full Sync on Mount
+    const timer = setInterval(() => sync(false), 15000); // Quiet Heartbeat
     return () => clearInterval(timer);
   }, [sync]);
+
+  const handleDownloadReport = () => {
+    window.open(`/api/hr/member/${staffId}/export`, '_blank');
+  };
 
   // --- SYSTEM ACTIONS ---
   const exec = async (action: string, payload: any) => {
@@ -124,6 +156,8 @@ export default function MemberPortal() {
         else {
           await sync(true);
           setShowSettings(false);
+          // Clear password field after save
+          setFormState(prev => ({ ...prev, password: "" }));
         }
       } else {
         const err = await res.json();
@@ -138,7 +172,9 @@ export default function MemberPortal() {
       email: formState.email,
       phone: formState.phone,
       shopId: formState.shopId,
-      status: formState.status
+      status: formState.status,
+      password: formState.password,
+      bypassGeofence: formState.bypassGeofence
     });
   };
 
@@ -153,169 +189,267 @@ export default function MemberPortal() {
   const isOnline = data?.lastLat && data?.lastLng;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20 selection:bg-blue-100">
 
-      {/* 🏛️ HEADER & NAV */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
-            <ArrowLeft size={18} />
+      {/* 🏛️ HEADER & NAV (Fixed: Removed Sticky to prevent obstruction) */}
+      <div className="bg-white border-b border-slate-200 px-8 py-6 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-6">
+          <button onClick={() => router.back()} className="p-3 -ml-2 rounded-full hover:bg-slate-50 text-slate-400 hover:text-slate-900 transition-all active:scale-95">
+            <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
               {data?.name}
-              {isOnline && <span className="relative flex h-2 w-2">
+              {isOnline && <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
               </span>}
             </h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
               {data?.role} • {assignedShop?.name || "Unassigned"}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowMap(!showMap)} className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${showMap ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-white text-slate-500 border-slate-200'}`}>
-            <MapIcon size={14} /> {showMap ? 'Hide Radar' : 'Show Radar'}
+        <div className="flex items-center gap-3">
+          {activeTab === 'OVERVIEW' && (
+            <button onClick={() => setShowMap(!showMap)} className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all flex items-center gap-2 shadow-sm hover:shadow-md ${showMap ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-white text-slate-500 border-slate-200'}`}>
+              <MapIcon size={14} /> {showMap ? 'Hide Radar' : 'Show Radar'}
+            </button>
+          )}
+          <button onClick={handleDownloadReport} className="px-5 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-50 transition-all shadow-sm hover:shadow-md flex items-center gap-2">
+            <Download size={14} /> Report
           </button>
-          <button onClick={() => setShowSettings(true)} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all shadow-lg flex items-center gap-2">
+          <button onClick={() => setShowSettings(true)} className="px-5 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center gap-2">
             <Settings size={14} /> Config
           </button>
         </div>
       </div>
 
-      <div className="max-w-[1800px] mx-auto p-6 grid grid-cols-12 gap-6">
+      <div className="max-w-[1600px] mx-auto p-8 grid grid-cols-12 gap-8">
 
-        {/* ---------------- LEFT COL: PASSPORT ---------------- */}
+        {/* ---------------- LEFT COL: IDENTITY ---------------- */}
         <div className="col-span-12 xl:col-span-3 space-y-6">
-          <div className="bg-white rounded-3xl p-1 shadow-sm border border-slate-200">
-            <div className="p-6 pb-0 flex flex-col items-center">
-              <div className="w-28 h-28 bg-slate-100 rounded-full border-4 border-white shadow-xl overflow-hidden mb-4 relative">
-                {data?.image ? <img src={data.image} className="w-full h-full object-cover" /> : <UserCircle size={64} className="text-slate-300 m-auto mt-4" />}
+          <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-32 h-32 bg-slate-100 rounded-full border-[6px] border-slate-50 shadow-2xl overflow-hidden mb-6 relative">
+                {data?.image ? <img src={data.image} className="w-full h-full object-cover" /> : <UserCircle size={80} className="text-slate-300 m-auto mt-6" />}
               </div>
-              <h2 className="text-xl font-black text-slate-900">{data?.name}</h2>
-              <p className="text-xs font-medium text-slate-500 mb-6">{data?.email}</p>
+              <h2 className="text-2xl font-black text-slate-900">{data?.name}</h2>
+              <p className="text-sm font-medium text-slate-500 mb-8">{data?.email}</p>
 
-              <div className="w-full grid grid-cols-2 gap-2 mb-6">
-                <div className="bg-slate-50 p-3 rounded-2xl text-center border border-slate-100">
-                  <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Total Sales</p>
-                  <p className="text-lg font-black text-slate-900">₵{data?.sales?.reduce((a: any, b: any) => a + (b.totalAmount || 0), 0).toLocaleString() || '0'}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-2xl text-center border border-slate-100">
-                  <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Attendance</p>
-                  <p className="text-lg font-black text-emerald-600">{Math.round((data?.attendance?.length || 0) / 30 * 100)}%</p>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-4 bg-slate-50 rounded-b-3xl border-t border-slate-100">
-              <div className="flex justify-between items-center text-xs font-medium text-slate-600">
-                <span>Status</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${data?.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{data?.status}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs font-medium text-slate-600 mt-2">
-                <span>Last Active</span>
-                <span>{data.lastSeen ? new Date(data.lastSeen).toLocaleTimeString() : 'Never'}</span>
-              </div>
-            </div>
-          </div>
+              <div className="w-full space-y-3 mb-8">
+                {/* TAB NAVIGATION */}
+                <button onClick={() => setActiveTab('OVERVIEW')} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all border ${activeTab === 'OVERVIEW' ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-105' : 'bg-transparent border-transparent hover:bg-slate-50 text-slate-500'}`}>
+                  <div className="flex items-center gap-3">
+                    <Layout size={18} /> <span className="text-xs font-black uppercase tracking-widest">Overview</span>
+                  </div>
+                </button>
 
-          {/* Mobile Uplink (Chat) */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 h-[500px] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2"><MessageSquare size={14} /> Secure Line</span>
+                <button onClick={() => setActiveTab('INTEL')} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all border ${activeTab === 'INTEL' ? 'bg-blue-600 border-blue-600 text-white shadow-xl scale-105' : 'bg-transparent border-transparent hover:bg-blue-50 hover:text-blue-600 text-slate-500'}`}>
+                  <div className="flex items-center gap-3">
+                    <FileText size={18} /> <span className="text-xs font-black uppercase tracking-widest">Daily Intel</span>
+                  </div>
+                  {data?.dailyReports?.length > 0 && <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold">{data.dailyReports.length}</span>}
+                </button>
+
+                <button onClick={() => setActiveTab('COMPLIANCE')} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all border ${activeTab === 'COMPLIANCE' ? 'bg-rose-600 border-rose-600 text-white shadow-xl scale-105' : 'bg-transparent border-transparent hover:bg-rose-50 hover:text-rose-600 text-slate-500'}`}>
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck size={18} /> <span className="text-xs font-black uppercase tracking-widest">Compliance</span>
+                  </div>
+                  {data?.leaves?.filter((l: any) => l.status === 'PENDING').length > 0 && (
+                    <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">!</span>
+                  )}
+                </button>
+
+                <button onClick={() => setActiveTab('CHAT')} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all border ${activeTab === 'CHAT' ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl scale-105' : 'bg-transparent border-transparent hover:bg-emerald-50 hover:text-emerald-600 text-slate-500'}`}>
+                  <div className="flex items-center gap-3">
+                    <MessageSquare size={18} /> <span className="text-xs font-black uppercase tracking-widest">Secure Chat</span>
+                  </div>
+                </button>
+              </div>
             </div>
-            <div className="flex-1 min-h-0">
-              <ChatConsole messages={data?.messages || []} viewerId="ADMIN_SIDE" onSendMessage={(c: string) => exec('SEND_MESSAGE', { content: c })} />
+
+            <div className="pt-6 border-t border-slate-100 flex justify-between items-center px-2">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</span>
+                <span className={`text-xs font-black uppercase ${data?.status === 'ACTIVE' ? 'text-emerald-600' : 'text-slate-500'}`}>{data?.status}</span>
+              </div>
+              <div className="flex flex-col text-right">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Signal</span>
+                <span className="text-xs font-bold text-slate-900">{data.lastSeen ? new Date(data.lastSeen).toLocaleTimeString() : 'Offline'}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ---------------- CENTER/RIGHT: MISSION CONTROL ---------------- */}
-        <div className="col-span-12 xl:col-span-9 space-y-6">
+        {/* ---------------- CENTER/RIGHT: WORKSPACE ---------------- */}
+        <div className="col-span-12 xl:col-span-9 space-y-8">
 
-          {/* 🌍 LIVE SATELLITE MAP */}
-          {showMap && assignedShop && (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Globe size={16} className="text-blue-500" />
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Live Telemetry</h3>
+          {/* VIEW: OVERVIEW */}
+          {activeTab === 'OVERVIEW' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+              {/* 🌍 LIVE SATELLITE MAP */}
+              {showMap && assignedShop && (
+                <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Globe size={20} /></div>
+                      <div>
+                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-900">Live Telemetry</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time GPS Tracking</p>
+                      </div>
+                    </div>
+                    {data?.isInsideZone ? (
+                      <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <ShieldCheck size={14} /> Secure (On-Site)
+                      </span>
+                    ) : (
+                      <span className="bg-amber-50 text-amber-600 border border-amber-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <AlertTriangle size={14} /> Off-Site / Roaming
+                      </span>
+                    )}
+                  </div>
+                  <div className="h-[400px] relative bg-slate-100">
+                    <GeofenceMap
+                      shopLat={assignedShop.latitude || 5.6037}
+                      shopLng={assignedShop.longitude || -0.1870}
+                      shopRadius={assignedShop.radius || 50}
+                      userLat={data?.lastLat}
+                      userLng={data?.lastLng}
+                    />
+                  </div>
                 </div>
-                {data?.isInsideZone ? (
-                  <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                    <ShieldCheck size={12} /> Secure (On-Site)
-                  </span>
-                ) : (
-                  <span className="bg-amber-50 text-amber-600 border border-amber-100 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                    <AlertTriangle size={12} /> Off-Site / Roaming
-                  </span>
-                )}
-              </div>
-              <div className="h-[400px] relative bg-slate-100">
-                <GeofenceMap
-                  shopLat={assignedShop.latitude || 5.6037}
-                  shopLng={assignedShop.longitude || -0.1870}
-                  shopRadius={assignedShop.radius || 50}
-                  userLat={data?.lastLat}
-                  userLng={data?.lastLng}
+              )}
+
+              {/* PERFORMANCE BOARD */}
+              <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                <PerformanceBoard
+                  sales={data?.sales || []}
+                  dailyReports={data?.dailyReports || []}
+                  geofenceStats={data?.geofenceStats || []}
                 />
               </div>
             </div>
           )}
 
-          {/* 📊 ANALYTICS TABS */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><BarChart3 size={16} /> Performance Metrics</h3>
-              <PerformanceBoard
-                sales={data?.sales || []}
-                dailyReports={data?.dailyReports || []}
-                targets={data?.targets}
-                geofenceStats={data?.geofenceStats || []}
-              />
+          {/* VIEW: DAILY INTEL */}
+          {activeTab === 'INTEL' && (
+            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-10 animate-in fade-in slide-in-from-right-4 duration-500 min-h-[600px]">
+              <div className="flex items-center gap-4 mb-10 border-b border-slate-100 pb-8">
+                <div className="w-16 h-16 bg-blue-50 rounded-[1.5rem] flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
+                  <FileText size={32} />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-black text-slate-900 tracking-tight">Daily Intelligence</h2>
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Field Reports & Market Data</p>
+                </div>
+              </div>
+              <IntelBoard reports={data?.dailyReports || []} />
             </div>
+          )}
 
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2"><Shield size={16} /> Compliance Engine</h3>
+          {/* VIEW: COMPLIANCE */}
+          {activeTab === 'COMPLIANCE' && (
+            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-2 animate-in fade-in slide-in-from-right-4 duration-500 min-h-[600px]">
               <ComplianceBoard
                 attendance={data?.attendance || []}
                 leaveRequests={data?.leaves || []}
                 disciplinaryLog={data?.disciplinaryLog || []}
                 staffId={staffId}
                 onUpdateLeave={(id: string, s: string) => exec('MANAGE_LEAVE', { leaveId: id, status: s })}
+                onRecallLeave={(id: string) => exec('MANAGE_LEAVE', { leaveId: id, status: 'REJECTED' })}
               />
             </div>
-          </div>
+          )}
 
+          {/* VIEW: CHAT */}
+          {activeTab === 'CHAT' && (
+            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm h-[800px] flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><MessageSquare size={20} /></div>
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Encrypted Communication Line</span>
+                </div>
+                <span className="flex items-center gap-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Live Uplink</span>
+              </div>
+              <div className="flex-1 min-h-0 bg-slate-50">
+                <ChatConsole
+                  messages={data?.messages || []}
+                  viewerId={(session?.user as any)?.id}
+                  onSendMessage={(c: string) => exec('SEND_MESSAGE', { content: c })}
+                />
+              </div>
+            </div>
+          )}
         </div>
-
       </div>
 
       {/* ⚙️ SETTINGS MODAL */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-slate-900">Profile Configuration</h3>
-              <button onClick={() => setShowSettings(false)}><X className="text-slate-400 hover:text-slate-900" /></button>
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 border border-slate-200">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-black text-xl text-slate-900">Profile Configuration</h3>
+              <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X className="text-slate-400 hover:text-slate-900" /></button>
             </div>
             <div className="p-8 space-y-6">
               <div className="space-y-4">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Identity</label>
-                <input className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium outline-none focus:border-blue-500 transition-colors" placeholder="Full Name" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} />
-                <input className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium outline-none focus:border-blue-500 transition-colors" placeholder="Email" value={formState.email} onChange={e => setFormState({ ...formState, email: e.target.value })} />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Identity</label>
+                <input className="w-full h-14 px-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="Full Name" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} />
+                <input className="w-full h-14 px-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="Email" value={formState.email} onChange={e => setFormState({ ...formState, email: e.target.value })} />
               </div>
               <div className="space-y-4">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assignment</label>
-                <select className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium outline-none focus:border-blue-500 transition-colors" value={formState.shopId} onChange={e => setFormState({ ...formState, shopId: e.target.value })}>
-                  <option value="">Unassigned</option>
-                  {shops.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Assignment</label>
+                <div className="relative">
+                  <Store className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <select className="w-full h-14 pl-12 pr-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm appearance-none" value={formState.shopId} onChange={e => setFormState({ ...formState, shopId: e.target.value })}>
+                    <option value="">Unassigned</option>
+                    {shops.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
               </div>
-              <div className="pt-6 border-t border-slate-100 flex gap-4">
-                <button onClick={handleSaveChanges} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors">Save Changes</button>
-                <button onClick={() => { if (confirm('Terminate?')) exec('DELETE', {}) }} className="px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors"><Trash2 size={20} /></button>
+
+              {/* 🛡️ SECURITY SECTION */}
+              <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 mt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck size={16} className="text-blue-600" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Security & Access</span>
+                </div>
+
+                {/* Password Reset */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Reset Password</label>
+                  <div className="relative">
+                    <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      type="password"
+                      className="w-full h-12 pl-12 pr-5 bg-white rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-blue-500 transition-all placeholder:text-slate-300"
+                      placeholder="Set new password (leave empty to keep current)"
+                      value={formState.password}
+                      onChange={e => setFormState({ ...formState, password: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Bypass Toggle */}
+                <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                  <div>
+                    <p className="text-xs font-black text-slate-900 uppercase">Remote GPS Access</p>
+                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">Allow agent to work from anywhere (Bypass Geofence)</p>
+                  </div>
+                  <button
+                    onClick={() => setFormState({ ...formState, bypassGeofence: !formState.bypassGeofence })}
+                    className={`w-12 h-7 rounded-full relative transition-colors ${formState.bypassGeofence ? 'bg-blue-600' : 'bg-slate-200'}`}
+                  >
+                    <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow-sm ${formState.bypassGeofence ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex gap-4">
+                <button onClick={handleSaveChanges} className="flex-1 h-14 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95">Save Changes</button>
+                <button onClick={() => { if (confirm('Terminate?')) exec('DELETE', {}) }} className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center justify-center border border-red-100"><Trash2 size={24} /></button>
               </div>
             </div>
           </div>

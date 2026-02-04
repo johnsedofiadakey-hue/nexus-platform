@@ -38,6 +38,19 @@ export async function POST(req: Request) {
             }
         });
 
+        // 🔔 NOTIFICATION TRIGGER
+        if (targetUser && session.user.organizationId) {
+            await prisma.notification.create({
+                data: {
+                    organizationId: session.user.organizationId,
+                    type: 'LEAVE',
+                    title: 'New Leave Request',
+                    message: `${targetUser.name || 'Staff'}: Requested ${type.replace('_', ' ')} (${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()})`,
+                    link: `/dashboard/hr/member/${userId}?tab=COMPLIANCE`
+                }
+            });
+        }
+
         return NextResponse.json(leave);
 
     } catch (error) {

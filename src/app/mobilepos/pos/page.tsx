@@ -10,7 +10,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Search, ShoppingCart, Trash2, CheckCircle, Package, LogOut,
-  User, Loader2, Home, RefreshCw, ArrowLeft, Flag, Plus, Minus,
+  User, Loader2, Home, RefreshCw, ArrowLeft, ArrowRight, Flag, Plus, Minus,
   Store, AlertTriangle, MessageSquare // 👈 Added MessageSquare here
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -340,7 +340,11 @@ export default function MobilePOS() {
               onClick={handleCheckout}
               className="w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest text-white shadow-xl transition-all active:scale-95 disabled:opacity-50 bg-emerald-600 flex items-center justify-center gap-2 hover:bg-emerald-700"
             >
-              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Complete Sale"}
+              {isProcessing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                `SELL ${cart.length} ITEM${cart.length > 1 ? 'S' : ''} • ₵ ${cartTotal.toLocaleString()}`
+              )}
             </button>
           </div>
         </div>
@@ -366,32 +370,27 @@ export default function MobilePOS() {
         </div>
       )}
 
-      {/* BOTTOM NAV */}
-      {view === 'BROWSE' && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 flex justify-around items-center z-50 pb-8">
-          <Link href="/mobilepos" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600 transition-colors">
-            <Home className="w-5 h-5" />
-            <span className="text-[10px] font-bold uppercase">Home</span>
-          </Link>
-
-          <div className="relative">
-            <button
-              onClick={() => cart.length > 0 && setView('CHECKOUT')}
-              className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl mb-8 transition-transform active:scale-90 ${cart.length > 0 ? "bg-blue-600 text-white shadow-blue-500/30" : "bg-slate-200 text-slate-400"}`}
-            >
-              <ShoppingCart className="w-6 h-6" />
-              {cart.length > 0 && (
-                <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-                  {cart.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <Link href="/mobilepos/messages" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600 transition-colors">
-            <MessageSquare className="w-5 h-5" />
-            <span className="text-[10px] font-bold uppercase">Chat</span>
-          </Link>
+      {/* VIEW: BROWSE - FLOATING CHECKOUT BAR */}
+      {view === 'BROWSE' && cart.length > 0 && (
+        <div className="fixed bottom-24 left-6 right-6 z-30 animate-in slide-in-from-bottom-10 duration-500">
+          <button
+            onClick={() => setView('CHECKOUT')}
+            className="w-full bg-slate-900 border border-slate-800 text-white p-4 rounded-3xl shadow-2xl flex items-center justify-between active:scale-95 transition-transform"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-black text-sm">
+                {cart.reduce((a, b) => a + b.cartQty, 0)}
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Review Order</p>
+                <p className="text-sm font-black">Checkout Now</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pr-2">
+              <span className="text-lg font-black text-blue-400">₵ {cartTotal.toLocaleString()}</span>
+              <ArrowRight className="w-5 h-5 text-white" />
+            </div>
+          </button>
         </div>
       )}
 
