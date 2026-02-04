@@ -99,6 +99,7 @@ export async function GET() {
     // ✅ SUCCESS (MOBILE SAFE CONTRACT)
     return NextResponse.json(
       {
+        id: user.id, // 👈 KEY AUTH FIELD
         agentName: user.name,
         shopId: user.shop.id,
         shopName: user.shop.name,

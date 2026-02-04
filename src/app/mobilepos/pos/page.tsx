@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import { processTransaction } from "@/lib/actions/transaction"; // 👈 New Server Action
 
 export default function MobilePOS() {
 
   // --- STATE ---
   const [identity, setIdentity] = useState<{
+    id: string; // 👈 Added User ID
     agentName: string;
     shopName: string;
     shopId: string;
@@ -60,6 +62,7 @@ export default function MobilePOS() {
       }
 
       setIdentity({
+        id: initData.id, // 👈 Store User ID
         agentName: initData.agentName,
         shopName: initData.shopName,
         shopId: initData.shopId
