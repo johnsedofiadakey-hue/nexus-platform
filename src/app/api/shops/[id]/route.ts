@@ -51,6 +51,45 @@ export async function GET(
   } catch (error: any) {
     console.error("GET Shop Error:", error);
     return NextResponse.json({ error: "Sync Error" }, { status: 500 });
+    return NextResponse.json({ error: "Sync Error" }, { status: 500 });
+  }
+}
+
+// ----------------------------------------------------------------------
+// 1.5 PATCH: UPDATE SHOP DETAILS
+// ----------------------------------------------------------------------
+export async function PATCH(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
+  const { id } = await props.params;
+
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !session.user.organizationId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { name, location, managerName, managerContact, radius, latitude, longitude } = body;
+
+    const shop = await prisma.shop.update({
+      where: { id },
+      data: {
+        name,
+        location,
+        managerName,
+        managerContact,
+        radius: radius ? parseInt(radius) : undefined,
+        latitude: latitude ? parseFloat(latitude) : undefined,
+        longitude: longitude ? parseFloat(longitude) : undefined,
+      }
+    });
+
+    return NextResponse.json({ success: true, data: shop });
+  } catch (error: any) {
+    console.error("❌ SHOP_UPDATE_ERROR:", error);
+    return NextResponse.json({ error: "Failed to update shop" }, { status: 500 });
   }
 }
 
@@ -82,6 +121,10 @@ export async function POST(
 
     const body = await req.json();
     console.log(`\n📦 INVENTORY ACTION [Shop: ${id}]`, body);
+
+    // 🕵️ AUDIT LOGGING DATA
+    const reason = body.reason || "MANUAL_UPDATE";
+    const userId = session.user.id;
 
     // --- SHARED DATA SANITIZATION ---
     const price = parseFloat(body.priceGHS || body.price || '0');
@@ -116,6 +159,17 @@ export async function POST(
           minStock: minLevel,
           category: body.category || "General",
           subCategory: subCat,
+        }
+      });
+
+      // 📝 LOG AUDIT
+      await prisma.auditLog.create({
+        data: {
+          userId,
+          action: "UPDATE_STOCK",
+          entity: "Product",
+          entityId: updatedItem.id,
+          details: JSON.stringify({ reason, oldStock: '?', newStock: qty, price })
         }
       });
 
@@ -158,6 +212,17 @@ export async function POST(
         minStock: minLevel,
         category: body.category || "General",
         subCategory: subCat,
+      }
+    });
+
+    // 📝 LOG AUDIT FOR CREATION
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: "CREATE_stock",
+        entity: "Product",
+        entityId: newItem.id,
+        details: JSON.stringify({ reason: "INITIAL_STOCK", qty, price })
       }
     });
 

@@ -86,6 +86,39 @@ export async function GET() {
       }
     });
 
+    // 🎯 FETCH ACTIVE TARGET
+    const activeTarget = await prisma.target.findFirst({
+      where: {
+        userId: user.id,
+        status: 'ACTIVE',
+        startDate: { lte: today },
+        endDate: { gte: today }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // 📊 CALCULATE PROGRESS (If Target Exists)
+    let targetProgress = null;
+    if (activeTarget) {
+      const sales = await prisma.sale.findMany({
+        where: {
+          userId: user.id,
+          createdAt: { gte: activeTarget.startDate, lte: activeTarget.endDate }
+        },
+        include: { items: true }
+      });
+
+      const achievedValue = sales.reduce((sum, s) => sum + s.totalAmount, 0);
+      const achievedQty = sales.reduce((sum, s) => sum + s.items.reduce((q, i) => q + i.quantity, 0), 0);
+
+      targetProgress = {
+        targetValue: activeTarget.targetValue,
+        targetQuantity: activeTarget.targetQuantity,
+        achievedValue,
+        achievedQuantity: achievedQty
+      };
+    }
+
     const lockout = activeLeave ? {
       active: true,
       reason: 'LEAVE',
@@ -101,14 +134,17 @@ export async function GET() {
       {
         id: user.id, // 👈 KEY AUTH FIELD
         agentName: user.name,
+        agentImage: user.image, // 📸 Added Profile Image
         shopId: user.shop.id,
         shopName: user.shop.name,
         shopLat: Number(user.shop.latitude),
         shopLng: Number(user.shop.longitude),
         radius: Number(user.shop.radius ?? 100),
-        managerName: manager?.name || "HQ Admin",
-        managerPhone: manager?.phone || "N/A",
+        // 🏪 Prioritize Shop Settings, then fallback to Admin User
+        managerName: user.shop.managerName || manager?.name || "HQ Admin",
+        managerPhone: user.shop.managerContact || manager?.phone || "N/A",
         lockout,
+        targetProgress, // 🎯 Added Target Data
         bypassGeofence: user.bypassGeofence // 🔓 Added Bypass Flag
       },
       { status: 200 }

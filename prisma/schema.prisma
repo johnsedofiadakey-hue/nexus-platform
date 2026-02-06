@@ -83,6 +83,10 @@ model Shop {
   phone       String?
   currency    String    @default("GHS")
   
+  // 🆕 ADDED: Manager Details
+  managerName    String?
+  managerContact String?
+  
   // 🆕 ADDED: Status (Required for seed)
   status      String    @default("ACTIVE") 
 
@@ -93,6 +97,9 @@ model Shop {
   openingTime String?   @default("08:00")
   closingTime String?   @default("22:00")
   
+  minutes     Int       @default(0)   // Time spent in zone (minutes)
+  
+  // Relations
   users       User[]
   products    Product[]
   sales       Sale[]
@@ -143,9 +150,17 @@ model User {
   position         String?   @default("Staff")
   department       String?   @default("General")
 
+  // 🆕 ADDED: Personnel Details
   ghanaCard        String?   
   dob              DateTime? 
   image            String?   
+  
+  // Banking & Statutory
+  bankAccountName  String?
+  bankName         String?
+  bankAccountNumber String?
+  ssnitNumber      String?
+  commencementDate DateTime?
 
   role             String    @default("WORKER") // WORKER, MANAGER, ADMIN, SUPER_ADMIN
   status           String    @default("ACTIVE") 
@@ -166,8 +181,10 @@ model User {
   dailyReports     DailyReport[]
   leaves           LeaveRequest[]
   disciplinary     DisciplinaryRecord[]
+  targets          Target[]
   sentMessages     Message[]  @relation("SentMessages")
   receivedMessages Message[]  @relation("ReceivedMessages")
+  auditLogs        AuditLog[]
   
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -200,6 +217,7 @@ model Product {
   updatedAt    DateTime  @updatedAt
 
   @@index([shopId])
+  @@index([stockLevel]) // ⚡️ OPTIMIZATION: Speed up Low Stock Alerts
 }
 
 // --- 4. SALES & CUSTOMERS ---
@@ -221,6 +239,7 @@ model Sale {
   @@index([shopId])
   @@index([userId])
   @@index([customerId])
+  @@index([createdAt]) // ⚡️ OPTIMIZATION: Speed up Date Range Filtering
 }
 
 model SaleItem {
@@ -280,6 +299,8 @@ model Attendance {
   date      DateTime  @default(now())
 
   @@index([userId])
+  @@index([date])    // ⚡️ OPTIMIZATION: Speed up Attendance Queries
+  @@index([checkIn]) // ⚡️ OPTIMIZATION: Speed up Ghost Worker Detection
 }
 
 model DailyReport {
@@ -292,7 +313,7 @@ model DailyReport {
   walkIns    Int      @default(0)
   inquiries  Int      @default(0)
   buyers     Int      @default(0)
-  marketIntel String?
+  marketIntel String? // JSON String: [{ brand, model, price }]
   stockGaps   String?
 
   notes      String?
@@ -301,6 +322,23 @@ model DailyReport {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  @@index([userId])
+}
+
+model Target {
+  id             String   @id @default(cuid())
+  targetQuantity Int      @default(0)
+  targetValue    Float    @default(0)
+  startDate      DateTime
+  endDate        DateTime
+  status         String   @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
+  
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
   @@index([userId])
 }
 
@@ -330,8 +368,25 @@ model DisciplinaryRecord {
   userId      String
   user        User     @relation(fields: [userId], references: [id])
   createdAt   DateTime @default(now())
+  
+  @@index([userId])
+}
+
+// --- 8. SYSTEM AUDIT ---
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // e.g. "CREATE_SALE", "UPDATE_PRICE", "DELETE_SHOP"
+  entity    String   // e.g. "Product", "Shop"
+  entityId  String?  // The ID of the thing being changed
+  details   String?  // JSON string of before/after or description
+  ipAddress String?
+  createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }
 
 model Message {

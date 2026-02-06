@@ -38,27 +38,46 @@ export async function GET(req: Request) {
       }
     }
 
-    const products = await prisma.product.findMany({
-      where: whereClause,
-      include: {
-        shop: { select: { name: true } }
-      },
-      orderBy: { name: 'asc' }
-    });
+    // PAGINATION
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const skip = (page - 1) * limit;
+
+    const [total, products] = await Promise.all([
+      prisma.product.count({ where: whereClause }),
+      prisma.product.findMany({
+        where: whereClause,
+        include: {
+          shop: { select: { name: true } }
+        },
+        orderBy: { name: 'asc' },
+        take: limit,
+        skip: skip
+      })
+    ]);
 
     // MAP DATABASE FIELDS TO YOUR FRONTEND EXPECTATIONS
-    return NextResponse.json(products.map(p => ({
-      id: p.id,
-      name: p.name,          // Master Inventory expects 'name'
-      productName: p.name,   // Mobile might expect 'productName'
-      sku: p.barcode || p.id.substring(0, 6).toUpperCase(),
-      stock: p.stockLevel,   // Master uses 'stock'
-      quantity: p.stockLevel,// Mobile uses 'quantity'
-      price: p.sellingPrice, // Master uses 'price'
-      priceGHS: p.sellingPrice, // Mobile uses 'priceGHS'
-      hub: p.shop?.name || "Unknown", // Master Inventory expects 'hub'
-      status: p.stockLevel <= (p.minStock || 5) ? 'Low Stock' : 'In Stock'
-    })));
+    return NextResponse.json({
+      data: products.map(p => ({
+        id: p.id,
+        name: p.name,          // Master Inventory expects 'name'
+        productName: p.name,   // Mobile might expect 'productName'
+        sku: p.barcode || p.id.substring(0, 6).toUpperCase(),
+        stock: p.stockLevel,   // Master uses 'stock'
+        quantity: p.stockLevel,// Mobile uses 'quantity'
+        price: p.sellingPrice, // Master uses 'price'
+        priceGHS: p.sellingPrice, // Mobile uses 'priceGHS'
+        hub: p.shop?.name || "Unknown", // Master Inventory expects 'hub'
+        shopId: p.shopId, // 👈 Added for Actions
+        status: p.stockLevel <= (p.minStock || 5) ? 'Low Stock' : 'In Stock'
+      })),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error: any) {
     console.error("Inventory Fetch Error:", error.message);
     return NextResponse.json({ error: "Failed to fetch inventory" }, { status: 500 });

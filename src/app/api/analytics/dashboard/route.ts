@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -65,12 +70,63 @@ export async function GET() {
       revenue: shop.sales.reduce((acc, sale) => acc + sale.totalAmount, 0)
     })).sort((a, b) => b.revenue - a.revenue);
 
+    // 6. 🎯 ADMIN TARGET PERFORMANCE
+    let adminTargetData = null;
+    if (userId) {
+      const activeTarget = await prisma.target.findFirst({
+        where: { userId, status: 'ACTIVE', endDate: { gte: new Date() } },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (activeTarget) {
+        // Aggregate Sales within Target Period
+        const periodPerformance = await prisma.sale.aggregate({
+          where: {
+            createdAt: {
+              gte: activeTarget.startDate,
+              lte: activeTarget.endDate
+            }
+          },
+          _sum: {
+            totalAmount: true
+          },
+          _count: {
+            id: true // Volume of transactions
+          }
+        });
+
+        // Also get total items sold (volume) if needed, but transaction count is often a good proxy. 
+        // If "Quantity" means individual items, we need to sum SaleItem.quantity.
+        // Let's assume Target Quantity is 'Units Sold'.
+        const itemsPerformance = await prisma.saleItem.aggregate({
+          where: {
+            sale: {
+              createdAt: {
+                gte: activeTarget.startDate,
+                lte: activeTarget.endDate
+              }
+            }
+          },
+          _sum: {
+            quantity: true
+          }
+        });
+
+        adminTargetData = {
+          ...activeTarget,
+          currentRevenue: periodPerformance._sum.totalAmount || 0,
+          currentVolume: itemsPerformance._sum.quantity || 0
+        };
+      }
+    }
+
     return NextResponse.json({
       revenue: revenueAgg._sum.totalAmount || 0,
       activeStaff: activeStaffCount,
       inventoryValue,
       chartData: chartData.length > 0 ? chartData : [{ name: 'Today', sales: 0 }],
-      shopPerformance: formattedShopPerf
+      shopPerformance: formattedShopPerf,
+      adminTarget: adminTargetData
     });
 
   } catch (error) {

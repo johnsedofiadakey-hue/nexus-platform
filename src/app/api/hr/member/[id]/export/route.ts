@@ -61,13 +61,14 @@ export async function GET(
         rows.push(['--- ATTENDANCE LOG ---']);
         rows.push(['Date', 'Status', 'Check In', 'Check Out', 'Duration (Hrs)', 'Location']);
         user.attendance.forEach(a => {
+            const duration = a.checkOut ? ((new Date(a.checkOut).getTime() - new Date(a.checkIn).getTime()) / (1000 * 60 * 60)).toFixed(2) : '-';
             rows.push([
                 new Date(a.date).toLocaleDateString(),
                 a.status,
-                a.checkInTime ? new Date(a.checkInTime).toLocaleTimeString() : '-',
-                a.checkOutTime ? new Date(a.checkOutTime).toLocaleTimeString() : '-',
-                a.durationHours || 0,
-                a.isOffSite ? 'OFF-SITE' : 'ON-SITE'
+                new Date(a.checkIn).toLocaleTimeString(),
+                a.checkOut ? new Date(a.checkOut).toLocaleTimeString() : '-',
+                duration,
+                'N/A' // Location not strictly tracked in Attendance model yet
             ]);
         });
 

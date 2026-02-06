@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import NextTopLoader from "nextjs-toploader";
@@ -8,19 +8,29 @@ import NextTopLoader from "nextjs-toploader";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: 'swap',
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: 'swap',
+});
 
 export const viewport: Viewport = {
   themeColor: "#0F172A",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1, 
+  maximumScale: 1,
   userScalable: false,
 };
 
 export const metadata: Metadata = {
-  title: "Nexus Platform",
-  description: "Enterprise Operations",
+  title: "NEXUS | Enterprise Command",
+  description: "Advanced Operations Platform",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -31,28 +41,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      
-      {/* 🛡️ CRITICAL FIX: suppressHydrationWarning added to body.
-        This ignores attributes injected by browser extensions (Grammarly, LastPass, etc.)
-        that cause the "Hydration Mismatch" error.
-      */}
-      <body 
-        className={`${inter.className} antialiased selection:bg-blue-500/20 bg-[#FDFDFD]`}
+
+      <body
+        className={`${inter.variable} ${mono.variable} font-sans antialiased bg-slate-50 text-slate-900`}
         suppressHydrationWarning={true}
       >
-        
-        {/* 🛰️ NEXUS PROVIDER STACK */}
         <SessionProvider>
           <AuthProvider>
-            
             <NextTopLoader
               color="#2563eb"
               initialPosition={0.08}
@@ -63,13 +66,11 @@ export default function RootLayout({
             <Toaster
               position="top-center"
               toastOptions={{
+                className: 'font-sans font-medium text-sm',
                 style: {
-                  background: "#0F172A",
-                  color: "#fff",
-                  fontSize: "11px",
-                  fontWeight: "900",
-                  textTransform: "uppercase",
-                  borderRadius: "12px",
+                  background: '#0F172A',
+                  color: '#fff',
+                  borderRadius: '8px',
                 },
               }}
             />
@@ -77,7 +78,6 @@ export default function RootLayout({
             <main className="min-h-screen">
               {children}
             </main>
-
           </AuthProvider>
         </SessionProvider>
       </body>

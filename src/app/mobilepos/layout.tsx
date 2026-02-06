@@ -7,6 +7,7 @@ import { MobileThemeProvider, useMobileTheme } from "@/context/MobileThemeContex
 import LocationGuard from "@/components/auth/LocationGuard";
 import SyncManager from "@/components/mobile/SyncManager";
 import LeaveLockout from "@/components/mobile/LeaveLockout";
+import GeoLockoutOverlay from "@/components/mobile/GeoLockoutOverlay";
 import { useEffect, useState } from "react";
 import { Loader2, Plus, Home, Package, MessageSquare, Menu } from "lucide-react";
 
@@ -19,6 +20,7 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { themeClasses } = useMobileTheme();
   const [lockout, setLockout] = useState<{ active: boolean; returnDate?: string } | null>(null);
+  const [geoConfig, setGeoConfig] = useState<{ lat: number; lng: number; radius: number; bypass: boolean } | null>(null);
 
   useEffect(() => {
     fetch("/api/mobile/init").then(r => r.json()).then(data => {
@@ -26,6 +28,16 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
         setLockout({ active: true, returnDate: new Date(data.lockout.endDate).toDateString() });
       } else {
         setLockout({ active: false });
+      }
+
+      // 🌍 STORE GEO CONFIG
+      if (data.shopLat && data.shopLng) {
+        setGeoConfig({
+          lat: data.shopLat,
+          lng: data.shopLng,
+          radius: data.radius || 100,
+          bypass: data.bypassGeofence || false
+        });
       }
     }).catch(() => setLockout({ active: false }));
   }, []);
@@ -49,6 +61,16 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
 
       {/* 🔴 Status Bar Area (Visual Only) */}
       <div className="h-2 w-full bg-transparent z-50 shrink-0" />
+
+      {/* 🔒 GEO LOCKOUT (Client Side Guard) */}
+      {geoConfig && (
+        <GeoLockoutOverlay
+          shopLat={geoConfig.lat}
+          shopLng={geoConfig.lng}
+          radius={geoConfig.radius}
+          bypass={geoConfig.bypass}
+        />
+      )}
 
       {/* 🟢 MAIN CONTENT AREA */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-32">

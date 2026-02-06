@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, location, latitude, longitude, radius } = body;
+    const { name, location, latitude, longitude, radius, managerName, managerContact } = body;
 
     // 🛡️ Safety Check for Coordinates
     const safeLat = parseFloat(latitude);
@@ -54,6 +54,8 @@ export async function POST(req: Request) {
         latitude: finalLat,
         longitude: finalLng,
         radius: parseInt(radius) || 150,
+        managerName,
+        managerContact,
         // 🔗 Link to Organization
         organization: {
           connect: { id: session.user.organizationId }

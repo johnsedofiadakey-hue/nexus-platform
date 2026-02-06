@@ -43,6 +43,7 @@ export async function GET(
         disciplinary: { take: 30, orderBy: { createdAt: 'desc' } },
         sentMessages: { take: 20, orderBy: { createdAt: 'desc' } },
         receivedMessages: { take: 20, orderBy: { createdAt: 'desc' } },
+        targets: { where: { status: 'ACTIVE' }, orderBy: { endDate: 'desc' } }
       }
     });
 
@@ -75,7 +76,7 @@ export async function GET(
       messages: chatHistory,
       geofenceStats,
       viewerId: session.user.id,
-      targets: { revenue: 15000, volume: 100 }
+      targets: user.targets || []
     });
 
   } catch (error: any) {

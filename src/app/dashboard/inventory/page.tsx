@@ -16,8 +16,9 @@ import React, { useState, useEffect } from "react";
 import {
   Package, AlertTriangle, TrendingUp, Layers,
   Search, Activity, ArrowUpRight, Loader2, Building2,
-  Zap, Turtle, ArrowDownRight, RefreshCw
+  Zap, Turtle, ArrowDownRight, RefreshCw, Edit2, X, CheckCircle
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 export default function AdminInventoryPage() {
   // --- STATE ---
@@ -37,10 +38,11 @@ export default function AdminInventoryPage() {
   const fetchInventory = async () => {
     setLoading(true);
     try {
-      // Fetches Global Inventory with Hub Tags
-      const res = await fetch(`/api/inventory?t=${Date.now()}`);
+      // Fetches National Inventory with Hub Tags
+      const res = await fetch(`/api/inventory?page=1&limit=1000&t=${Date.now()}`); // Fetching 1000 for now to keep "Global" feel
       if (res.ok) {
-        setInventory(await res.json());
+        const payload = await res.json();
+        setInventory(payload.data || []);
       }
     } catch (error) {
       console.error("Failed to load inventory");
@@ -84,13 +86,79 @@ export default function AdminInventoryPage() {
   // Extract Unique Hubs for Dropdown
   const uniqueHubs = Array.from(new Set(inventory.map(i => i.hub))).filter(Boolean);
 
+  // --- ACTION MODAL STATE ---
+  const [activeItem, setActiveItem] = useState<any>(null);
+  const [actionPrice, setActionPrice] = useState("");
+  const [actionReason, setActionReason] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const openMarkDownModal = (item: any) => {
+    setActiveItem(item);
+    setActionPrice(item.price?.toString() || "");
+    setActionReason("");
+  };
+
+  const closeMarkDownModal = () => {
+    setActiveItem(null);
+    setActionPrice("");
+    setActionReason("");
+  };
+
+  const handleActionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeItem || !activeItem.shopId) {
+      toast.error("Error: Missing Shop Context");
+      return;
+    }
+
+    setIsProcessing(true);
+    const t = toast.loading("Updating Inventory...");
+
+    try {
+      const res = await fetch(`/api/shops/${activeItem.shopId}`, {
+        method: "POST", // Re-using the Shop Inventory Update Logic
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeItem.id,
+          // We need to send required fields even if unchanged, 
+          // OR the backend needs to support partial updates.
+          // Based on our backend logic, it's an UPDATE if ID exists.
+          // We should ideally send all current values to remain safe, 
+          // or rely on the backend to merge (Prisma update does merge).
+          // But our API sanitizes and requires some fields.
+          // Let's send the critical ones we want to change + ID.
+          priceGHS: actionPrice,
+          quantity: activeItem.stock, // Unchanged
+          reason: actionReason || "PRICE_ADJUSTMENT",
+          // MOCKING required fields to pass validation if needed (backend sanitizes)
+          productName: activeItem.name,
+          minStock: activeItem.minStock || 5
+        })
+      });
+
+      if (!res.ok) throw new Error("Update failed");
+
+      toast.success("Price Updated", { id: t });
+
+      // Optimistic Update
+      setInventory(prev => prev.map(i => i.id === activeItem.id ? { ...i, price: parseFloat(actionPrice) } : i));
+      closeMarkDownModal();
+
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to update", { id: t });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500 bg-slate-50/50 min-h-screen">
 
       {/* HEADER & CONTROLS */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Inventory Matrix</h1>
+          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">National Inventory</h1>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
             <Activity className="w-3 h-3 text-emerald-500" /> Live Stock Intelligence
           </p>
@@ -111,7 +179,7 @@ export default function AdminInventoryPage() {
                 onChange={(e) => setSelectedHub(e.target.value)}
                 className="h-12 pl-4 pr-10 bg-white border border-slate-200 rounded-xl font-bold text-xs uppercase tracking-wide outline-none focus:border-blue-500 shadow-sm appearance-none min-w-[240px] text-slate-700 cursor-pointer hover:border-slate-300 transition-all"
               >
-                <option value="ALL">Global Network (All Locations)</option>
+                <option value="ALL">National Network (All Locations)</option>
                 {uniqueHubs.map(hub => (
                   <option key={hub} value={hub}>{hub}</option>
                 ))}
@@ -126,9 +194,9 @@ export default function AdminInventoryPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
 
         {/* 1. FAST MOVERS */}
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 shadow-inner">
+            <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 shadow-inner">
               <Zap className="w-6 h-6" />
             </div>
             <div>
@@ -144,9 +212,9 @@ export default function AdminInventoryPage() {
         </div>
 
         {/* 2. DEAD STOCK */}
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-500 shadow-inner">
+            <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 shadow-inner">
               <Turtle className="w-6 h-6" />
             </div>
             <div>
@@ -160,9 +228,9 @@ export default function AdminInventoryPage() {
         </div>
 
         {/* 3. VALUATION */}
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shadow-inner">
+            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shadow-inner">
               <TrendingUp className="w-6 h-6" />
             </div>
             <div>
@@ -176,9 +244,9 @@ export default function AdminInventoryPage() {
         </div>
 
         {/* 4. CRITICAL ALERTS */}
-        <div className={`p-6 rounded-[2rem] border shadow-sm transition-all hover:shadow-md ${lowStockItems.length > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-slate-200'}`}>
+        <div className={`p-6 rounded-xl border shadow-sm transition-all hover:shadow-md ${lowStockItems.length > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-4 mb-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${lowStockItems.length > 0 ? 'bg-white text-red-600' : 'bg-slate-100 text-slate-400'}`}>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner ${lowStockItems.length > 0 ? 'bg-white text-red-600' : 'bg-slate-100 text-slate-400'}`}>
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div>
@@ -198,7 +266,7 @@ export default function AdminInventoryPage() {
           <div className="flex items-center gap-6">
             <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Layers className="w-5 h-5 text-blue-600" />
-              {selectedHub === "ALL" ? "Global Stock List" : `${selectedHub} Stock`}
+              {selectedHub === "ALL" ? "National Stock List" : `${selectedHub} Stock`}
             </h3>
 
             <div className="h-8 w-px bg-slate-200 hidden md:block" />
@@ -215,8 +283,8 @@ export default function AdminInventoryPage() {
                   key={f.id}
                   onClick={() => setFilterType(f.id)}
                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${filterType === f.id
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/20'
-                      : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/20'
+                    : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'
                     }`}
                 >
                   {f.label}
@@ -258,6 +326,7 @@ export default function AdminInventoryPage() {
                   <th className="px-6 py-5">Location</th>
                   <th className="px-6 py-5 text-right">Unit Price</th>
                   <th className="px-8 py-5 w-72">Stock Level</th>
+                  <th className="px-6 py-5">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -267,8 +336,8 @@ export default function AdminInventoryPage() {
                       <div className="flex items-center gap-4">
                         {/* DYNAMIC ICON BASED ON VELOCITY */}
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center border shadow-sm ${item.salesVelocity > 5 ? 'bg-amber-50 border-amber-100 text-amber-600' :
-                            item.salesVelocity > 0 ? 'bg-blue-50 border-blue-100 text-blue-600' :
-                              'bg-white border-slate-100 text-slate-300'
+                          item.salesVelocity > 0 ? 'bg-blue-50 border-blue-100 text-blue-600' :
+                            'bg-white border-slate-100 text-slate-300'
                           }`}>
                           {item.salesVelocity > 5 ? <Zap className="w-5 h-5" /> :
                             item.salesVelocity > 0 ? <Activity className="w-5 h-5" /> :
@@ -288,7 +357,7 @@ export default function AdminInventoryPage() {
                     </td>
                     <td className="px-6 py-5">
                       <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-wide">
-                        {item.subCat}
+                        {item.subCat || "General"}
                       </span>
                     </td>
                     <td className="px-6 py-5">
@@ -300,7 +369,7 @@ export default function AdminInventoryPage() {
                     <td className="px-6 py-5 text-right font-black text-slate-900 text-sm">
                       ₵ {(item.price || 0).toLocaleString()}
                     </td>
-                    <td className="px-8 py-5">
+                    <td className="px-8 py-5 w-72">
                       <div className="flex items-center justify-between mb-2">
                         <span className={`text-xs font-black ${item.status === 'Low Stock' ? 'text-red-600' : 'text-slate-700'}`}>
                           {item.stock} Available
@@ -315,6 +384,16 @@ export default function AdminInventoryPage() {
                         />
                       </div>
                     </td>
+                    <td className="px-6 py-5">
+                      {/* ACTION BUTTON FOR STAGNANT STOCK OR ADMIN OVERRIDE */}
+                      <button
+                        onClick={() => openMarkDownModal(item)}
+                        className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-lg shadow-sm transition-all"
+                        title="Adjust Price / Clearance"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -327,6 +406,85 @@ export default function AdminInventoryPage() {
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
+
+      {/* ======================= ACTION MODAL ======================= */}
+      {activeItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="font-bold text-lg text-slate-900">Quick Adjustment</h3>
+                <p className="text-xs text-slate-500">{activeItem.name}</p>
+              </div>
+              <button onClick={closeMarkDownModal}><X className="text-slate-400 hover:text-rose-600" /></button>
+            </div>
+
+            <form onSubmit={handleActionSubmit} className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4">
+                <div className="flex justify-between text-xs font-bold text-slate-500 uppercase mb-2">
+                  <span>Current Price</span>
+                  <span>Stock Available</span>
+                </div>
+                <div className="flex justify-between text-lg font-black text-slate-900">
+                  <span>₵ {activeItem.price?.toLocaleString()}</span>
+                  <span>{activeItem.stock} Units</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">New Price (GHS)</label>
+                <div className="flex gap-2 mb-2">
+                  {[10, 20, 50].map(pct => (
+                    <button
+                      type="button"
+                      key={pct}
+                      onClick={() => setActionPrice(Math.floor((activeItem.price || 0) * (1 - pct / 100)).toString())}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      -{pct}%
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  className="w-full p-3 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-blue-500 transition-all"
+                  value={actionPrice}
+                  onChange={e => setActionPrice(e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">Reason for Change</label>
+                <select
+                  className="w-full p-3 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 transition-all"
+                  value={actionReason}
+                  onChange={e => setActionReason(e.target.value)}
+                  required
+                >
+                  <option value="">Select Reason...</option>
+                  <option value="CLEARANCE">Stagnant Stock Clearance</option>
+                  <option value="PROMO">Promotional Offer</option>
+                  <option value="DAMAGE">Minor Damage / Open Box</option>
+                  <option value="PRICE_MATCH">Competitor Price Match</option>
+                  <option value="CORRECTION">Pricing Error Correction</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isProcessing}
+                className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold text-sm uppercase tracking-wide hover:bg-blue-600 shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isProcessing ? <Loader2 className="animate-spin w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                Confirm Update
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

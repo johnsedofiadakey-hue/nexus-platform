@@ -23,8 +23,17 @@ export default function MobilePOS() {
   const [identity, setIdentity] = useState<{
     id: string; // 👈 Added User ID
     agentName: string;
+    agentImage?: string;
     shopName: string;
     shopId: string;
+    managerName?: string;
+    managerPhone?: string;
+    targetProgress?: {
+      targetValue: number;
+      targetQuantity: number;
+      achievedValue: number;
+      achievedQuantity: number;
+    } | null;
   } | null>(null);
 
   const [inventory, setInventory] = useState<any[]>([]);
@@ -64,8 +73,12 @@ export default function MobilePOS() {
       setIdentity({
         id: initData.id, // 👈 Store User ID
         agentName: initData.agentName,
+        agentImage: initData.agentImage,
         shopName: initData.shopName,
-        shopId: initData.shopId
+        shopId: initData.shopId,
+        managerName: initData.managerName,
+        managerPhone: initData.managerPhone,
+        targetProgress: initData.targetProgress
       });
 
       const invRes = await fetch(`/api/inventory?shopId=${initData.shopId}&t=${Date.now()}`);
@@ -159,7 +172,7 @@ export default function MobilePOS() {
           fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`).then(r => r.json()).then(d => setInventory(d));
         }
       } else {
-        alert(`⚠️ TRANSACTION FAILED\n\n${result.error}`);
+        alert(`⚠️ TRANSACTION FAILED\n\n${(result as any).error}`);
       }
 
     } catch (err) {
@@ -216,6 +229,14 @@ export default function MobilePOS() {
               <User className="w-3 h-3 text-blue-500" />
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{identity?.agentName}</p>
             </div>
+            {identity?.managerName && (
+              <div className="flex items-center gap-2 mt-0.5">
+                <Store className="w-3 h-3 text-slate-400" />
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                  Mgr: {identity.managerName} <span className="text-slate-300">•</span> {identity.managerPhone}
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <button onClick={fetchData} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors active:scale-90">
@@ -231,6 +252,50 @@ export default function MobilePOS() {
           </div>
         </div>
       </div>
+
+      {/* 🎯 TARGET PROGRESS CARD */}
+      {identity?.targetProgress && (
+        <div className="px-6 mb-6 animate-in slide-in-from-top-4 duration-700 delay-100">
+          <div className="bg-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-slate-900/20 relative overflow-hidden">
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Monthly Target</h3>
+                <p className="text-lg font-black mt-1">
+                  {Math.round((identity.targetProgress.achievedValue / identity.targetProgress.targetValue) * 100)}%
+                  <span className="text-xs text-slate-500 font-bold ml-2">Completed</span>
+                </p>
+              </div>
+              <Flag className="w-5 h-5 text-blue-500" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 relative z-10">
+              <div>
+                <p className="text-[9px] font-bold text-slate-500 uppercase">Revenue</p>
+                <p className="text-sm font-bold">₵ {identity.targetProgress.achievedValue.toLocaleString()} <span className="text-slate-600">/ {identity.targetProgress.targetValue.toLocaleString()}</span></p>
+                <div className="h-1.5 w-full bg-slate-800 rounded-full mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${Math.min((identity.targetProgress.achievedValue / identity.targetProgress.targetValue) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-slate-500 uppercase">Volume</p>
+                <p className="text-sm font-bold">{identity.targetProgress.achievedQuantity} <span className="text-slate-600">/ {identity.targetProgress.targetQuantity}</span></p>
+                <div className="h-1.5 w-full bg-slate-800 rounded-full mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${Math.min((identity.targetProgress.achievedQuantity / identity.targetProgress.targetQuantity) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Decor */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+          </div>
+        </div>
+      )}
 
       {/* VIEW: BROWSE */}
       {view === 'BROWSE' && (

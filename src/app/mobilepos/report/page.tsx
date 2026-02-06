@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart2, Zap, PackageSearch, Send,
-  Loader2, CheckCircle2, ArrowLeft
+  Loader2, CheckCircle2, ArrowLeft, Plus, X
 } from "lucide-react";
 import { useMobileTheme } from "@/context/MobileThemeContext";
 
@@ -26,11 +26,13 @@ export default function FieldReportPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Separate State for Intel to avoid complex JSON parsing on every keystroke
+  const [intelItems, setIntelItems] = useState([{ brand: "", model: "", price: "" }]);
+
   const [formData, setFormData] = useState({
     walkIns: "",
     inquiries: "",
     buyers: "",
-    marketIntel: "",
     stockGaps: "",
     competitorNotes: ""
   });
@@ -43,7 +45,10 @@ export default function FieldReportPage() {
       const response = await fetch("/api/operations/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          marketIntel: JSON.stringify(intelItems.filter(i => i.brand || i.model)) // Serialize here
+        }),
       });
       if (response.ok) setSuccess(true);
     } catch (err) {
@@ -134,16 +139,78 @@ export default function FieldReportPage() {
         <section className="space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <Zap className="w-3.5 h-3.5" style={{ color: accentHex }} />
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Market Intelligence</h3>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Competitor Prices</h3>
           </div>
-          <div className="space-y-3">
-            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Competitor Activity</label>
-            <textarea
-              rows={3}
-              className={`w-full border p-4 rounded-xl text-xs font-bold outline-none transition-all resize-none ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-              placeholder="Example: Competitor X is offering 10% discount..."
-              onChange={(e) => setFormData({ ...formData, competitorNotes: e.target.value })}
-            />
+
+          {/* Dynamic Intel List */}
+          <div className="space-y-4">
+            {intelItems.map((item, idx) => (
+              <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 space-y-3 relative group">
+                <div className="absolute right-2 top-2">
+                  {intelItems.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setIntelItems(prev => prev.filter((_, i) => i !== idx))}
+                      className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Brand</label>
+                    <input
+                      value={item.brand}
+                      placeholder="e.g. Samsung"
+                      className={`w-full border h-10 px-3 rounded-lg text-xs font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                      onChange={(e) => {
+                        const newItems = [...intelItems];
+                        newItems[idx].brand = e.target.value;
+                        setIntelItems(newItems);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Model</label>
+                    <input
+                      value={item.model}
+                      placeholder="e.g. A14"
+                      className={`w-full border h-10 px-3 rounded-lg text-xs font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                      onChange={(e) => {
+                        const newItems = [...intelItems];
+                        newItems[idx].model = e.target.value;
+                        setIntelItems(newItems);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Price (₵)</label>
+                  <input
+                    type="number"
+                    value={item.price}
+                    placeholder="0.00"
+                    className={`w-full border h-10 px-3 rounded-lg text-xs font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                    onChange={(e) => {
+                      const newItems = [...intelItems];
+                      newItems[idx].price = e.target.value;
+                      setIntelItems(newItems);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {/* Add Button */}
+            <button
+              type="button"
+              onClick={() => setIntelItems([...intelItems, { brand: "", model: "", price: "" }])}
+              className="w-full py-3 border border-dashed border-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-blue-600 hover:border-blue-300 transition-all flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Add Competitor Item
+            </button>
           </div>
         </section>
 

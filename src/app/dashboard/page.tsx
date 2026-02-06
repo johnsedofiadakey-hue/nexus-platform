@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   LayoutDashboard, RefreshCcw, Users, Signal,
   Activity, Package, ShieldAlert, Building2, Map as MapIcon, Table,
-  Lock
+  Lock, Loader2
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
@@ -26,17 +26,17 @@ const AdminHQMap = dynamic(() => import('@/components/maps/AdminHQMap'), {
 
 // --- UI: METRIC CARD ---
 const StatCard = ({ label, value, sub, icon: Icon, active, alert }: any) => (
-  <div className={`bg-white p-5 border ${alert ? 'border-rose-200 bg-rose-50/10' : 'border-slate-200'} shadow-sm flex flex-col justify-between h-32 transition-all hover:border-slate-300`}>
+  <div className={`nexus-card p-6 flex flex-col justify-between h-32 ${active ? 'border-blue-200 bg-blue-50/10' : ''} ${alert ? 'border-rose-200 bg-rose-50/10' : ''}`}>
     <div className="flex justify-between items-start">
-      <div className={`p-2 rounded-sm ${active ? 'bg-emerald-100 text-emerald-700' : alert ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
-        <Icon size={16} strokeWidth={2.5} />
+      <div className={`p-2.5 rounded-lg ${active ? 'bg-blue-100 text-blue-700' : alert ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+        <Icon size={18} strokeWidth={2} />
       </div>
-      {active && <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
+      {active && <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.5)]" />}
     </div>
     <div>
       <h3 className="text-2xl font-bold text-slate-900 tracking-tight">{value}</h3>
       <div className="flex justify-between items-end mt-1">
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</p>
+        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{label}</p>
         {sub && <p className="text-[10px] font-medium text-slate-400">{sub}</p>}
       </div>
     </div>
@@ -48,8 +48,9 @@ export default function OperationsHub() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ shops: [], team: [], analytics: {}, pulse: [] });
+  const [data, setData] = useState({ shops: [], team: [], analytics: {}, pulse: [], adminTarget: null });
   const [viewMode, setViewMode] = useState<'DATA' | 'MAP'>('DATA');
+  const [showTargetModal, setShowTargetModal] = useState(false);
 
   // --- 🚀 OPTIMIZED DATA FETCHER ---
   const fetchData = useCallback(async () => {
@@ -81,15 +82,11 @@ export default function OperationsHub() {
         analytics: analytics || {},
         pulse: Array.isArray(pulse) ? pulse : [],
         shops: Array.isArray(shops) ? shops : (shops.data || []),
-        team: Array.isArray(team?.data) ? team.data : (Array.isArray(team) ? team : [])
+        team: Array.isArray(team?.data) ? team.data : (Array.isArray(team) ? team : []),
+        adminTarget: (analytics as any).adminTarget || null
       });
     } catch (e: any) {
-      if (e.name === 'AbortError') {
-        console.warn("Dashboard Sync Timeout: Network is slow.");
-        // Optional: Show Toast here
-      } else {
-        console.error("Dashboard Sync Error:", e);
-      }
+      if (e.name !== 'AbortError') console.error("Sync Error:", e);
     } finally {
       setLoading(false);
     }
@@ -97,212 +94,309 @@ export default function OperationsHub() {
 
   // --- 🛡️ ROLE PROTECTION & BOOT ---
   useEffect(() => {
-    // --- 🛡️ ROLE PROTECTION & BOOT & LIVE SYNC ---
-    useEffect(() => {
-      if (status === "unauthenticated") {
-        router.push("/auth/signin");
-      } else if (status === "authenticated") {
-        if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
-          router.push("/mobilepos"); // Bounce unauthorized users
-        } else {
-          fetchData();
-          // 🔄 LIVE SYNC: Refresh every 15 seconds
-          const interval = setInterval(fetchData, 15000);
-          return () => clearInterval(interval);
-        }
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
+    } else if (status === "authenticated") {
+      if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+        router.push("/mobilepos"); // Bounce unauthorized users
+      } else {
+        fetchData();
+        // 🔄 LIVE SYNC: Refresh every 15 seconds
+        const interval = setInterval(fetchData, 15000);
+        return () => clearInterval(interval);
       }
-    }, [status, session, router, fetchData]);
+    }
+  }, [status, session, router, fetchData]);
 
-    // --- DERIVED METRICS (Memoized) ---
-    const stats = useMemo(() => {
-      const active = Array.isArray(data.team) ? data.team.filter((u: any) => u.status === 'ACTIVE' || u.isInsideZone).length : 0;
-      const total = Array.isArray(data.team) ? data.team.length : 0;
-      const inv = Array.isArray(data.shops) ? data.shops.reduce((acc: number, s: any) => acc + (s.stats?.inventory || 0), 0) : 0;
-      const alertCount = Array.isArray(data.pulse) ? data.pulse.filter((p: any) => p.type === 'GHOST_ALERT').length : 0;
-      const chart = (data.analytics as any).chartData || [];
+  // --- DERIVED METRICS (Memoized) ---
+  const stats = useMemo(() => {
+    const active = Array.isArray(data.team) ? data.team.filter((u: any) => u.status === 'ACTIVE' || u.isInsideZone).length : 0;
+    const total = Array.isArray(data.team) ? data.team.length : 0;
+    const inv = Array.isArray(data.shops) ? data.shops.reduce((acc: number, s: any) => acc + (s.stats?.inventory || 0), 0) : 0;
+    const alertCount = Array.isArray(data.pulse) ? data.pulse.filter((p: any) => p.type === 'GHOST_ALERT').length : 0;
+    const chart = (data.analytics as any).chartData || [];
 
-      return { active, total, inv, alertCount, chart };
-    }, [data]);
+    return { active, total, inv, alertCount, chart };
+  }, [data]);
 
-    // --- LOADING STATE ---
-    if (status === "loading" || loading) return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="h-12 w-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
-            <LayoutDashboard className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-400" size={18} />
+  // --- LOADING STATE ---
+  if (status === "loading" || loading) return (
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Initializing Command...</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-8 text-slate-900 font-sans">
+
+      {/* HEADER */}
+      <div className="max-w-7xl mx-auto mb-8 flex justify-between items-center bg-white border border-slate-200/60 p-6 rounded-xl shadow-sm">
+        <div className="flex items-center gap-5">
+          <div className="bg-slate-900 text-white p-3 rounded-lg shadow-lg shadow-slate-900/10">
+            <LayoutDashboard size={20} />
           </div>
-          <div className="text-center">
-            <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Nexus System Boot</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-1">Verifying Terminal Permissions...</p>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-none">Operations Hub</h1>
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Live System • {session?.user?.name}</p>
+            </div>
           </div>
         </div>
-      </div>
-    );
 
-    return (
-      <div className="min-h-screen bg-slate-50 p-6 text-slate-900 font-sans">
-
-        {/* HEADER */}
-        <div className="max-w-[1920px] mx-auto mb-6 flex justify-between items-center bg-white border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="bg-slate-900 text-white p-2.5 rounded-sm shadow-lg shadow-slate-900/20">
-              <LayoutDashboard size={20} />
-            </div>
-            <div>
-              <h1 className="text-lg font-extrabold text-slate-900 uppercase tracking-tight leading-none">Nexus Control</h1>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Operations Center • {session?.user?.name}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex bg-slate-100 p-1 rounded-sm border border-slate-200 mr-2">
-              <button
-                onClick={() => setViewMode('DATA')}
-                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-sm flex items-center gap-2 transition-all ${viewMode === 'DATA' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <Table size={12} /> Matrix
-              </button>
-              <button
-                onClick={() => setViewMode('MAP')}
-                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-sm flex items-center gap-2 transition-all ${viewMode === 'MAP' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                <MapIcon size={12} /> Satellite
-              </button>
-            </div>
-
+        <div className="flex items-center gap-3">
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200/60">
             <button
-              onClick={fetchData}
-              className="flex items-center gap-2 bg-slate-900 text-white hover:bg-slate-800 px-4 py-2 text-[10px] font-bold uppercase tracking-wider transition-all rounded-sm"
+              onClick={() => setViewMode('DATA')}
+              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wide rounded-md flex items-center gap-2 transition-all ${viewMode === 'DATA' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              <RefreshCcw size={12} className={loading ? 'animate-spin' : ''} /> Sync
+              <Table size={14} /> List View
+            </button>
+            <button
+              onClick={() => setViewMode('MAP')}
+              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wide rounded-md flex items-center gap-2 transition-all ${viewMode === 'MAP' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              <MapIcon size={14} /> Map View
             </button>
           </div>
-        </div>
 
-        <div className="max-w-[1920px] mx-auto space-y-6">
-
-          {/* ROW 1: KPI CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatCard label="Field Force" value={stats.total} sub="Registered Agents" icon={Users} />
-            <StatCard label="Live Signal" value={stats.active} sub="Online Now" icon={Signal} active={true} />
-            <StatCard label="Global Stock" value={stats.inv.toLocaleString()} sub="Total SKUs" icon={Package} />
-            <StatCard label="Security" value={stats.alertCount} sub="Active Alerts" icon={ShieldAlert} alert={stats.alertCount > 0} />
-          </div>
-
-          {/* ROW 2: MAIN VIEW */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[520px]">
-
-            <div className="lg:col-span-2 bg-white border border-slate-200 shadow-sm flex flex-col relative overflow-hidden transition-all">
-              {viewMode === 'MAP' ? (
-                <div className="h-full w-full relative z-0">
-                  <AdminHQMap shops={data.shops} />
-                  <div className="absolute top-4 left-4 z-[400] bg-white/90 backdrop-blur px-3 py-2 rounded border border-slate-200 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Network Coverage</p>
-                    <p className="text-xs font-black text-slate-900">{data.shops.length} Active Hubs</p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                      <Building2 size={14} className="text-blue-600" /> Hub Performance Matrix
-                    </h3>
-                  </div>
-                  <div className="flex-1 overflow-y-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
-                        <tr>
-                          <th className="px-5 py-3 border-b border-slate-200">Hub Location</th>
-                          <th className="px-5 py-3 border-b border-slate-200">Address</th>
-                          <th className="px-5 py-3 border-b border-slate-200 text-right">Revenue (Est)</th>
-                          <th className="px-5 py-3 border-b border-slate-200 text-right">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-xs">
-                        {data.shops.map((shop: any) => (
-                          <tr key={shop.id} className="hover:bg-slate-50 transition-colors group">
-                            <td className="px-5 py-4 font-bold text-slate-700">{shop.name}</td>
-                            <td className="px-5 py-4 text-slate-500">{shop.location || "N/A"}</td>
-                            <td className="px-5 py-4 text-right font-mono text-slate-600">
-                              ₵{((shop.stats?.inventory || 0) * 150).toLocaleString()}
-                            </td>
-                            <td className="px-5 py-4 text-right">
-                              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-sm text-[9px] font-bold uppercase">Online</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="bg-white border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <Package size={14} className="text-slate-500" /> Critical Stock
-                </h3>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-5 py-3 border-b border-slate-200">Hub</th>
-                      <th className="px-5 py-3 border-b border-slate-200 text-right">Qty</th>
-                      <th className="px-5 py-3 border-b border-slate-200 text-right">Alert</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {data.shops.map((shop: any) => (
-                      <tr key={shop.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-3 font-bold text-slate-700">{shop.name}</td>
-                        <td className="px-5 py-3 text-right font-mono text-slate-500">{shop.stats?.inventory || 0}</td>
-                        <td className="px-5 py-3 text-right">
-                          <div className={`h-2 w-2 rounded-full ml-auto ${(shop.stats?.inventory || 0) < 10 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'
-                            }`} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* ROW 3: VELOCITY CHART */}
-          <div className="bg-white p-6 border border-slate-200 shadow-sm h-[300px] flex flex-col overflow-hidden">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <Activity size={14} className="text-blue-500" />
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Transaction Velocity</h3>
-              </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last 24 Hours</p>
-            </div>
-            <div className="flex-1 w-full text-xs">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.chart} barSize={40}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} dy={10} />
-                  <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
-                  />
-                  <Bar dataKey="sales" radius={[4, 4, 0, 0]}>
-                    {stats.chart.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#0F172A' : '#2563EB'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
+          <button
+            onClick={fetchData}
+            className="flex items-center gap-2 bg-slate-900 text-white hover:bg-slate-800 px-5 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all rounded-lg active:scale-95"
+          >
+            <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} /> Sync
+          </button>
         </div>
       </div>
-    );
-  }
+
+      <div className="max-w-7xl mx-auto space-y-6">
+
+        {/* 🎯 ADMIN TARGET HERO CARD */}
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-8 text-white relative overflow-hidden shadow-xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+
+          {/* ... */}
+        </div>
+
+        {/* ROW 1: KPI CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <StatCard label="Field Team" value={stats.total} sub="Registered Agents" icon={Users} />
+          <StatCard label="Active Now" value={stats.active} sub="Online Signal" icon={Signal} active={true} />
+          <StatCard label="Inventory Level" value={stats.inv.toLocaleString()} sub="Total Units" icon={Package} />
+          <StatCard label="Security Alerts" value={stats.alertCount} sub="Req. Attention" icon={ShieldAlert} alert={stats.alertCount > 0} />
+        </div>
+
+        {/* ROW 2: MAIN VIEW */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[580px]">
+
+          <div className="lg:col-span-2 nexus-card flex flex-col relative overflow-hidden">
+            {viewMode === 'MAP' ? (
+              <div className="h-full w-full relative z-0">
+                <AdminHQMap shops={data.shops} />
+                <div className="absolute top-5 left-5 z-[400] bg-white/95 backdrop-blur px-4 py-3 rounded-xl border border-slate-200/60 shadow-lg">
+                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Network</p>
+                  <p className="text-sm font-black text-slate-900">{data.shops.length} Active Hubs</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="nexus-header flex justify-between items-center bg-slate-50/30">
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <Building2 size={16} className="text-slate-400" /> Hub Performance List
+                  </h3>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="text-[10px] uppercase font-bold text-slate-400 sticky top-0 z-10 bg-white">
+                      <tr>
+                        <th className="px-5 py-3 border-b border-slate-100">Hub Location</th>
+                        <th className="px-5 py-3 border-b border-slate-100">Address</th>
+                        <th className="px-5 py-3 border-b border-slate-100 text-right">Revenue (Est)</th>
+                        <th className="px-5 py-3 border-b border-slate-100 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 text-xs">
+                      {data.shops.map((shop: any) => (
+                        <tr key={shop.id} className="hover:bg-slate-50 transition-colors group">
+                          <td className="px-5 py-4 font-bold text-slate-700">{shop.name}</td>
+                          <td className="px-5 py-4 text-slate-500">{shop.location || "N/A"}</td>
+                          <td className="px-5 py-4 text-right font-mono font-medium text-slate-600">
+                            ₵{((shop.stats?.inventory || 0) * 150).toLocaleString()}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700 font-bold text-[9px] uppercase">
+                              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                              Online
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="nexus-card flex flex-col overflow-hidden">
+            <div className="nexus-header bg-slate-50/30">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                <Package size={16} className="text-slate-400" /> Low Stock Warning
+              </h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              <table className="w-full text-left border-collapse">
+                <thead className="text-[10px] uppercase font-bold text-slate-400 sticky top-0 z-10 bg-white">
+                  <tr>
+                    <th className="px-5 py-3 border-b border-slate-100">Hub</th>
+                    <th className="px-5 py-3 border-b border-slate-100 text-right">Qty</th>
+                    <th className="px-5 py-3 border-b border-slate-100 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 text-xs">
+                  {data.shops.map((shop: any) => (
+                    <tr key={shop.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-3 font-medium text-slate-700">{shop.name}</td>
+                      <td className="px-5 py-3 text-right font-mono text-slate-500">{shop.stats?.inventory || 0}</td>
+                      <td className="px-5 py-3 text-right">
+                        <div className={`h-2 w-2 rounded-full ml-auto ${(shop.stats?.inventory || 0) < 10 ? 'bg-rose-500 animate-pulse shadow-sm shadow-rose-200' : 'bg-emerald-400'
+                          }`} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* ROW 3: VELOCITY CHART */}
+        <div className="nexus-card h-[320px] flex flex-col overflow-hidden p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <Activity size={16} />
+              </div>
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Sales Velocity</h3>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-md">Last 24 Hours</p>
+          </div>
+          <div className="flex-1 w-full text-xs">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.chart} barSize={48}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 600, fill: '#64748b' }} dy={12} />
+                <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                />
+                <Bar dataKey="sales" radius={[6, 6, 0, 0]}>
+                  {stats.chart.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#1e293b' : '#3b82f6'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+      </div>
+
+      {/* 🎯 TARGET MODAL */}
+      {showTargetModal && (
+        <TargetModal onClose={() => setShowTargetModal(false)} onSuccess={() => { setShowTargetModal(false); fetchData(); }} userId={session?.user?.email} />
+      )}
+
+    </div>
+  );
+}
+
+// --- SUB-COMPONENT: TARGET MODAL ---
+function TargetModal({ onClose, onSuccess, userId }: any) {
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    targetValue: 50000,
+    targetQuantity: 500,
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  });
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      // Create for SELF
+      const res = await fetch('/api/targets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          userId: userId
+        })
+      });
+
+      // If API requires userId, we need to pass it.
+      // Let's check api/targets/route.ts. It takes userId from body.
+      // If I don't pass userId, it fails?
+      // Let's update `handleSubmit` to use a generic 'SELF' flag or better yet, pass ID from parent.
+
+      if (res.ok) onSuccess();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-8 max-w-md w-full animate-in zoom-in-95 relative overflow-hidden shadow-2xl">
+        <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
+          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Set Leader Target</h3>
+          <button onClick={onClose}><div className="p-2 bg-slate-50 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"><RefreshCcw className="rotate-45" size={18} /></div></button>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Revenue Goal (GHS)</label>
+            <input
+              type="number"
+              className="nexus-input w-full text-xl font-bold"
+              value={form.targetValue}
+              onChange={e => setForm({ ...form, targetValue: parseFloat(e.target.value) })}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Volume Goal (Units)</label>
+            <input
+              type="number"
+              className="nexus-input w-full text-xl font-bold"
+              value={form.targetQuantity}
+              onChange={e => setForm({ ...form, targetQuantity: parseInt(e.target.value) })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Start Date</label>
+              <input type="date" className="nexus-input w-full" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">End Date</label>
+              <input type="date" className="nexus-input w-full" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          className="w-full mt-8 bg-slate-900 text-white h-12 rounded-xl font-bold uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-900/10 active:scale-95 flex items-center justify-center gap-2"
+          disabled={loading}
+        >
+          {loading ? <RefreshCcw className="animate-spin" size={18} /> : 'Activate Target'}
+        </button>
+      </div>
+    </div>
+  );
+}

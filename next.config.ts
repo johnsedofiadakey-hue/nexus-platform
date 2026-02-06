@@ -10,11 +10,15 @@ const nextConfig: NextConfig = {
     /**
      * 🚀 Production-ready output
      */
-    output: "standalone",
+    // output: "standalone",
+
+    //@ts-ignore - Next 15/16 workspace root detection
+    turbopack: {
+        root: ".",
+    },
 
     /**
      * 🛡️ Prevent Leaflet from being bundled incorrectly
-     * (REQUIRED for Turbopack stability)
      */
     serverExternalPackages: ["leaflet"],
 
@@ -23,9 +27,6 @@ const nextConfig: NextConfig = {
      */
     typescript: {
         ignoreBuildErrors: true,
-    },
-    eslint: {
-        ignoreDuringBuilds: true,
     },
 
     /**
@@ -40,12 +41,12 @@ const nextConfig: NextConfig = {
          * ❌ REMOVED react-leaflet
          * It causes hydration + ref reuse issues
          */
-        optimizePackageImports: [
-            "lucide-react",
-            "framer-motion",
-            "recharts",
-            "geolib",
-        ],
+        // optimizePackageImports: [
+        //     "lucide-react",
+        //     "framer-motion",
+        //     "recharts",
+        //     "geolib",
+        // ],
     },
 
     /**

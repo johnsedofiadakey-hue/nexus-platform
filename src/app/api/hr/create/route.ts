@@ -25,7 +25,13 @@ export async function POST(req: Request) {
       ghanaCard,
       dob,
       shopId,
-      image
+      image,
+      // Banking & Statutory
+      bankAccountName,
+      bankName,
+      bankAccountNumber,
+      ssnitNumber,
+      commencementDate
     } = body;
 
     // 1. DATA VALIDATION: Strict verification of core identity markers
@@ -62,6 +68,14 @@ export async function POST(req: Request) {
       }
     }
 
+    let commDate = null;
+    if (commencementDate) {
+      const parsedDate = new Date(commencementDate);
+      if (!isNaN(parsedDate.getTime())) {
+        commDate = parsedDate;
+      }
+    }
+
     // 5. ATOMIC PERSISTENCE: Save Operative to Database
     const newUser = await prisma.user.create({
       data: {
@@ -74,6 +88,14 @@ export async function POST(req: Request) {
         ghanaCard: ghanaCard || null,
         dob: birthDate,
         image: image || null,
+
+        // Banking & Statutory
+        bankAccountName: bankAccountName || null,
+        bankName: bankName || null,
+        bankAccountNumber: bankAccountNumber || null,
+        ssnitNumber: ssnitNumber || null,
+        commencementDate: commDate,
+
         status: "ACTIVE",
         // Logic to connect to the assigned shop/hub
         shop: shopId ? {

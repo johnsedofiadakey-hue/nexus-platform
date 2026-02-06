@@ -136,13 +136,13 @@ export default function MemberPortal() {
   const exec = async (action: string, payload: any) => {
     const t = toast.loading(`Processing Protocol...`);
     try {
-      const endpoint = action === 'SEND_MESSAGE' ? '/api/mobile/messages' : `/api/hr/member/${staffId}`;
-      const method = action === 'SEND_MESSAGE' ? 'POST' : (action === 'DELETE' ? 'DELETE' : 'PATCH');
+      const endpoint = action === 'SEND_MESSAGE' ? '/api/mobile/messages' : (action === 'CREATE_TARGET' ? '/api/targets' : `/api/hr/member/${staffId}`);
+      const method = (action === 'SEND_MESSAGE' || action === 'CREATE_TARGET') ? 'POST' : (action === 'DELETE' ? 'DELETE' : 'PATCH');
 
       // 🔧 FIX: Ensure receiverId is attached for messages
       const bodyPayload = action === 'SEND_MESSAGE'
-        ? { content: payload.content, receiverId: staffId } // Explicitly target Agent
-        : { action, ...payload };
+        ? { content: payload.content, receiverId: staffId }
+        : (action === 'CREATE_TARGET' ? { ...payload, userId: staffId } : { action, ...payload });
 
       const res = await fetch(endpoint, {
         method,
@@ -382,80 +382,179 @@ export default function MemberPortal() {
               </div>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* ⚙️ SETTINGS MODAL */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 border border-slate-200">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-black text-xl text-slate-900">Profile Configuration</h3>
-              <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X className="text-slate-400 hover:text-slate-900" /></button>
-            </div>
-            <div className="p-8 space-y-6">
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Identity</label>
-                <input className="w-full h-14 px-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="Full Name" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} />
-                <input className="w-full h-14 px-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="Email" value={formState.email} onChange={e => setFormState({ ...formState, email: e.target.value })} />
-              </div>
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Assignment</label>
-                <div className="relative">
-                  <Store className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <select className="w-full h-14 pl-12 pr-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm appearance-none" value={formState.shopId} onChange={e => setFormState({ ...formState, shopId: e.target.value })}>
-                    <option value="">Unassigned</option>
-                    {shops.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+          {/* VIEW: PROMOTER DETAILS */}
+          {activeTab === 'PROMOTER' && (
+            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-10 animate-in fade-in slide-in-from-right-4 duration-500 min-h-[600px]">
+              <div className="flex items-center gap-4 mb-10 border-b border-slate-100 pb-8">
+                <div className="w-16 h-16 bg-amber-50 rounded-[1.5rem] flex items-center justify-center text-amber-600 border border-amber-100 shadow-sm">
+                  <Briefcase size={32} />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-black text-slate-900 tracking-tight">Promoter Details</h2>
+                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Banking & Statutory Information</p>
                 </div>
               </div>
 
-              {/* 🛡️ SECURITY SECTION */}
-              <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 mt-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <ShieldCheck size={16} className="text-blue-600" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Security & Access</span>
-                </div>
-
-                {/* Password Reset */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Reset Password</label>
-                  <div className="relative">
-                    <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                      type="password"
-                      className="w-full h-12 pl-12 pr-5 bg-white rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-blue-500 transition-all placeholder:text-slate-300"
-                      placeholder="Set new password (leave empty to keep current)"
-                      value={formState.password}
-                      onChange={e => setFormState({ ...formState, password: e.target.value })}
-                    />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2">Banking Information</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bank Name</p>
+                      <p className="text-lg font-bold text-slate-900">{data?.bankName || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Number</p>
+                      <p className="text-lg font-bold text-slate-900 font-mono">{data?.bankAccountNumber || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Name</p>
+                      <p className="text-lg font-bold text-slate-900">{data?.bankAccountName || "N/A"}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Bypass Toggle */}
-                <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                  <div>
-                    <p className="text-xs font-black text-slate-900 uppercase">Remote GPS Access</p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">Allow agent to work from anywhere (Bypass Geofence)</p>
+                <div className="space-y-6">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2">Statutory & Employment</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SSNIT Number</p>
+                      <p className="text-lg font-bold text-slate-900 font-mono">{data?.ssnitNumber || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Commencement Date</p>
+                      <p className="text-lg font-bold text-slate-900">
+                        {data?.commencementDate ? new Date(data.commencementDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'N/A'}
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setFormState({ ...formState, bypassGeofence: !formState.bypassGeofence })}
-                    className={`w-12 h-7 rounded-full relative transition-colors ${formState.bypassGeofence ? 'bg-blue-600' : 'bg-slate-200'}`}
-                  >
-                    <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow-sm ${formState.bypassGeofence ? 'left-6' : 'left-1'}`} />
+                </div>
+              </div>
+
+
+              {/* TARGETS SECTION */}
+              <div className="mt-10 pt-10 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-black text-slate-900">Performance Targets</h3>
+                  <button onClick={() => exec('CREATE_TARGET', { targetQuantity: 100, targetValue: 5000, startDate: new Date(), endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) })} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-colors shadow-lg hover:shadow-xl">
+                    + Set New Target
                   </button>
                 </div>
-              </div>
 
-              <div className="pt-4 border-t border-slate-100 flex gap-4">
-                <button onClick={handleSaveChanges} className="flex-1 h-14 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95">Save Changes</button>
-                <button onClick={() => { if (confirm('Terminate?')) exec('DELETE', {}) }} className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center justify-center border border-red-100"><Trash2 size={24} /></button>
+                {data?.targets && data.targets.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {data.targets.map((target: any) => (
+                      <div key={target.id} className="bg-slate-50 border border-slate-200 p-6 rounded-2xl relative overflow-hidden group hover:border-blue-200 transition-all">
+                        <div className={`absolute top-0 left-0 w-1 h-full ${target.status === 'ACTIVE' ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period</p>
+                            <p className="text-xs font-bold text-slate-700 mt-1">
+                              {new Date(target.startDate).toLocaleDateString()} - {new Date(target.endDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${target.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+                            {target.status}
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Revenue Goal</p>
+                            <p className="text-xl font-black text-slate-900">₵ {target.targetValue.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Volume Goal</p>
+                            <p className="text-xl font-black text-slate-900">{target.targetQuantity} Units</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No active targets set</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div >
+
+      {/* ⚙️ SETTINGS MODAL */}
+      {
+        showSettings && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 border border-slate-200">
+              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 className="font-black text-xl text-slate-900">Profile Configuration</h3>
+                <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X className="text-slate-400 hover:text-slate-900" /></button>
+              </div>
+              <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Identity</label>
+                  <input className="w-full h-14 px-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="Full Name" value={formState.name} onChange={e => setFormState({ ...formState, name: e.target.value })} />
+                  <input className="w-full h-14 px-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm" placeholder="Email" value={formState.email} onChange={e => setFormState({ ...formState, email: e.target.value })} />
+                </div>
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Assignment</label>
+                  <div className="relative">
+                    <Store className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <select className="w-full h-14 pl-12 pr-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm appearance-none" value={formState.shopId} onChange={e => setFormState({ ...formState, shopId: e.target.value })}>
+                      <option value="">Unassigned</option>
+                      {shops.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 🛡️ SECURITY SECTION */}
+                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4 mt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck size={16} className="text-blue-600" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Security & Access</span>
+                  </div>
+
+                  {/* Password Reset */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Reset Password</label>
+                    <div className="relative">
+                      <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input
+                        type="password"
+                        className="w-full h-12 pl-12 pr-5 bg-white rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-blue-500 transition-all placeholder:text-slate-300"
+                        placeholder="Set new password (leave empty to keep current)"
+                        value={formState.password}
+                        onChange={e => setFormState({ ...formState, password: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bypass Toggle */}
+                  <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <div>
+                      <p className="text-xs font-black text-slate-900 uppercase">Remote GPS Access</p>
+                      <p className="text-[10px] font-medium text-slate-400 mt-0.5">Allow agent to work from anywhere (Bypass Geofence)</p>
+                    </div>
+                    <button
+                      onClick={() => setFormState({ ...formState, bypassGeofence: !formState.bypassGeofence })}
+                      className={`w-12 h-7 rounded-full relative transition-colors ${formState.bypassGeofence ? 'bg-blue-600' : 'bg-slate-200'}`}
+                    >
+                      <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow-sm ${formState.bypassGeofence ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex gap-4">
+                  <button onClick={handleSaveChanges} className="flex-1 h-14 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95">Save Changes</button>
+                  <button onClick={() => { if (confirm('Terminate?')) exec('DELETE', {}) }} className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center justify-center border border-red-100"><Trash2 size={24} /></button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </div>
+    </div >
   );
 }

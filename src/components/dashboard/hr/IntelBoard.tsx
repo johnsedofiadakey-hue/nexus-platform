@@ -76,11 +76,35 @@ export default function IntelBoard({ reports }: IntelBoardProps) {
                         <div className="space-y-2">
                             {report.marketIntel && (
                                 <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100">
-                                    <div className="flex items-center gap-2 mb-1">
+                                    <div className="flex items-center gap-2 mb-2">
                                         <Zap className="w-3 h-3 text-amber-500" />
                                         <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Market Intel</p>
                                     </div>
-                                    <p className="text-xs font-medium text-slate-700 leading-relaxed">{report.marketIntel}</p>
+
+                                    {/* Attempt JSON Parse */}
+                                    {(() => {
+                                        try {
+                                            const parsed = JSON.parse(report.marketIntel);
+                                            if (Array.isArray(parsed)) {
+                                                return (
+                                                    <div className="space-y-2">
+                                                        {parsed.map((item: any, idx: number) => (
+                                                            <div key={idx} className="flex justify-between items-center text-[10px] border-b border-amber-200/50 last:border-0 pb-1 last:pb-0">
+                                                                <div>
+                                                                    <span className="font-bold text-slate-700">{item.brand}</span>
+                                                                    <span className="text-slate-500 ml-1">{item.model}</span>
+                                                                </div>
+                                                                <span className="font-mono font-bold text-amber-700">GHS {item.price}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            }
+                                            return <p className="text-xs font-medium text-slate-700 leading-relaxed">{report.marketIntel}</p>;
+                                        } catch (e) {
+                                            return <p className="text-xs font-medium text-slate-700 leading-relaxed">{report.marketIntel}</p>;
+                                        }
+                                    })()}
                                 </div>
                             )}
 
