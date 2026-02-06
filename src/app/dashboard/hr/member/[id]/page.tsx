@@ -57,7 +57,12 @@ export default function MemberPortal() {
     shopId: "",
     status: "",
     password: "",
-    bypassGeofence: false
+    bypassGeofence: false,
+    bankName: "",
+    bankAccountNumber: "",
+    bankAccountName: "",
+    ssnitNumber: "",
+    commencementDate: ""
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -98,7 +103,12 @@ export default function MemberPortal() {
           shopId: userData?.shopId || "",
           status: userData?.status || "ACTIVE",
           password: "",
-          bypassGeofence: userData?.bypassGeofence || false
+          bypassGeofence: userData?.bypassGeofence || false,
+          bankName: userData?.bankName || "",
+          bankAccountNumber: userData?.bankAccountNumber || "",
+          bankAccountName: userData?.bankAccountName || "",
+          ssnitNumber: userData?.ssnitNumber || "",
+          commencementDate: userData?.commencementDate ? new Date(userData.commencementDate).toISOString().split('T')[0] : ""
         });
       } else {
         // LIGHT UPDATE: Just refresh critical status without blocking UI
@@ -174,7 +184,12 @@ export default function MemberPortal() {
       shopId: formState.shopId,
       status: formState.status,
       password: formState.password,
-      bypassGeofence: formState.bypassGeofence
+      bypassGeofence: formState.bypassGeofence,
+      bankName: formState.bankName,
+      bankAccountNumber: formState.bankAccountNumber,
+      bankAccountName: formState.bankAccountName,
+      ssnitNumber: formState.ssnitNumber,
+      commencementDate: formState.commencementDate
     });
   };
 
@@ -265,6 +280,12 @@ export default function MemberPortal() {
                 <button onClick={() => setActiveTab('CHAT')} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all border ${activeTab === 'CHAT' ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl scale-105' : 'bg-transparent border-transparent hover:bg-emerald-50 hover:text-emerald-600 text-slate-500'}`}>
                   <div className="flex items-center gap-3">
                     <MessageSquare size={18} /> <span className="text-xs font-black uppercase tracking-widest">Secure Chat</span>
+                  </div>
+                </button>
+
+                <button onClick={() => setActiveTab('PROMOTER')} className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all border ${activeTab === 'PROMOTER' ? 'bg-amber-500 border-amber-500 text-white shadow-xl scale-105' : 'bg-transparent border-transparent hover:bg-amber-50 hover:text-amber-500 text-slate-500'}`}>
+                  <div className="flex items-center gap-3">
+                    <Briefcase size={18} /> <span className="text-xs font-black uppercase tracking-widest">Promoter Details</span>
                   </div>
                 </button>
               </div>
@@ -505,6 +526,19 @@ export default function MemberPortal() {
                       <option value="">Unassigned</option>
                       {shops.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Banking & Statutory</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input className="w-full h-12 px-5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-blue-500 transition-all shadow-sm" placeholder="Bank Name" value={formState.bankName} onChange={e => setFormState({ ...formState, bankName: e.target.value })} />
+                    <input className="w-full h-12 px-5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-blue-500 transition-all shadow-sm" placeholder="Account #" value={formState.bankAccountNumber} onChange={e => setFormState({ ...formState, bankAccountNumber: e.target.value })} />
+                    <div className="col-span-2">
+                      <input className="w-full h-12 px-5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-blue-500 transition-all shadow-sm" placeholder="Account Name" value={formState.bankAccountName} onChange={e => setFormState({ ...formState, bankAccountName: e.target.value })} />
+                    </div>
+                    <input className="w-full h-12 px-5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-blue-500 transition-all shadow-sm" placeholder="SSNIT #" value={formState.ssnitNumber} onChange={e => setFormState({ ...formState, ssnitNumber: e.target.value })} />
+                    <input type="date" className="w-full h-12 px-5 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:border-blue-500 transition-all shadow-sm" value={formState.commencementDate} onChange={e => setFormState({ ...formState, commencementDate: e.target.value })} />
                   </div>
                 </div>
 

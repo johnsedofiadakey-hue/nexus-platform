@@ -5,7 +5,7 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import {
   Calendar, FileText, LogOut, ArrowLeft,
-  Moon, Sun, Palette, User
+  Moon, Sun, Palette, User, Briefcase, CreditCard, ShieldCheck
 } from "lucide-react";
 import { useMobileTheme } from "@/context/MobileThemeContext";
 
@@ -22,7 +22,7 @@ const getColorHex = (color: string) => {
 
 export default function MobileProfilePage() {
   const { data: session } = useSession();
-  const [view, setView] = useState<'MENU' | 'LEAVE_LIST' | 'LEAVE_FORM'>('MENU');
+  const [view, setView] = useState<'MENU' | 'LEAVE_LIST' | 'LEAVE_FORM' | 'PROMOTER_DETAILS'>('MENU');
   const { darkMode, toggleDarkMode, accent, setAccent, themeClasses } = useMobileTheme();
   const [mood, setMood] = useState("🚀 Productive");
 
@@ -160,6 +160,18 @@ export default function MobileProfilePage() {
                 <p className={`font-black ${themeClasses.text}`}>Time Off</p>
                 <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">Request Leave</p>
               </button>
+              <button
+                onClick={() => setView('PROMOTER_DETAILS')}
+                className={`p-6 rounded-3xl border shadow-sm text-left group transition-all active:scale-95 ${themeClasses.card} ${themeClasses.border}`}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 bg-amber-500/10 text-amber-500"
+                >
+                  <Briefcase size={20} />
+                </div>
+                <p className={`font-black ${themeClasses.text}`}>Promoter Details</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">ID & Banking</p>
+              </button>
               <button className={`p-6 rounded-3xl border shadow-sm text-left group transition-all active:scale-95 ${themeClasses.card} ${themeClasses.border}`}>
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 bg-emerald-500/10 text-emerald-500`}>
                   <FileText className="w-5 h-5" />
@@ -276,6 +288,78 @@ export default function MobileProfilePage() {
             {isSubmitting ? "Sending..." : "Submit Request"}
           </button>
         </form>
+      </div>
+    );
+  }
+
+  // --- VIEW 4: PROMOTER DETAILS ---
+  if (view === 'PROMOTER_DETAILS') {
+    const user = session?.user as any;
+    return (
+      <div className="min-h-[80vh] font-sans pb-24">
+        <div className="flex items-center justify-between mb-6 px-2 mt-6">
+          <button onClick={() => setView('MENU')} className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:opacity-80">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+          <h1 className={`text-xl font-black ${themeClasses.text}`}>Promoter Details</h1>
+        </div>
+
+        <div className={`p-6 rounded-[2rem] border shadow-sm space-y-8 ${themeClasses.card} ${themeClasses.border}`}>
+          {/* BANKING SECTION */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+              <CreditCard className="w-4 h-4 text-emerald-500" />
+              <h3 className={`text-[10px] font-black uppercase tracking-widest ${themeClasses.text}`}>Banking Credentials</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Bank Name</p>
+                <p className={`text-sm font-black ${themeClasses.text}`}>{user?.bankName || "Unassigned"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account Number</p>
+                <p className={`text-sm font-black mono ${themeClasses.text}`}>{user?.bankAccountNumber || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account Name</p>
+                <p className={`text-sm font-black ${themeClasses.text}`}>{user?.bankAccountName || user?.name}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* STATUTORY SECTION */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+              <ShieldCheck className="w-4 h-4 text-blue-500" />
+              <h3 className={`text-[10px] font-black uppercase tracking-widest ${themeClasses.text}`}>Statutory & Employment</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SSNIT Number</p>
+                <p className={`text-sm font-black mono ${themeClasses.text}`}>{user?.ssnitNumber || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ghana Card PIN</p>
+                <p className={`text-sm font-black mono ${themeClasses.text}`}>{user?.ghanaCard || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Commencement Date</p>
+                <p className={`text-sm font-black ${themeClasses.text}`}>
+                  {user?.commencementDate ? new Date(user.commencementDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'N/A'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`p-4 rounded-2xl bg-slate-50/50 border ${themeClasses.border} flex gap-3 items-center`}>
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+              <LogOut className="w-4 h-4 text-slate-400" />
+            </div>
+            <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight">
+              To update this information, please contact your Hub Manager or Organization Administrator.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

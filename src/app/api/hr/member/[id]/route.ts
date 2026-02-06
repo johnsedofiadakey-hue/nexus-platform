@@ -126,8 +126,21 @@ export async function PATCH(
         phone: payload.phone,
         status: payload.status,
         shopId: payload.shopId || null,
-        bypassGeofence: payload.bypassGeofence
+        bypassGeofence: payload.bypassGeofence,
+        bankName: payload.bankName || null,
+        bankAccountNumber: payload.bankAccountNumber || null,
+        bankAccountName: payload.bankAccountName || null,
+        ssnitNumber: payload.ssnitNumber || null,
       };
+
+      if (payload.commencementDate) {
+        const parsedDate = new Date(payload.commencementDate);
+        if (!isNaN(parsedDate.getTime())) {
+          updateData.commencementDate = parsedDate;
+        }
+      } else {
+        updateData.commencementDate = null;
+      }
 
       if (payload.password && payload.password.length > 0) {
         updateData.password = await bcrypt.hash(payload.password, 12);

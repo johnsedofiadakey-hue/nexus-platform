@@ -48,7 +48,14 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
-          organizationId: user.organizationId
+          organizationId: user.organizationId,
+          bankName: user.bankName,
+          bankAccountNumber: user.bankAccountNumber,
+          bankAccountName: user.bankAccountName,
+          ssnitNumber: user.ssnitNumber,
+          commencementDate: user.commencementDate,
+          ghanaCard: user.ghanaCard,
+          dob: user.dob
         };
       }
     })
@@ -57,9 +64,16 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role;
+        token.role = (user as any).role;
         token.id = user.id;
-        token.organizationId = user.organizationId;
+        token.organizationId = (user as any).organizationId;
+        token.bankName = (user as any).bankName;
+        token.bankAccountNumber = (user as any).bankAccountNumber;
+        token.bankAccountName = (user as any).bankAccountName;
+        token.ssnitNumber = (user as any).ssnitNumber;
+        token.commencementDate = (user as any).commencementDate;
+        token.ghanaCard = (user as any).ghanaCard;
+        token.dob = (user as any).dob;
       }
       return token;
     },
@@ -68,6 +82,13 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).role = token.role;
         (session.user as any).id = token.id;
         (session.user as any).organizationId = token.organizationId;
+        (session.user as any).bankName = token.bankName;
+        (session.user as any).bankAccountNumber = token.bankAccountNumber;
+        (session.user as any).bankAccountName = token.bankAccountName;
+        (session.user as any).ssnitNumber = token.ssnitNumber;
+        (session.user as any).commencementDate = token.commencementDate;
+        (session.user as any).ghanaCard = token.ghanaCard;
+        (session.user as any).dob = token.dob;
       }
       return session;
     }
