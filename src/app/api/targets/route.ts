@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { userId, targetQuantity, targetValue, startDate, endDate } = body;
+        const { userId, targetQuantity, targetValue, startDate, endDate, targetType, achievedValue, achievedQuantity } = body;
 
         // Fetch target user for shop info
         const targetUser = await prisma.user.findUnique({
@@ -65,9 +65,12 @@ export async function POST(req: Request) {
                 userId,
                 targetQuantity: parseInt(targetQuantity) || 0,
                 targetValue: parseFloat(targetValue) || 0,
+                achievedQuantity: parseInt(achievedQuantity) || 0,
+                achievedValue: parseFloat(achievedValue) || 0,
                 startDate: new Date(startDate),
                 endDate: new Date(endDate),
-                status: "ACTIVE"
+                status: "ACTIVE",
+                targetType: targetType || "AGENT"
             }
         });
 
@@ -120,11 +123,16 @@ export async function PATCH(req: Request) {
         }
 
         const body = await req.json();
-        const { targetId, targetQuantity, targetValue, startDate, endDate, status } = body;
+        const { id, targetId, targetQuantity, targetValue, startDate, endDate, status, targetType, achievedValue, achievedQuantity } = body;
+
+        const finalTargetId = id || targetId;
+        if (!finalTargetId) {
+            return NextResponse.json({ error: "Target ID required" }, { status: 400 });
+        }
 
         // Get existing target
         const existingTarget = await prisma.target.findUnique({
-            where: { id: targetId },
+            where: { id: finalTargetId },
             include: { user: { include: { shop: true } } }
         });
 
@@ -134,19 +142,22 @@ export async function PATCH(req: Request) {
 
         // Update target
         const updatedTarget = await prisma.target.update({
-            where: { id: targetId },
+            where: { id: finalTargetId },
             data: {
                 ...(targetQuantity !== undefined && { targetQuantity: parseInt(targetQuantity) }),
                 ...(targetValue !== undefined && { targetValue: parseFloat(targetValue) }),
+                ...(achievedQuantity !== undefined && { achievedQuantity: parseInt(achievedQuantity) }),
+                ...(achievedValue !== undefined && { achievedValue: parseFloat(achievedValue) }),
                 ...(startDate && { startDate: new Date(startDate) }),
                 ...(endDate && { endDate: new Date(endDate) }),
                 ...(status && { status }),
+                ...(targetType && { targetType }),
             }
         });
 
         // Log target update in history
         await logTargetActivity(
-            targetId,
+            finalTargetId,
             session.user.id,
             "UPDATED",
             {
@@ -176,9 +187,9 @@ export async function PATCH(req: Request) {
             userRole: session.user.role || "USER",
             action: "TARGET_UPDATED",
             entity: "Target",
-            entityId: targetId,
+            entityId: finalTargetId,
             description: `Updated target for ${existingTarget.user.name}`,
-            metadata: { targetId, changes: body },
+            metadata: { targetId: finalTargetId, changes: body },
             ipAddress: getClientIp(req),
             userAgent: getUserAgent(req),
             shopId: existingTarget.user.shopId,
@@ -200,7 +211,7 @@ export async function DELETE(req: Request) {
         }
 
         const { searchParams } = new URL(req.url);
-        const targetId = searchParams.get("targetId");
+        const targetId = searchParams.get("id") || searchParams.get("targetId");
 
         if (!targetId) {
             return NextResponse.json({ error: "Target ID required" }, { status: 400 });

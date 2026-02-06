@@ -49,53 +49,53 @@ export default function LivePulseFeed({ data }: { data: PulseItem[] }) {
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+            <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="relative">
-                            <Activity size={16} className="text-blue-600" />
-                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-ping" />
+                            <Activity size={14} className="text-blue-600" />
+                            <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping" />
                         </div>
-                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Activity Pulse</h3>
+                        <h3 className="text-xs font-semibold text-slate-900">Activity Pulse</h3>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Live Updates</span>
+                    <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Live</span>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-3">
                 {data.length > 0 ? (
                     data.map((item) => (
                         <div
                             key={item.id}
-                            className="flex gap-4 group animate-in slide-in-from-bottom-2 duration-300"
+                            className="flex gap-3 group"
                         >
                             <div className="relative flex flex-col items-center">
-                                <div className={`p-2 rounded-xl border shadow-sm transition-all group-hover:scale-110 ${item.severity === 'HIGH' ? 'bg-rose-50 border-rose-100' :
-                                        item.severity === 'POSITIVE' ? 'bg-emerald-50 border-emerald-100' :
-                                            'bg-slate-50 border-slate-100'
+                                <div className={`p-1.5 border transition-all ${item.severity === 'HIGH' ? 'bg-rose-50 border-rose-200' :
+                                        item.severity === 'POSITIVE' ? 'bg-emerald-50 border-emerald-200' :
+                                            'bg-slate-50 border-slate-200'
                                     }`}>
                                     {getIcon(item.type, item.severity)}
                                 </div>
-                                <div className="w-px flex-1 bg-slate-100 mt-2" />
+                                <div className="w-px flex-1 bg-slate-200 mt-2" />
                             </div>
 
-                            <div className="flex-1 pb-4">
+                            <div className="flex-1 pb-3">
                                 <div className="flex justify-between items-start mb-1">
-                                    <p className="text-[11px] font-black text-slate-900 leading-none">
+                                    <p className="text-[11px] font-semibold text-slate-900 leading-tight">
                                         {item.user}
                                     </p>
-                                    <span className="text-[9px] font-bold text-slate-400 leading-none flex items-center gap-1">
-                                        <Clock size={10} /> {getTimeAgo(item.timestamp)}
+                                    <span className="text-[9px] font-medium text-slate-400 leading-tight flex items-center gap-1">
+                                        <Clock size={9} /> {getTimeAgo(item.timestamp)}
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-600 font-medium mb-2 pr-4">{item.message}</p>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-wider">
-                                        <MapPin size={10} /> {item.shop}
+                                <p className="text-xs text-slate-600 mb-2 pr-4">{item.message}</p>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1 text-[9px] font-medium text-slate-500 uppercase tracking-wider">
+                                        <MapPin size={9} /> {item.shop}
                                     </div>
                                     {item.type === 'SALE_EVENT' && item.severity === 'POSITIVE' && (
-                                        <div className="flex items-center gap-1 text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded uppercase">
-                                            <TrendingUp size={10} /> High Value
+                                        <div className="flex items-center gap-1 text-[9px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5">
+                                            <TrendingUp size={9} /> High Value
                                         </div>
                                     )}
                                 </div>
@@ -104,11 +104,11 @@ export default function LivePulseFeed({ data }: { data: PulseItem[] }) {
                     ))
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                        <div className="p-4 bg-slate-50 rounded-full mb-4">
-                            <Activity size={24} className="text-slate-300" />
+                        <div className="p-4 bg-slate-50 border border-slate-200 mb-4">
+                            <Activity size={20} className="text-slate-300" />
                         </div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scanning Network...</p>
-                        <p className="text-xs text-slate-400 font-medium mt-1">Acquiring real-time activity stream</p>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Scanning Network...</p>
+                        <p className="text-xs text-slate-400 mt-1">Acquiring real-time activity stream</p>
                     </div>
                 )}
             </div>

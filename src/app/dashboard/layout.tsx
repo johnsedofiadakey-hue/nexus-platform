@@ -7,7 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ShoppingBag, LogOut,
   ShieldCheck, Menu, Building2, ChevronRight,
-  MessageSquare, Loader2, Bell, Settings, FileText, RefreshCw
+  MessageSquare, Loader2, Bell, Settings, FileText, RefreshCw, Target
 } from "lucide-react";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import NotificationBell from "@/components/notifications/NotificationBell";
@@ -19,7 +19,8 @@ const navItems = [
   { icon: Building2, label: "Stores", path: "/dashboard/shops" },
   { icon: Users, label: "Team", path: "/dashboard/hr" },
   { icon: ShoppingBag, label: "Inventory", path: "/dashboard/inventory" },
-  { icon: FileText, label: "Sales Register", path: "/dashboard/sales" }, // 🆕 ADDED
+  { icon: FileText, label: "Sales Register", path: "/dashboard/sales" },
+  { icon: Target, label: "Targets", path: "/dashboard/targets" },
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
 ];
 

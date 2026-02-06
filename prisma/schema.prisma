@@ -326,22 +326,27 @@ model DailyReport {
 }
 
 model Target {
-  id             String   @id @default(cuid())
-  targetQuantity Int      @default(0)
-  targetValue    Float    @default(0)
-  startDate      DateTime
-  endDate        DateTime
-  status         String   @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
+  id               String   @id @default(cuid())
+  targetQuantity   Int      @default(0)
+  targetValue      Float    @default(0)
+  achievedQuantity Int      @default(0) // Actual units sold
+  achievedValue    Float    @default(0) // Actual revenue
+  startDate        DateTime
+  endDate          DateTime
+  status           String   @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED, FAILED
+  targetType       String   @default("AGENT") // AGENT, ADMIN, TEAM
   
-  userId         String
-  user           User     @relation(fields: [userId], references: [id])
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
   
-  history        TargetHistory[]
+  history          TargetHistory[]
   
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
   
   @@index([userId])
+  @@index([status])
+  @@index([targetType])
 }
 
 model TargetHistory {
