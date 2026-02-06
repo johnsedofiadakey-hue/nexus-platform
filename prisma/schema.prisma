@@ -336,10 +336,55 @@ model Target {
   userId         String
   user           User     @relation(fields: [userId], references: [id])
   
+  history        TargetHistory[]
+  
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   
   @@index([userId])
+}
+
+model TargetHistory {
+  id               String   @id @default(cuid())
+  targetId         String
+  target           Target   @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  userId           String
+  action           String   // CREATED, UPDATED, DELETED, PROGRESS_UPDATE
+  previousValue    Json?    // Store previous target values
+  newValue         Json?    // Store new target values
+  progress         Float    @default(0) // Progress percentage at time of log
+  achievedValue    Float    @default(0) // Revenue achieved
+  achievedQuantity Int      @default(0) // Units sold
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  @@index([targetId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Master Activity Log for all system actions
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  userName    String
+  userRole    String
+  action      String   // e.g. "SALE_CREATED", "TARGET_UPDATED", "USER_LOGIN", "REPORT_SUBMITTED"
+  entity      String   // e.g. "Sale", "Target", "User", "DailyReport"
+  entityId    String?  // The ID of the entity
+  description String   // Human-readable description
+  metadata    Json?    // Additional context
+  ipAddress   String?
+  userAgent   String?
+  shopId      String?
+  shopName    String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@index([shopId])
 }
 
 // --- 7. HR MODELS ---

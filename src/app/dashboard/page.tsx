@@ -149,6 +149,13 @@ export default function OperationsHub() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/dashboard/activity-log')}
+            className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 px-5 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all rounded-lg active:scale-95"
+          >
+            <Activity size={14} /> Activity Log
+          </button>
+
           <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200/60">
             <button
               onClick={() => setViewMode('DATA')}

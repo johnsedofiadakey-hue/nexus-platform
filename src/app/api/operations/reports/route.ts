@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { resolveSessionUser } from "@/lib/sessionUser";
+import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
 
 export async function POST(req: Request) {
   try {
@@ -50,6 +51,29 @@ export async function POST(req: Request) {
         stockGaps: stockGaps ?? null,
         notes: notes ?? null,
       },
+      include: {
+        user: {
+          include: {
+            shop: true
+          }
+        }
+      }
+    });
+
+    // Log activity
+    await logActivity({
+      userId: resolvedUser.id,
+      userName: resolvedUser.name || "Unknown Agent",
+      userRole: resolvedUser.role || "WORKER",
+      action: "DAILY_REPORT_SUBMITTED",
+      entity: "DailyReport",
+      entityId: report.id,
+      description: `Submitted daily report: ${walkInsNum} walk-ins, ${buyersNum} buyers${marketIntel ? ', with competitor intel' : ''}`,
+      metadata: { walkIns: walkInsNum, inquiries: inquiriesNum, buyers: buyersNum, hasIntel: !!marketIntel },
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req),
+      shopId: resolvedUser.shopId,
+      shopName: resolvedUser.shop?.name,
     });
 
     return NextResponse.json({

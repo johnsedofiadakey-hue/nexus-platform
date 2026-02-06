@@ -56,7 +56,7 @@ export default function LivePulseFeed({ data }: { data: PulseItem[] }) {
                             <Activity size={16} className="text-blue-600" />
                             <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-ping" />
                         </div>
-                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Global Activity Pulse</h3>
+                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Activity Pulse</h3>
                     </div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Live Updates</span>
                 </div>

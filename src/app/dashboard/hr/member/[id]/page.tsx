@@ -21,6 +21,7 @@ import ChatConsole from "@/components/dashboard/hr/ChatConsole";
 import PerformanceBoard from "@/components/dashboard/hr/PerformanceBoard";
 import ComplianceBoard from "@/components/dashboard/hr/ComplianceBoard";
 import IntelBoard from "@/components/dashboard/hr/IntelBoard";
+import TargetBoard from "@/components/dashboard/hr/TargetBoard";
 
 // 🛰️ DYNAMIC MAP IMPORT (Client-side only)
 const GeofenceMap = dynamic(() => import('@/components/maps/GeofenceMap'), {
@@ -47,12 +48,7 @@ export default function MemberPortal() {
   const [loading, setLoading] = useState(true);
   const [showMap, setShowMap] = useState(true); // Default to visible
   const [showSettings, setShowSettings] = useState(false);
-  const [showTargetModal, setShowTargetModal] = useState(false);
-  const [targetForm, setTargetForm] = useState({
-    targetQuantity: "",
-    targetValue: "",
-    period: "MONTHLY"
-  });
+  const [activeTab, setActiveTab] = useState('OVERVIEW');
 
   // TABS: 'OVERVIEW' | 'INTEL' | 'COMPLIANCE' | 'CHAT'
   const [activeTab, setActiveTab] = useState('OVERVIEW');
@@ -84,18 +80,23 @@ export default function MemberPortal() {
       const timestamp = Date.now();
 
       if (full) {
-        const [uRes, sRes, mRes, aRes] = await Promise.all([
+        const [uRes, sRes, mRes, aRes, tRes] = await Promise.all([
           fetch(`/api/hr/member/${staffId}?t=${timestamp}`),
           fetch(`/api/shops/list?t=${timestamp}`),
           fetch(`/api/mobile/messages?userId=${staffId}&countOnly=true&t=${timestamp}`),
-          fetch(`/api/ai/performance-insight?userId=${staffId}&t=${timestamp}`)
+          fetch(`/api/ai/performance-insight?userId=${staffId}&t=${timestamp}`),
+          fetch(`/api/targets?userId=${staffId}&includeHistory=true&t=${timestamp}`)
         ]);
 
         const userData = await uRes.json();
         const shopData = await sRes.json();
         const aiData = await aRes.json();
+        const targetsData = await tRes.json();
 
-        setData(userData);
+        setData({
+          ...userData,
+          targets: Array.isArray(targetsData) ? targetsData : []
+        });
         setAiInsight(aiData);
         setShops(Array.isArray(shopData) ? shopData : (shopData.data || []));
 
@@ -556,144 +557,16 @@ export default function MemberPortal() {
                     </div>
                   </div>
                 </div>
-              </div>
-
-
-              {/* TARGETS SECTION */}
-              <div className="mt-10 pt-10 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-black text-slate-900">Performance Targets</h3>
-                  <button
-                    onClick={() => setShowTargetModal(true)}
-                    className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 hover:-translate-y-0.5"
-                  >
-                    + Set New Target
-                  </button>
-                </div>
-
-                {data?.targets && data.targets.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {data.targets.map((target: any) => (
-                      <div key={target.id} className="bg-slate-50 border border-slate-200 p-6 rounded-2xl relative overflow-hidden group hover:border-blue-200 transition-all">
-                        <div className={`absolute top-0 left-0 w-1 h-full ${target.status === 'ACTIVE' ? 'bg-blue-500' : 'bg-slate-300'}`} />
-                        <div className="flex justify-between items-start mb-4">
-                          <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period</p>
-                            <p className="text-xs font-bold text-slate-700 mt-1">
-                              {new Date(target.startDate).toLocaleDateString()} - {new Date(target.endDate).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${target.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
-                            {target.status}
-                          </span>
-                        </div>
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sales Target</p>
-                            <p className="text-xl font-black text-slate-900">₵ {target.targetValue.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity Target</p>
-                            <p className="text-xl font-black text-slate-900">{target.targetQuantity} Units</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No active targets set</p>
-                  </div>
-                )}
+              </dTargetBoard
+                  targets={data?.targets || []}
+                  userId={staffId}
+                  onRefresh={() => sync(true)}
+                />
               </div>
             </div>
           )}
         </div>
-      </div>
-
-      {/* 🎯 TARGET SETTING MODAL */}
-      {showTargetModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 border border-white ring-1 ring-slate-200/50">
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-              <div>
-                <h3 className="font-black text-2xl text-slate-900 tracking-tight">Performance Target</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Configure Operational Goals</p>
-              </div>
-              <button onClick={() => setShowTargetModal(false)} className="p-3 bg-white hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all shadow-sm active:scale-95 text-slate-400 hover:text-slate-900"><X size={20} /></button>
-            </div>
-
-            <div className="p-10 space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar size={16} className="text-slate-400" />
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Deployment Period</label>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {['WEEKLY', 'MONTHLY', 'QUARTERLY'].map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setTargetForm({ ...targetForm, period: p })}
-                      className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${targetForm.period === p ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'}`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp size={16} className="text-slate-400" />
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Volume & Value Metrics</label>
-                </div>
-                <div className="space-y-3">
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xs">₵</span>
-                    <input
-                      type="number"
-                      className="w-full h-14 pl-10 pr-6 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 transition-all shadow-sm"
-                      placeholder="Sales Target Value"
-                      value={targetForm.targetValue}
-                      onChange={e => setTargetForm({ ...targetForm, targetValue: e.target.value })}
-                    />
-                  </div>
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xs">QTY</span>
-                    <input
-                      type="number"
-                      className="w-full h-14 pl-14 pr-6 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 transition-all shadow-sm"
-                      placeholder="Unit Volume Target"
-                      value={targetForm.targetQuantity}
-                      onChange={e => setTargetForm({ ...targetForm, targetQuantity: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-slate-100">
-                <button
-                  onClick={() => {
-                    const now = new Date();
-                    let end = new Date();
-                    if (targetForm.period === 'WEEKLY') end.setDate(now.getDate() + 7);
-                    else if (targetForm.period === 'MONTHLY') end.setMonth(now.getMonth() + 1);
-                    else if (targetForm.period === 'QUARTERLY') end.setMonth(now.getMonth() + 3);
-
-                    exec('CREATE_TARGET', {
-                      targetQuantity: parseInt(targetForm.targetQuantity),
-                      targetValue: parseFloat(targetForm.targetValue),
-                      startDate: now,
-                      endDate: end,
-                      period: targetForm.period
-                    });
-                    setShowTargetModal(false);
-                  }}
-                  disabled={!targetForm.targetQuantity || !targetForm.targetValue}
-                  className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0"
-                >
-                  Confirm Deployment
-                </button>
+      </div>        </button>
               </div>
             </div>
           </div>
