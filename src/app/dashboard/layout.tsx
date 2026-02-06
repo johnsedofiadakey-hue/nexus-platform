@@ -7,7 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ShoppingBag, LogOut,
   ShieldCheck, Menu, Building2, ChevronRight,
-  MessageSquare, Loader2, Bell, Settings, FileText, RefreshCw, Target
+  MessageSquare, Loader2, Bell, Settings, RefreshCw, Target
 } from "lucide-react";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import NotificationBell from "@/components/notifications/NotificationBell";
@@ -123,17 +123,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
-            <p className="px-4 pt-8 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Intelligence</p>
-            <Link
-              href="/dashboard/reports"
-              className={`relative flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${pathname === '/dashboard/reports'
-                ? "bg-slate-900/5 text-slate-900"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-            >
-              <FileText className={`w-4 h-4 transition-colors ${pathname === '/dashboard/reports' ? 'text-blue-600' : 'text-slate-400'}`} />
-              Field Reports
-            </Link>
           </nav>
 
           {/* EXIT STRATEGY */}

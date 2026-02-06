@@ -23,18 +23,18 @@ interface IntelBoardProps {
 export default function IntelBoard({ reports }: IntelBoardProps) {
     if (!reports || reports.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[3rem]">
-                <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-slate-100">
-                    <BarChart2 className="text-slate-300 w-10 h-10" />
+            <div className="flex flex-col items-center justify-center p-16 bg-slate-50 border border-slate-200">
+                <div className="w-16 h-16 bg-white border border-slate-200 flex items-center justify-center mb-4">
+                    <BarChart2 className="text-slate-300 w-8 h-8" />
                 </div>
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em]">No Intelligence Link</h3>
-                <p className="text-[10px] text-slate-300 font-bold uppercase mt-2">Awaiting Field Deployment Logs</p>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">No Field Reports</h3>
+                <p className="text-[10px] text-slate-400 font-medium uppercase mt-2">Awaiting Intelligence Data</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-6">
             {reports.map((report) => {
                 const date = new Date(report.createdAt).toLocaleDateString(undefined, {
                     weekday: 'long', month: 'long', day: 'numeric'
@@ -48,64 +48,64 @@ export default function IntelBoard({ reports }: IntelBoardProps) {
                     : 0;
 
                 return (
-                    <div key={report.id} className="relative group animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        {/* 🕒 TIMELINE CONNECTOR (Visual Only) */}
-                        <div className="absolute -left-[45px] top-0 bottom-[-40px] w-px bg-slate-200 last:hidden" />
+                    <div key={report.id} className="relative group">
+                        {/* Timeline Connector */}
+                        <div className="absolute -left-[45px] top-0 bottom-[-24px] w-px bg-slate-200 last:hidden" />
 
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center z-10 group-hover:border-blue-500 group-hover:bg-blue-50 transition-all duration-300">
-                                <Activity className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-8 h-8 bg-white border border-slate-200 flex items-center justify-center z-10 group-hover:border-blue-500 transition-colors">
+                                <Activity className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
                             </div>
                             <div>
-                                <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{date}</h4>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{time} • Transmission Successful</p>
+                                <h4 className="text-sm font-semibold text-slate-900">{date}</h4>
+                                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{time} • Logged</p>
                             </div>
                         </div>
 
-                        <div className="bg-slate-50/50 rounded-[2.5rem] border border-slate-100 p-8 hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500 group/card">
+                        <div className="bg-white border border-slate-200 p-6 hover:border-slate-300 transition-colors">
 
-                            {/* 📊 KPI HIGH-CONTRAST GRID */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm group-hover/card:border-blue-100 transition-colors">
+                            {/* KPI GRID */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                                <div className="bg-slate-50 border border-slate-200 p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <Activity size={12} className="text-blue-500" />
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Foot Traffic</span>
+                                        <Activity size={11} className="text-blue-600" />
+                                        <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Foot Traffic</span>
                                     </div>
-                                    <p className="text-2xl font-black text-slate-900 leading-none">{report.walkIns}</p>
+                                    <p className="text-2xl font-bold text-slate-900">{report.walkIns}</p>
                                 </div>
-                                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm group-hover/card:border-amber-100 transition-colors">
+                                <div className="bg-slate-50 border border-slate-200 p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <Tag size={12} className="text-amber-500" />
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Inquiries</span>
+                                        <Tag size={11} className="text-amber-600" />
+                                        <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Inquiries</span>
                                     </div>
-                                    <p className="text-2xl font-black text-slate-900 leading-none">{report.inquiries}</p>
+                                    <p className="text-2xl font-bold text-slate-900">{report.inquiries}</p>
                                 </div>
-                                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm group-hover/card:border-emerald-100 transition-colors">
+                                <div className="bg-slate-50 border border-slate-200 p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <DollarSign size={12} className="text-emerald-500" />
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actual Sales</span>
+                                        <DollarSign size={11} className="text-emerald-600" />
+                                        <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Sales</span>
                                     </div>
-                                    <p className="text-2xl font-black text-slate-900 leading-none">{report.buyers}</p>
+                                    <p className="text-2xl font-bold text-slate-900">{report.buyers}</p>
                                 </div>
-                                <div className="bg-slate-900 p-5 rounded-3xl shadow-lg border border-slate-800">
+                                <div className="bg-slate-900 p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <TrendingUp size={12} className="text-blue-400" />
-                                        <span className="text-[9px] font-black text-blue-400/60 uppercase tracking-widest">Success Rate</span>
+                                        <TrendingUp size={11} className="text-blue-400" />
+                                        <span className="text-[9px] font-semibold text-blue-300 uppercase tracking-wider">Conversion</span>
                                     </div>
-                                    <p className="text-2xl font-black text-white leading-none">{conversionRate}%</p>
+                                    <p className="text-2xl font-bold text-white">{conversionRate}%</p>
                                 </div>
                             </div>
 
-                            <div className="space-y-6">
-                                {/* 🏢 COMPETITOR INTELLIGENCE OVERHAUL */}
+                            <div className="space-y-5">
+                                {/* COMPETITOR INTELLIGENCE */}
                                 {report.marketIntel && (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                                             <div className="flex items-center gap-2">
-                                                <div className="p-1.5 bg-amber-100/50 rounded-lg"><Zap className="w-3.5 h-3.5 text-amber-600" /></div>
-                                                <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Competitor Pricing Intelligence</h5>
+                                                <div className="p-1.5 bg-amber-100 border border-amber-200"><Zap className="w-3 h-3 text-amber-700" /></div>
+                                                <h5 className="text-[10px] font-semibold text-slate-700 uppercase tracking-wider">Competitor Pricing</h5>
                                             </div>
-                                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">Market Surveillance</span>
+                                            <span className="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1">Market Intel</span>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -114,16 +114,15 @@ export default function IntelBoard({ reports }: IntelBoardProps) {
                                                     const parsed = JSON.parse(report.marketIntel);
                                                     if (Array.isArray(parsed)) {
                                                         return parsed.map((item: any, idx: number) => (
-                                                            <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between hover:border-amber-400 hover:shadow-lg hover:shadow-amber-100 transition-all cursor-default relative overflow-hidden group/item">
-                                                                <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 rounded-bl-[2rem] -mr-4 -mt-4 opacity-50 group-hover/item:scale-110 transition-transform" />
-                                                                <div className="relative z-10">
-                                                                    <div className="flex flex-col mb-4">
-                                                                        <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">{item.brand}</span>
-                                                                        <span className="text-sm font-black text-slate-900">{item.model}</span>
+                                                            <div key={idx} className="bg-slate-50 border border-slate-200 p-4 flex flex-col justify-between hover:border-amber-400 hover:bg-amber-50/50 transition-colors cursor-default">
+                                                                <div>
+                                                                    <div className="flex flex-col mb-3">
+                                                                        <span className="text-[9px] font-semibold text-amber-700 uppercase tracking-wider mb-1">{item.brand}</span>
+                                                                        <span className="text-sm font-bold text-slate-900">{item.model}</span>
                                                                     </div>
-                                                                    <div className="flex items-center justify-between pt-3 border-t border-slate-50">
-                                                                        <span className="text-[10px] font-black text-slate-400 uppercase uppercase tracking-widest">Market Price</span>
-                                                                        <span className="text-base font-black text-slate-900 tracking-tight">₵{item.price.toLocaleString()}</span>
+                                                                    <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                                                                        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Price</span>
+                                                                        <span className="text-base font-bold text-slate-900">₵{item.price.toLocaleString()}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -131,7 +130,7 @@ export default function IntelBoard({ reports }: IntelBoardProps) {
                                                     }
                                                 } catch (e) { }
                                                 return (
-                                                    <div className="col-span-full bg-amber-50/50 p-4 rounded-2xl border border-amber-100 italic text-[11px] font-medium text-slate-600 leading-relaxed">
+                                                    <div className="col-span-full bg-amber-50 p-4 border border-amber-200 italic text-[11px] font-medium text-slate-700 leading-relaxed">
                                                         "{report.marketIntel}"
                                                     </div>
                                                 );
@@ -140,30 +139,27 @@ export default function IntelBoard({ reports }: IntelBoardProps) {
                                     </div>
                                 )}
 
-                                {/* 📦 INVENTORY INSIGHTS */}
+                                {/* INVENTORY INSIGHTS */}
                                 {report.stockGaps && (
-                                    <div className="bg-blue-50/20 p-5 rounded-3xl border border-blue-100/50">
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <div className="p-1.5 bg-blue-100/50 rounded-lg"><PackageSearch className="w-3.5 h-3.5 text-blue-600" /></div>
-                                            <h5 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">Operational Stock Analysis</h5>
+                                    <div className="bg-blue-50 p-4 border border-blue-200">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="p-1.5 bg-blue-100 border border-blue-200"><PackageSearch className="w-3 h-3 text-blue-700" /></div>
+                                            <h5 className="text-[10px] font-semibold text-blue-700 uppercase tracking-wider">Stock Analysis</h5>
                                         </div>
-                                        <p className="text-xs font-medium text-slate-600 leading-relaxed bg-white/50 p-4 rounded-2xl border border-white">
+                                        <p className="text-xs font-medium text-slate-700 leading-relaxed bg-white p-3 border border-blue-100">
                                             {report.stockGaps}
                                         </p>
                                     </div>
                                 )}
 
-                                {/* 📝 FIELD NOTES */}
+                                {/* FIELD NOTES */}
                                 {report.notes && (
-                                    <div className="p-5 rounded-3xl border border-slate-100 bg-white shadow-inner relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 opacity-[0.03] rotate-12 -mr-4 -mt-4">
-                                            <MessageSquare size={100} />
+                                    <div className="p-4 border border-slate-200 bg-slate-50 relative">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-6 h-6 bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500"><MessageSquare size={12} /></div>
+                                            <h5 className="text-[10px] font-semibold text-slate-700 uppercase tracking-wider">Agent Commentary</h5>
                                         </div>
-                                        <div className="flex items-center gap-3 mb-3 relative z-10">
-                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200"><MessageSquare size={14} /></div>
-                                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Promoter Commentary</h5>
-                                        </div>
-                                        <p className="text-xs font-medium text-slate-700 italic relative z-10 pl-4 border-l-2 border-slate-200">
+                                        <p className="text-xs font-medium text-slate-700 italic pl-3 border-l-2 border-slate-300">
                                             "{report.notes}"
                                         </p>
                                     </div>
