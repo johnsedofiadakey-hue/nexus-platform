@@ -65,42 +65,38 @@ export default function OperationsHub() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort("Request Timeout"), 30000); // Increased to 30s
 
-      const [analyticsRes, pulseRes, shopsRes, teamRes, adminTargetRes] = await Promise.all([
+      const [analyticsRes, pulseRes, shopsRes, teamRes, adminTargetRes, agentTargetsRes] = await Promise.all([
         fetch(`/api/analytics/dashboard?t=${t}`, { signal: controller.signal }),
         fetch(`/api/operations/pulse-feed?t=${t}`, { signal: controller.signal }),
         fetch(`/api/shops/list?t=${t}`, { signal: controller.signal }),
         fetch(`/api/hr/team/list?t=${t}`, { signal: controller.signal }),
-        fetch(`/api/targets?targetType=ADMIN&t=${t}`, { signal: controller.signal })
+        fetch(`/api/targets?targetType=ADMIN&t=${t}`, { signal: controller.signal }),
+        fetch(`/api/targets?targetType=AGENT&t=${t}`, { signal: controller.signal })
       ]);
 
       clearTimeout(timeoutId);
 
-      const [analytics, pulse, shops, team, adminTargetData] = await Promise.all([
+      const [analytics, pulse, shops, team, adminTargetData, agentTargetsData] = await Promise.all([
         analyticsRes.json().catch(() => ({})),
         pulseRes.json().catch(() => []),
         shopsRes.json().catch(() => []),
         teamRes.json().catch(() => ({ data: [] })),
-        adminTargetRes.json().catch(() => [])
+        adminTargetRes.json().catch(() => []),
+        agentTargetsRes.json().catch(() => [])
       ]);
 
-      // Calculate team performance
+      // Calculate team performance from agent targets
       const teamArray = Array.isArray(team?.data) ? team.data : (Array.isArray(team) ? team : []);
-      const today = new Date();
       const adminTarget = Array.isArray(adminTargetData) && adminTargetData.length > 0 ? adminTargetData[0] : null;
+      const agentTargets = Array.isArray(agentTargetsData) ? agentTargetsData : [];
       
-      let teamPerformance = { totalSales: 0, totalQuantity: 0, activeAgents: 0 };
-      if (adminTarget) {
-        // Fetch all agent sales within target period
-        const salesRes = await fetch(`/api/sales?startDate=${adminTarget.startDate}&endDate=${adminTarget.endDate}&t=${t}`, { signal: controller.signal });
-        const salesData = await salesRes.json().catch(() => ({ sales: [] }));
-        const sales = salesData.sales || [];
-        
-        teamPerformance = {
-          totalSales: sales.reduce((sum: number, s: any) => sum + s.totalAmount, 0),
-          totalQuantity: sales.reduce((sum: number, s: any) => sum + (s.items?.reduce((q: number, i: any) => q + i.quantity, 0) || 0), 0),
-          activeAgents: teamArray.filter((u: any) => u.status === 'ACTIVE').length
-        };
-      }
+      // Aggregate all agent targets that are active
+      const activeAgentTargets = agentTargets.filter((t: any) => t.status === 'ACTIVE');
+      let teamPerformance = {
+        totalSales: activeAgentTargets.reduce((sum: number, t: any) => sum + (t.achievedValue || 0), 0),
+        totalQuantity: activeAgentTargets.reduce((sum: number, t: any) => sum + (t.achievedQuantity || 0), 0),
+        activeAgents: teamArray.filter((u: any) => u.status === 'ACTIVE').length
+      };
 
       setData({
         analytics: analytics || {},

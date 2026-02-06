@@ -21,10 +21,18 @@ export async function GET(req: Request) {
 
         const { searchParams } = new URL(req.url);
         const userId = searchParams.get("userId");
+        const targetType = searchParams.get("targetType");
         const includeHistory = searchParams.get("includeHistory") === "true";
 
+        const whereClause: any = {};
+        if (userId) whereClause.userId = userId;
+        if (targetType) whereClause.targetType = targetType;
+        if (!isSuperAdmin && !userId && !targetType) {
+            whereClause.user = { organizationId: session.user.organizationId };
+        }
+
         const targets = await prisma.target.findMany({
-            where: userId ? { userId } : (isSuperAdmin ? {} : { user: { organizationId: session.user.organizationId } }),
+            where: whereClause,
             include: { 
                 user: { select: { name: true, image: true, shop: { select: { name: true } } } },
                 history: includeHistory ? { orderBy: { createdAt: 'desc' }, take: 50 } : false
@@ -54,15 +62,22 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { userId, targetQuantity, targetValue, startDate, endDate, targetType, achievedValue, achievedQuantity } = body;
 
+        // For ADMIN targets, use the session user's ID
+        const finalUserId = (targetType === "ADMIN" && !userId) ? session.user.id : userId;
+
+        if (!finalUserId) {
+            return NextResponse.json({ error: "User ID required" }, { status: 400 });
+        }
+
         // Fetch target user for shop info
         const targetUser = await prisma.user.findUnique({
-            where: { id: userId },
+            where: { id: finalUserId },
             include: { shop: true }
         });
 
         const target = await prisma.target.create({
             data: {
-                userId,
+                userId: finalUserId,
                 targetQuantity: parseInt(targetQuantity) || 0,
                 targetValue: parseFloat(targetValue) || 0,
                 achievedQuantity: parseInt(achievedQuantity) || 0,
