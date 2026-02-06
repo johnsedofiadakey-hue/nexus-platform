@@ -46,8 +46,12 @@ export default function FieldReportPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
-          marketIntel: JSON.stringify(intelItems.filter(i => i.brand || i.model)) // Serialize here
+          walkIns: formData.walkIns,
+          inquiries: formData.inquiries,
+          buyers: formData.buyers,
+          stockGaps: formData.stockGaps,
+          notes: formData.competitorNotes, // Align with backend 'notes' field
+          marketIntel: JSON.stringify(intelItems.filter(i => i.brand || i.model))
         }),
       });
       if (response.ok) setSuccess(true);

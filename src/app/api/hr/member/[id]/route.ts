@@ -27,6 +27,9 @@ export async function GET(
       whereClause.organizationId = session.user.organizationId;
     }
 
+    const { searchParams } = new URL(req.url);
+    const light = searchParams.get('light') === 'true';
+
     const user = await prisma.user.findUnique({
       where: whereClause,
       include: {
@@ -36,13 +39,14 @@ export async function GET(
             latitude: true, longitude: true, radius: true
           }
         },
-        sales: { take: 20, orderBy: { createdAt: 'desc' } },
-        dailyReports: { take: 50, orderBy: { createdAt: 'desc' } },
-        attendance: { take: 30, orderBy: { date: 'desc' } },
-        leaves: { take: 50, orderBy: { createdAt: 'desc' } },
-        disciplinary: { take: 30, orderBy: { createdAt: 'desc' } },
-        sentMessages: { take: 20, orderBy: { createdAt: 'desc' } },
-        receivedMessages: { take: 20, orderBy: { createdAt: 'desc' } },
+        // Only fetch heavy relations if NOT in light mode
+        sales: light ? false : { take: 20, orderBy: { createdAt: 'desc' } },
+        dailyReports: light ? false : { take: 50, orderBy: { createdAt: 'desc' } },
+        attendance: light ? false : { take: 30, orderBy: { date: 'desc' } },
+        leaves: light ? false : { take: 50, orderBy: { createdAt: 'desc' } },
+        disciplinary: light ? { take: 30, orderBy: { createdAt: 'desc' } } : { take: 30, orderBy: { createdAt: 'desc' } }, // Disciplinary needed for geofence breaches if light
+        sentMessages: light ? false : { take: 20, orderBy: { createdAt: 'desc' } },
+        receivedMessages: light ? false : { take: 20, orderBy: { createdAt: 'desc' } },
         targets: { where: { status: 'ACTIVE' }, orderBy: { endDate: 'desc' } }
       }
     });

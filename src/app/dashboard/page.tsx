@@ -12,6 +12,7 @@ import {
 import dynamic from 'next/dynamic';
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import LivePulseFeed from "@/components/dashboard/LivePulseFeed";
 
 // 🛰️ DYNAMIC MAP IMPORT (Fixed for Next.js 16 Turbopack stability)
 const AdminHQMap = dynamic(() => import('@/components/maps/AdminHQMap'), {
@@ -242,34 +243,7 @@ export default function OperationsHub() {
           </div>
 
           <div className="nexus-card flex flex-col overflow-hidden">
-            <div className="nexus-header bg-slate-50/30">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                <Package size={16} className="text-slate-400" /> Low Stock Warning
-              </h3>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              <table className="w-full text-left border-collapse">
-                <thead className="text-[10px] uppercase font-bold text-slate-400 sticky top-0 z-10 bg-white">
-                  <tr>
-                    <th className="px-5 py-3 border-b border-slate-100">Hub</th>
-                    <th className="px-5 py-3 border-b border-slate-100 text-right">Qty</th>
-                    <th className="px-5 py-3 border-b border-slate-100 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 text-xs">
-                  {data.shops.map((shop: any) => (
-                    <tr key={shop.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-5 py-3 font-medium text-slate-700">{shop.name}</td>
-                      <td className="px-5 py-3 text-right font-mono text-slate-500">{shop.stats?.inventory || 0}</td>
-                      <td className="px-5 py-3 text-right">
-                        <div className={`h-2 w-2 rounded-full ml-auto ${(shop.stats?.inventory || 0) < 10 ? 'bg-rose-500 animate-pulse shadow-sm shadow-rose-200' : 'bg-emerald-400'
-                          }`} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <LivePulseFeed data={data.pulse} />
           </div>
         </div>
 

@@ -14,7 +14,7 @@ export async function GET() {
         attendance: {
           some: {
             // FIXED: 'checkOut' instead of 'clockOutTime'
-            checkOut: null, 
+            checkOut: null,
             checkIn: { lte: fourHoursAgo }
           }
         },
@@ -69,30 +69,77 @@ export async function GET() {
 
     // 3. DETECT HIGH VALUE SALES (Live Ticker)
     const bigSales = await prisma.sale.findMany({
-      where: {
-        totalAmount: { gte: 1000 } // Sales over 1000 GHS
-      },
-      include: { 
+      include: {
         user: true,
-        shop: true 
+        shop: true
       },
       orderBy: { createdAt: 'desc' },
-      take: 3
+      take: 5
     });
 
     bigSales.forEach(sale => {
       alerts.push({
         id: `sale-${sale.id}`,
-        type: "BIG_SALE",
+        type: "SALE_EVENT",
         user: sale.user.name,
         shop: sale.shop.name,
-        message: `Closed a ₵${sale.totalAmount} deal`,
-        severity: "POSITIVE",
+        message: `Processed a ₵${sale.totalAmount} transaction`,
+        severity: sale.totalAmount >= 1000 ? "POSITIVE" : "NEUTRAL",
         timestamp: sale.createdAt
       });
     });
 
-    return NextResponse.json(alerts);
+    // 4. DETECT RECENT CHECK-INS
+    const attendances = await prisma.attendance.findMany({
+      where: { checkOut: null },
+      include: {
+        user: {
+          include: { shop: true }
+        }
+      },
+      orderBy: { checkIn: 'desc' },
+      take: 5
+    });
+
+    attendances.forEach(a => {
+      alerts.push({
+        id: `att-${a.id}`,
+        type: "CHECK_IN",
+        user: a.user.name,
+        shop: a.user.shop?.name || "Unknown Branch",
+        message: `Signed in for duty`,
+        severity: "NEUTRAL",
+        timestamp: a.checkIn
+      });
+    });
+
+    // 5. RECENT FIELD REPORTS
+    const reports = await prisma.dailyReport.findMany({
+      include: {
+        user: {
+          include: { shop: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
+
+    reports.forEach(r => {
+      alerts.push({
+        id: `report-${r.id}`,
+        type: "FIELD_REPORT",
+        user: r.user.name,
+        shop: r.user.shop?.name || "Unknown Branch",
+        message: `Submitted a field intelligence report`,
+        severity: "NEUTRAL",
+        timestamp: r.createdAt
+      });
+    });
+
+    // Final Sort: Most recent first
+    alerts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return NextResponse.json(alerts.slice(0, 20));
 
   } catch (error) {
     console.error("❌ PULSE_FEED_ERROR:", error);

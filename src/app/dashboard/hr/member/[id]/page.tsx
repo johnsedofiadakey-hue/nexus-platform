@@ -9,7 +9,8 @@ import {
   Store, Key, UserCircle, Save, AlertTriangle,
   Smartphone, Fingerprint, ShieldCheck, Info,
   ChevronRight, Calendar, BarChart3, Clock,
-  Map as MapIcon, Globe, Lock, FileText, Layout
+  Map as MapIcon, Globe, Lock, FileText, Layout,
+  Brain, Sparkles, TrendingUp, Search
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
@@ -41,6 +42,7 @@ export default function MemberPortal() {
   // --- CORE STATE ---
   const [mounted, setMounted] = useState(false);
   const [data, setData] = useState<any>(null);
+  const [aiInsight, setAiInsight] = useState<any>(null);
   const [shops, setShops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMap, setShowMap] = useState(true); // Default to visible
@@ -70,30 +72,25 @@ export default function MemberPortal() {
   // --- DATA SYNCHRONIZATION ---
   const sync = useCallback(async (full = false) => {
     if (!staffId || !mounted) return;
-    // Only show loader on full sync (initial load)
     if (full) setLoading(true);
 
     try {
       const timestamp = Date.now();
 
-      // LIGHT HEARTBEAT: Only fetch essential live data (Messages & Last Known Location)
-      // To strictly minimize load, we'd want a dedicated lightweight endpoint.
-      // But re-fetching the member route is "okay" if the backend is fast. 
-      // The USER complained about lag. The current member route returns EVERYTHING (Sales, Attendance, Reports). That's heavy!
-      // Let's optimize: fetch messages separately (already doing that).
-      // But for location, we need the user object.
-      // FIX: Only do full fetch on mount.
-
       if (full) {
-        const [uRes, sRes, mRes] = await Promise.all([
+        const [uRes, sRes, mRes, aRes] = await Promise.all([
           fetch(`/api/hr/member/${staffId}?t=${timestamp}`),
           fetch(`/api/shops/list?t=${timestamp}`),
-          fetch(`/api/mobile/messages?userId=${staffId}&countOnly=true&t=${timestamp}`)
+          fetch(`/api/mobile/messages?userId=${staffId}&countOnly=true&t=${timestamp}`),
+          fetch(`/api/ai/performance-insight?userId=${staffId}&t=${timestamp}`)
         ]);
 
         const userData = await uRes.json();
         const shopData = await sRes.json();
+        const aiData = await aRes.json();
+
         setData(userData);
+        setAiInsight(aiData);
         setShops(Array.isArray(shopData) ? shopData : (shopData.data || []));
 
         setFormState({
@@ -111,16 +108,23 @@ export default function MemberPortal() {
           commencementDate: userData?.commencementDate ? new Date(userData.commencementDate).toISOString().split('T')[0] : ""
         });
       } else {
-        // LIGHT UPDATE: Just refresh critical status without blocking UI
-        // Ideally we have a specific endpoint, but calling the main one quietly is better than blocking.
-        // Is `setLoading(true)` the cause of lag? YES. It unmounts/remounts components if dependent on `loading`.
-        // I removed `setLoading(true)` for non-full syncs.
-
-        fetch(`/api/hr/member/${staffId}?t=${timestamp}`).then(r => r.json()).then(userData => {
-          // Only update if data changed significantly? React reconciliation handles this usually.
-          // But setting state causes re-render.
-          // We just update `data` quietly.
-          setData(userData);
+        // LIGHT UPDATE: Quietly refresh position and targets without blocking UI
+        fetch(`/api/hr/member/${staffId}?light=true&t=${timestamp}`).then(r => r.json()).then(userData => {
+          setData((prev: any) => ({
+            ...prev,
+            ...userData,
+            // Keep existing heavy data if not provided in light mode
+            sales: prev.sales,
+            dailyReports: prev.dailyReports,
+            attendance: prev.attendance,
+            leaves: prev.leaves,
+            disciplinary: prev.disciplinary,
+            disciplinaryLog: prev.disciplinaryLog,
+            messages: prev.messages
+          }));
+        });
+        fetch(`/api/ai/performance-insight?userId=${staffId}&t=${timestamp}`).then(r => r.json()).then(aiData => {
+          setAiInsight(aiData);
         });
       }
 
@@ -207,8 +211,8 @@ export default function MemberPortal() {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20 selection:bg-blue-100">
 
       {/* 🏛️ HEADER & NAV (Fixed: Removed Sticky to prevent obstruction) */}
-      {/* 🏛️ PREMIUM HEADER */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-40 px-8 py-5 flex justify-between items-center">
+      {/* 🏛️ PREMIUM HEADER (Non-Sticky for better visibility) */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 relative z-40 px-8 py-5 flex justify-between items-center">
         <div className="flex items-center gap-6">
           <button onClick={() => router.back()} className="p-2.5 -ml-2 rounded-xl hover:bg-slate-100/80 text-slate-400 hover:text-slate-900 transition-all active:scale-95 border border-transparent hover:border-slate-200">
             <ArrowLeft size={18} />
@@ -357,6 +361,83 @@ export default function MemberPortal() {
                       userLat={data?.lastLat}
                       userLng={data?.lastLng}
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* 🧠 NEXUS INTELLIGENCE (AI ASSISTANT) */}
+              {aiInsight && (
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-1 shadow-xl shadow-blue-200/50 group">
+                  <div className="bg-white/95 backdrop-blur-xl rounded-[2.3rem] p-8 overflow-hidden relative">
+                    {/* Decorative Elements */}
+                    <div className="absolute top-0 right-0 p-8 text-blue-100 opacity-20 pointer-events-none group-hover:scale-110 transition-transform duration-700">
+                      <Brain size={120} />
+                    </div>
+                    <div className="absolute top-5 right-5">
+                      <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-100 rounded-full">
+                        <Sparkles size={12} className="text-blue-600 animate-pulse" />
+                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">AI Briefing</span>
+                      </div>
+                    </div>
+
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-200">
+                          <Brain size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 leading-none">Nexus Intelligence</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Automated Management Insight</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2 space-y-4">
+                          <p className="text-sm font-medium text-slate-700 leading-relaxed italic">
+                            "{aiInsight.briefing}"
+                          </p>
+
+                          <div className="pt-4 border-t border-slate-100">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              <TrendingUp size={12} className="text-blue-600" /> Key Recommendations
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {aiInsight.recommendations.map((rec: string, i: number) => (
+                                <div key={i} className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold text-slate-600 hover:bg-white hover:border-blue-200 transition-all cursor-default flex items-center gap-2">
+                                  <div className="w-1 h-1 bg-blue-400 rounded-full" />
+                                  {rec}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                          <div className="flex justify-between items-end">
+                            <div>
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consistency</p>
+                              <p className="text-2xl font-black text-slate-900">{aiInsight.metrics.consistencyScore}%</p>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Target Progress</p>
+                              <p className="text-2xl font-black text-blue-600">{aiInsight.metrics.revenueProgress.toFixed(1)}%</p>
+                            </div>
+                          </div>
+
+                          <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-600 transition-all duration-1000"
+                              style={{ width: `${aiInsight.metrics.revenueProgress}%` }}
+                            />
+                          </div>
+
+                          <div className="flex justify-between mt-2">
+                            <p className="text-[9px] font-bold text-slate-400">AVG Ticket Value</p>
+                            <p className="text-[10px] font-black text-slate-900">₵{aiInsight.metrics.avgOrderValue.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

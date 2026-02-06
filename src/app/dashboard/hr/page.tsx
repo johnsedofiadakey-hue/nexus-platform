@@ -18,8 +18,11 @@ export default function TeamPage() {
       const data = await res.json();
       const staffList = Array.isArray(data) ? data : (data.data || []);
 
-      // 🛡️ LOGIC FIX: Exclude ADMIN accounts. Show only Agents/Managers.
-      const agentsOnly = staffList.filter((user: any) => user.role !== 'ADMIN');
+      // 🛡️ LOGIC FIX: Strictly show field personnel (PROMOTERS & AGENTS)
+      // Administrative staff should not appear in this roster.
+      const agentsOnly = staffList.filter((user: any) =>
+        user.role === 'PROMOTER' || user.role === 'AGENT' || user.role === 'WORKER'
+      );
 
       setStaff(agentsOnly);
     } catch (e) {
