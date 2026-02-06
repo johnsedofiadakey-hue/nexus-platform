@@ -3,11 +3,13 @@
 import React from "react";
 import {
   TrendingUp, Users, Target, BarChart3,
-  MapPin, Navigation, ArrowUpRight, Zap
+  MapPin, Navigation, ArrowUpRight, Zap,
+  Activity, DollarSign, Tag, ShieldAlert,
+  Clock, CreditCard
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell,
-  CartesianGrid
+  CartesianGrid, YAxis
 } from "recharts";
 
 export default function PerformanceBoard({
@@ -16,134 +18,191 @@ export default function PerformanceBoard({
   geofenceStats = []
 }: any) {
 
-  // --- 📈 PERFORMANCE INTELLIGENCE ---
+  // --- 📊 ANALYTICS ENGINE ---
   const footTraffic = dailyReports.reduce((acc: number, r: any) => acc + (r.walkIns || 0), 0);
-  const curiosity = dailyReports.reduce((acc: number, r: any) => acc + (r.inquiries || 0), 0);
-  const successCount = dailyReports.reduce((acc: number, r: any) => acc + (r.buyers || 0), 0);
-  const successRate = footTraffic > 0 ? ((successCount / footTraffic) * 100).toFixed(1) : "0.0";
+  const inquiries = dailyReports.reduce((acc: number, r: any) => acc + (r.inquiries || 0), 0);
+  const actualSales = dailyReports.reduce((acc: number, r: any) => acc + (r.buyers || 0), 0);
+
+  const conversionRate = footTraffic > 0 ? ((actualSales / footTraffic) * 100) : 0;
+  const breachesCount = geofenceStats.reduce((acc: number, g: any) => acc + (g.breaches || 0), 0);
 
   return (
-    <div className="p-8 space-y-8 h-full flex flex-col bg-white">
+    <div className="flex flex-col h-full bg-white font-sans selection:bg-blue-100 pb-10">
 
-      {/* --- HEADER --- */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col">
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Performance Overview</span>
-          <span className="text-[9px] font-bold text-blue-500 uppercase mt-0.5">Live Operational Intelligence</span>
+      {/* 🏛️ HEADER SECTION */}
+      <div className="px-8 py-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+        <div>
+          <h3 className="text-xl font-black text-slate-900 tracking-tight">Executive Performance Analytics</h3>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Live Deployment Intelligence
+          </p>
         </div>
-        <div className="p-2 bg-blue-50 rounded-lg">
-          <BarChart3 size={18} className="text-blue-600" />
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex flex-col text-right">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Network Status</span>
+            <span className="text-xs font-bold text-slate-900 uppercase">Synchronized</span>
+          </div>
+          <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-200 text-blue-600">
+            <BarChart3 size={20} />
+          </div>
         </div>
       </div>
 
-      {/* --- KPI GRID: FOOT TRAFFIC, CURIOSITY & SUCCESS --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 group hover:border-blue-200 transition-all">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-slate-500">
-              <Users size={14} />
-              <span className="text-[9px] font-black uppercase tracking-widest">Foot Traffic</span>
+      <div className="p-8 space-y-10">
+
+        {/* 📊 CORE KPI GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100 hover:border-blue-200 transition-all duration-300 group">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-blue-500 group-hover:scale-110 transition-transform"><Activity size={16} /></div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Foot Traffic</span>
+            </div>
+            <p className="text-3xl font-black text-slate-900 tracking-tighter">{footTraffic.toLocaleString()}</p>
+            <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-tight">Walk-ins Captured</p>
+          </div>
+
+          <div className="bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100 hover:border-amber-200 transition-all duration-300 group">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-amber-500 group-hover:scale-110 transition-transform"><Tag size={16} /></div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Inquiries</span>
+            </div>
+            <p className="text-3xl font-black text-slate-900 tracking-tighter">{inquiries.toLocaleString()}</p>
+            <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-tight">Active Inquiries</p>
+          </div>
+
+          <div className="bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100 hover:border-emerald-200 transition-all duration-300 group">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-emerald-500 group-hover:scale-110 transition-transform"><DollarSign size={16} /></div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Actual Sales</span>
+            </div>
+            <p className="text-3xl font-black text-slate-900 tracking-tighter">{actualSales.toLocaleString()}</p>
+            <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-tight">Volume Closed</p>
+          </div>
+
+          <div className="bg-slate-900 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden group hover:-translate-y-1 transition-all duration-500">
+            <div className="absolute top-0 right-0 p-8 text-blue-500/10 pointer-events-none group-hover:scale-125 transition-transform duration-700">
+              <TrendingUp size={120} />
+            </div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-500 rounded-xl text-white shadow-lg shadow-blue-500/20"><Zap size={16} className="animate-pulse" /></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400/80">Success Rate</span>
+              </div>
+              <p className="text-3xl font-black text-white tracking-tighter">{conversionRate.toFixed(1)}%</p>
+              <div className="mt-4 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${conversionRate}%` }} />
+              </div>
             </div>
           </div>
-          <p className="text-3xl font-black text-slate-900 tracking-tighter">{footTraffic}</p>
         </div>
 
-        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 group hover:border-blue-200 transition-all">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-slate-500">
-              <ArrowUpRight size={14} />
-              <span className="text-[9px] font-black uppercase tracking-widest">Customer Inquiries</span>
-            </div>
-          </div>
-          <p className="text-3xl font-black text-slate-900 tracking-tighter">{curiosity}</p>
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-        <div className="bg-slate-900 p-6 rounded-[2rem] shadow-xl relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 text-blue-400 mb-2">
-              <Zap size={14} className="animate-pulse" />
-              <span className="text-[9px] font-black uppercase tracking-widest text-blue-400/60">Success Rate</span>
-            </div>
-            <p className="text-3xl font-black text-white tracking-tighter">{successRate}%</p>
-          </div>
-          <TrendingUp className="absolute -right-4 -bottom-4 w-20 h-20 text-white/10" />
-        </div>
-      </div>
-
-      {/* --- 🛡️ PUNCTUALITY ANALYTICS --- */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-2">
-            <MapPin size={14} className="text-rose-500" />
-            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Site Punctuality (7D)</h4>
-          </div>
-          <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-100">
-            {geofenceStats.reduce((acc: number, g: any) => acc + (g.breaches || 0), 0)} Signal Disruptions
-          </span>
-        </div>
-
-        <div className="h-[180px] w-full bg-slate-50/50 rounded-[2.5rem] p-6 border border-slate-100 shadow-inner">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={geofenceStats}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 9, fontWeight: 900, fill: '#94a3b8' }}
-              />
-              <Tooltip
-                cursor={{ fill: '#f8fafc' }}
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-white p-3 rounded-2xl shadow-2xl border border-slate-100 animate-in zoom-in">
-                        <p className="text-[9px] font-black text-rose-500 uppercase">{payload[0].value} Area Exits Detected</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar dataKey="breaches" radius={[8, 8, 8, 8]} barSize={24}>
-                {geofenceStats.map((entry: any, index: number) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.breaches > 2 ? '#ef4444' : '#3b82f6'}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-
-      {/* --- 💰 RECENT SALES FEED --- */}
-      <div className="flex-1 bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm overflow-hidden flex flex-col">
-        <div className="flex items-center gap-3 mb-6">
-          <Target size={14} className="text-blue-500" />
-          <span className="text-[10px] font-black uppercase text-slate-400">Recent Terminal Activity</span>
-        </div>
-        <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-          {sales.length === 0 ? (
-            <div className="py-16 text-center opacity-20">
-              <Navigation size={30} className="mx-auto mb-2" />
-              <p className="text-[9px] font-black uppercase">Scanning Network Traffic...</p>
-            </div>
-          ) : sales.slice(0, 10).map((sale: any) => (
-            <div key={sale.id} className="flex items-center justify-between p-4 bg-slate-50/30 hover:bg-white border border-transparent hover:border-slate-100 rounded-2xl transition-all group">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-white rounded-lg border border-slate-100 group-hover:bg-blue-50 group-hover:border-blue-100 transition-colors">
-                  <Zap size={12} className="text-blue-500" />
-                </div>
+          {/* 🛡️ SITE COMPLIANCE CHART */}
+          <div className="lg:col-span-12 xl:col-span-8 bg-slate-50/50 rounded-[2.5rem] border border-slate-100 p-8 group">
+            <div className="flex items-center justify-between mb-8 px-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-rose-50 text-rose-500 rounded-2xl border border-rose-100"><Clock size={16} /></div>
                 <div>
-                  <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">GH₵ {sale.totalAmount.toLocaleString()}</p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(sale.createdAt).toLocaleDateString()}</p>
+                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Presence Compliance</h4>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">7-Day Signal Continuity Analysis</p>
                 </div>
               </div>
-              <span className="text-[8px] font-black px-3 py-1 bg-white rounded-lg shadow-sm uppercase border border-slate-100 text-slate-500 group-hover:text-blue-600 transition-colors">{sale.paymentMethod}</span>
+              {breachesCount > 0 && (
+                <div className="flex items-center gap-2 px-4 py-1.5 bg-rose-100/50 border border-rose-200 rounded-full animate-bounce">
+                  <ShieldAlert size={12} className="text-rose-600" />
+                  <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">{breachesCount} Breaches Detected</span>
+                </div>
+              )}
             </div>
-          ))}
+
+            <div className="h-[300px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={geofenceStats}>
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="#f87171" stopOpacity={0.4} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: '#ffffff', radius: 12 }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-slate-900 p-4 rounded-2xl shadow-2xl border border-slate-800 animate-in fade-in zoom-in duration-200">
+                            <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.2em] mb-1">Breach Report</p>
+                            <p className="text-lg font-black text-white">{payload[0].value} <span className="text-[10px] text-slate-400 uppercase ml-1">Exits</span></p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="breaches" radius={[12, 12, 12, 12]} barSize={40}>
+                    {geofenceStats.map((entry: any, index: number) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.breaches > 2 ? 'url(#barGradient)' : '#334155'}
+                        className="transition-all duration-300 hover:opacity-80"
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* 💰 RECENT TERMINAL ACTIVITY */}
+          <div className="lg:col-span-12 xl:col-span-4 bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-xl shadow-slate-100/50 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100"><CreditCard size={16} /></div>
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Digital Ledger</h4>
+              </div>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
+              {sales.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 opacity-20 text-center">
+                  <Navigation size={48} className="text-slate-400 mb-4 animate-pulse" />
+                  <p className="text-[11px] font-black uppercase tracking-widest">Scanning Network For Traffic...</p>
+                </div>
+              ) : sales.slice(0, 15).map((sale: any) => (
+                <div key={sale.id} className="group p-5 bg-slate-50 border border-slate-100 rounded-[2rem] hover:bg-white hover:border-blue-200 hover:shadow-lg hover:shadow-blue-50 transition-all duration-300 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm group-hover:border-blue-100 transition-colors">
+                      <Activity size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-slate-900 leading-none mb-1.5">₵{sale.totalAmount.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                        {new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {sale.paymentMethod}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all">
+                    <ArrowUpRight size={14} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
