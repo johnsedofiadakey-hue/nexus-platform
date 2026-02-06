@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import {
   Calendar, FileText, LogOut, ArrowLeft,
-  Moon, Sun, Palette, User, Briefcase, CreditCard, ShieldCheck
+  Moon, Sun, Palette, User, Briefcase, CreditCard, ShieldCheck, Target
 } from "lucide-react";
 import { useMobileTheme } from "@/context/MobileThemeContext";
+import MobileTargetView from "@/components/mobile/MobileTargetView";
 
 // Helper to get hex codes for inline styles
 const getColorHex = (color: string) => {
@@ -22,9 +23,10 @@ const getColorHex = (color: string) => {
 
 export default function MobileProfilePage() {
   const { data: session } = useSession();
-  const [view, setView] = useState<'MENU' | 'LEAVE_LIST' | 'LEAVE_FORM' | 'PROMOTER_DETAILS'>('MENU');
+  const [view, setView] = useState<'MENU' | 'LEAVE_LIST' | 'LEAVE_FORM' | 'PROMOTER_DETAILS' | 'TARGETS'>('MENU');
   const { darkMode, toggleDarkMode, accent, setAccent, themeClasses } = useMobileTheme();
   const [mood, setMood] = useState("🚀 Productive");
+  const [targetProgress, setTargetProgress] = useState<any>(null);
 
   // --- LEAVE FORM STATE ---
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,6 +36,22 @@ export default function MobileProfilePage() {
     endDate: "",
     reason: ""
   });
+
+  // --- FETCH TARGET PROGRESS ---
+  useEffect(() => {
+    const fetchTargets = async () => {
+      try {
+        const res = await fetch('/api/mobile/init');
+        const data = await res.json();
+        if (data.targetProgress) {
+          setTargetProgress(data.targetProgress);
+        }
+      } catch (error) {
+        console.error('Failed to fetch targets:', error);
+      }
+    };
+    fetchTargets();
+  }, []);
 
   // --- SUBMIT LOGIC ---
   const handleSubmitLeave = async (e: React.FormEvent) => {
@@ -148,6 +166,19 @@ export default function MobileProfilePage() {
             <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Workstation</h3>
             <div className="grid grid-cols-2 gap-4">
               <button
+                onClick={() => setView('TARGETS')}
+                className={`p-6 rounded-3xl border shadow-sm text-left group transition-all active:scale-95 ${themeClasses.card} ${themeClasses.border}`}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110"
+                  style={{ backgroundColor: `${getColorHex(accent)}20`, color: getColorHex(accent) }}
+                >
+                  <Target className="w-5 h-5" />
+                </div>
+                <p className={`font-black ${themeClasses.text}`}>My Targets</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">Performance Goals</p>
+              </button>
+              <button
                 onClick={() => setView('LEAVE_LIST')}
                 className={`p-6 rounded-3xl border shadow-sm text-left group transition-all active:scale-95 ${themeClasses.card} ${themeClasses.border}`}
               >
@@ -190,7 +221,22 @@ export default function MobileProfilePage() {
     );
   }
 
-  // --- VIEW 2: LEAVE LIST ---
+  // --- VIEW 2: TARGETS ---
+  if (view === 'TARGETS') {
+    return (
+      <div className="min-h-[80vh] pb-24 font-sans">
+        <div className="flex items-center justify-between mb-6 px-2 mt-6">
+          <button onClick={() => setView('MENU')} className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:opacity-80">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+          <h1 className={`text-xl font-black ${themeClasses.text}`}>My Targets</h1>
+        </div>
+        <MobileTargetView targetProgress={targetProgress} themeClasses={themeClasses} accent={accent} />
+      </div>
+    );
+  }
+
+  // --- VIEW 3: LEAVE LIST ---
   if (view === 'LEAVE_LIST') {
     return (
       <div className="min-h-[80vh] pb-24 font-sans">
@@ -216,7 +262,7 @@ export default function MobileProfilePage() {
     );
   }
 
-  // --- VIEW 3: LEAVE FORM ---
+  // --- VIEW 4: LEAVE FORM ---
   if (view === 'LEAVE_FORM') {
     return (
       <div className="min-h-[80vh] font-sans pb-24">
@@ -292,7 +338,7 @@ export default function MobileProfilePage() {
     );
   }
 
-  // --- VIEW 4: PROMOTER DETAILS ---
+  // --- VIEW 5: PROMOTER DETAILS ---
   if (view === 'PROMOTER_DETAILS') {
     const user = session?.user as any;
     return (

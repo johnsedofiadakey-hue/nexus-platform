@@ -10,7 +10,7 @@ import {
   Smartphone, Fingerprint, ShieldCheck, Info,
   ChevronRight, Calendar, BarChart3, Clock,
   Map as MapIcon, Globe, Lock, FileText, Layout,
-  Brain, Sparkles, TrendingUp, Search
+  Brain, Sparkles, TrendingUp, Search, Target
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
@@ -314,6 +314,15 @@ export default function MemberPortal() {
                     <Briefcase size={18} /> <span className="text-[11px] font-black uppercase tracking-widest">Employment</span>
                   </div>
                 </button>
+
+                <button onClick={() => setActiveTab('TARGETS')} className={`w-full flex items-center justify-between px-5 py-3.5 rounded-xl transition-all border ${activeTab === 'TARGETS' ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-transparent border-transparent hover:bg-indigo-50 hover:text-indigo-600 text-slate-500'}`}>
+                  <div className="flex items-center gap-3">
+                    <Target size={18} /> <span className="text-[11px] font-black uppercase tracking-widest">Targets</span>
+                  </div>
+                  {data?.targets?.filter((t: any) => t.status === 'ACTIVE').length > 0 && (
+                    <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold">{data.targets.filter((t: any) => t.status === 'ACTIVE').length}</span>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -556,6 +565,21 @@ export default function MemberPortal() {
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* VIEW: TARGETS */}
+          {activeTab === 'TARGETS' && (
+            <div className="bg-white border border-slate-200 p-10 animate-in fade-in slide-in-from-right-4 duration-500 min-h-[600px]">
+              <div className="flex items-center gap-4 mb-10 border-b border-slate-200 pb-8">
+                <div className="w-16 h-16 bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                  <Target size={32} />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-slate-900">Performance Targets</h2>
+                  <p className="text-sm font-medium text-slate-500 uppercase tracking-wider mt-1">Sales Goals & Achievement Tracking</p>
+                </div>
+              </div>
               <TargetBoard
                 targets={data?.targets || []}
                 userId={staffId}

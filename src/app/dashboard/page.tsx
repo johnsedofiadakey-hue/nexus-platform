@@ -14,6 +14,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import LivePulseFeed from "@/components/dashboard/LivePulseFeed";
 import ActivityLogWidget from "@/components/dashboard/ActivityLogWidget";
+import AdminTargetWidget from "@/components/dashboard/AdminTargetWidget";
 
 // 🛰️ DYNAMIC MAP IMPORT (Fixed for Next.js 16 Turbopack stability)
 const AdminHQMap = dynamic(() => import('@/components/maps/AdminHQMap'), {
@@ -50,7 +51,7 @@ export default function OperationsHub() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ shops: [], team: [], analytics: {}, pulse: [], adminTarget: null });
+  const [data, setData] = useState({ shops: [], team: [], analytics: {}, pulse: [], adminTarget: null, teamPerformance: { totalSales: 0, totalQuantity: 0, activeAgents: 0 } });
   const [viewMode, setViewMode] = useState<'DATA' | 'MAP'>('DATA');
   const [showTargetModal, setShowTargetModal] = useState(false);
 
@@ -64,28 +65,50 @@ export default function OperationsHub() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort("Request Timeout"), 30000); // Increased to 30s
 
-      const [analyticsRes, pulseRes, shopsRes, teamRes] = await Promise.all([
+      const [analyticsRes, pulseRes, shopsRes, teamRes, adminTargetRes] = await Promise.all([
         fetch(`/api/analytics/dashboard?t=${t}`, { signal: controller.signal }),
         fetch(`/api/operations/pulse-feed?t=${t}`, { signal: controller.signal }),
         fetch(`/api/shops/list?t=${t}`, { signal: controller.signal }),
-        fetch(`/api/hr/team/list?t=${t}`, { signal: controller.signal })
+        fetch(`/api/hr/team/list?t=${t}`, { signal: controller.signal }),
+        fetch(`/api/targets?targetType=ADMIN&t=${t}`, { signal: controller.signal })
       ]);
 
       clearTimeout(timeoutId);
 
-      const [analytics, pulse, shops, team] = await Promise.all([
+      const [analytics, pulse, shops, team, adminTargetData] = await Promise.all([
         analyticsRes.json().catch(() => ({})),
         pulseRes.json().catch(() => []),
         shopsRes.json().catch(() => []),
-        teamRes.json().catch(() => ({ data: [] }))
+        teamRes.json().catch(() => ({ data: [] })),
+        adminTargetRes.json().catch(() => [])
       ]);
+
+      // Calculate team performance
+      const teamArray = Array.isArray(team?.data) ? team.data : (Array.isArray(team) ? team : []);
+      const today = new Date();
+      const adminTarget = Array.isArray(adminTargetData) && adminTargetData.length > 0 ? adminTargetData[0] : null;
+      
+      let teamPerformance = { totalSales: 0, totalQuantity: 0, activeAgents: 0 };
+      if (adminTarget) {
+        // Fetch all agent sales within target period
+        const salesRes = await fetch(`/api/sales?startDate=${adminTarget.startDate}&endDate=${adminTarget.endDate}&t=${t}`, { signal: controller.signal });
+        const salesData = await salesRes.json().catch(() => ({ sales: [] }));
+        const sales = salesData.sales || [];
+        
+        teamPerformance = {
+          totalSales: sales.reduce((sum: number, s: any) => sum + s.totalAmount, 0),
+          totalQuantity: sales.reduce((sum: number, s: any) => sum + (s.items?.reduce((q: number, i: any) => q + i.quantity, 0) || 0), 0),
+          activeAgents: teamArray.filter((u: any) => u.status === 'ACTIVE').length
+        };
+      }
 
       setData({
         analytics: analytics || {},
         pulse: Array.isArray(pulse) ? pulse : [],
         shops: Array.isArray(shops) ? shops : (shops.data || []),
-        team: Array.isArray(team?.data) ? team.data : (Array.isArray(team) ? team : []),
-        adminTarget: (analytics as any).adminTarget || null
+        team: teamArray,
+        adminTarget,
+        teamPerformance
       });
     } catch (e: any) {
       if (e.name !== 'AbortError') console.error("Sync Error:", e);
@@ -184,8 +207,17 @@ export default function OperationsHub() {
           <StatCard label="Security Alerts" value={stats.alertCount} sub="Req. Attention" icon={ShieldAlert} alert={stats.alertCount > 0} />
         </div>
 
-        {/* MAIN GRID: HUB PERFORMANCE + ACTIVITY LOG */}
+        {/* MAIN GRID: ADMIN TARGET + HUB PERFORMANCE + ACTIVITY LOG */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* ADMIN TARGET WIDGET (Full Width) */}
+          <div className="lg:col-span-3">
+            <AdminTargetWidget
+              adminTarget={data.adminTarget}
+              teamPerformance={data.teamPerformance}
+              onRefresh={fetchData}
+            />
+          </div>
 
           {/* LEFT: HUB PERFORMANCE OR MAP (2/3 width) */}
           <div className="lg:col-span-2 bg-white border border-slate-200 flex flex-col relative overflow-hidden h-[580px]">
@@ -280,102 +312,6 @@ export default function OperationsHub() {
 
       </div>
 
-      {/* 🎯 TARGET MODAL */}
-      {showTargetModal && (
-        <TargetModal onClose={() => setShowTargetModal(false)} onSuccess={() => { setShowTargetModal(false); fetchData(); }} userId={session?.user?.email} />
-      )}
-
-    </div>
-  );
-}
-
-// --- SUB-COMPONENT: TARGET MODAL ---
-function TargetModal({ onClose, onSuccess, userId }: any) {
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    targetValue: 50000,
-    targetQuantity: 500,
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  });
-
-  const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      // Create for SELF
-      const res = await fetch('/api/targets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          userId: userId
-        })
-      });
-
-      // If API requires userId, we need to pass it.
-      // Let's check api/targets/route.ts. It takes userId from body.
-      // If I don't pass userId, it fails?
-      // Let's update `handleSubmit` to use a generic 'SELF' flag or better yet, pass ID from parent.
-
-      if (res.ok) onSuccess();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white p-8 max-w-md w-full relative overflow-hidden shadow-xl border border-slate-200">
-        <div className="flex justify-between items-center mb-6 border-b border-slate-200 pb-4">
-          <h3 className="text-base font-bold text-slate-900">Set Leadership Target</h3>
-          <button onClick={onClose}>
-            <div className="p-2 bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors">
-              <RefreshCcw className="rotate-45" size={16} />
-            </div>
-          </button>
-        </div>
-
-        <div className="space-y-5">
-          <div>
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">Revenue Goal (GHS)</label>
-            <input
-              type="number"
-              className="w-full border border-slate-200 px-4 py-2.5 text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-slate-900"
-              value={form.targetValue}
-              onChange={e => setForm({ ...form, targetValue: parseFloat(e.target.value) })}
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">Volume Goal (Units)</label>
-            <input
-              type="number"
-              className="w-full border border-slate-200 px-4 py-2.5 text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-slate-900"
-              value={form.targetQuantity}
-              onChange={e => setForm({ ...form, targetQuantity: parseInt(e.target.value) })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">Start Date</label>
-              <input type="date" className="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-900" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">End Date</label>
-              <input type="date" className="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-900" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={handleSubmit}
-          className="w-full mt-6 bg-slate-900 text-white h-11 font-semibold uppercase tracking-wider hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
-          disabled={loading}
-        >
-          {loading ? <RefreshCcw className="animate-spin" size={16} /> : 'Activate Target'}
-        </button>
-      </div>
     </div>
   );
 }
