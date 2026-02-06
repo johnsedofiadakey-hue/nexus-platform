@@ -50,9 +50,6 @@ export default function MemberPortal() {
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState('OVERVIEW');
 
-  // TABS: 'OVERVIEW' | 'INTEL' | 'COMPLIANCE' | 'CHAT'
-  const [activeTab, setActiveTab] = useState('OVERVIEW');
-
   // Hardened Form State for Edit Modal
   const [formState, setFormState] = useState({
     name: "",
@@ -557,21 +554,17 @@ export default function MemberPortal() {
                     </div>
                   </div>
                 </div>
-              </dTargetBoard
-                  targets={data?.targets || []}
-                  userId={staffId}
-                  onRefresh={() => sync(true)}
-                />
               </div>
+
+              <TargetBoard
+                targets={data?.targets || []}
+                userId={staffId}
+                onRefresh={() => sync(true)}
+              />
             </div>
           )}
         </div>
-      </div>        </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* ⚙️ SETTINGS MODAL */}
       {showSettings && (
