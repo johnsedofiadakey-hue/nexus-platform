@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   RefreshCcw,
   Store,
-  Phone
+  Phone,
+  TrendingUp
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -56,6 +57,12 @@ export default function MobileGpsGate() {
     managerName?: string;
     managerPhone?: string;
     bypassGeofence?: boolean;
+    targetProgress?: {
+      targetValue: number;
+      targetQuantity: number;
+      achievedValue: number;
+      achievedQuantity: number;
+    } | null;
   } | null>(null);
 
   const [distance, setDistance] = useState<number | null>(null);
@@ -111,7 +118,8 @@ export default function MobileGpsGate() {
           radius: data.radius || 100,
           managerName: data.managerName,
           managerPhone: data.managerPhone,
-          bypassGeofence: data.bypassGeofence
+          bypassGeofence: data.bypassGeofence,
+          targetProgress: data.targetProgress
         });
       } catch {
         setGpsStatus("ERROR");
@@ -265,6 +273,60 @@ export default function MobileGpsGate() {
             <div>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Manager Line</p>
               <p className="text-sm font-bold text-white">{identity.managerPhone || "N/A"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎯 PERFORMANCE PROGRESS CARD */}
+      {identity?.targetProgress && (
+        <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-lg">
+                <TrendingUp size={16} />
+              </div>
+              <div>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monthly Targets</h3>
+                <p className="text-sm font-black text-slate-900 dark:text-white">Performance Progress</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-full border border-emerald-100 dark:border-emerald-900/30">
+              Live Tracking
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Revenue Progress */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-end">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Revenue (GHS)</p>
+                <p className="text-xs font-black text-slate-900 dark:text-white">
+                  ₵{identity.targetProgress.achievedValue.toLocaleString()} <span className="text-slate-400">/ ₵{identity.targetProgress.targetValue.toLocaleString()}</span>
+                </p>
+              </div>
+              <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-600 rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min((identity.targetProgress.achievedValue / identity.targetProgress.targetValue) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Volume Progress */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-end">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Units Sold</p>
+                <p className="text-xs font-black text-slate-900 dark:text-white">
+                  {identity.targetProgress.achievedQuantity} <span className="text-slate-400">/ {identity.targetProgress.targetQuantity}</span>
+                </p>
+              </div>
+              <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min((identity.targetProgress.achievedQuantity / identity.targetProgress.targetQuantity) * 100, 100)}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>

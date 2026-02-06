@@ -246,7 +246,7 @@ export default function MobileSettings() {
 
         {/* 📊 OPERATIONS REPORT */}
         <button
-          onClick={() => setActiveModal('REPORT')}
+          onClick={() => router.push('/mobilepos/report')}
           className={`w-full p-5 rounded-3xl border flex items-center justify-between shadow-sm active:scale-95 transition-all group ${themeClasses.card} ${themeClasses.border}`}
         >
           <div className="flex items-center gap-4">

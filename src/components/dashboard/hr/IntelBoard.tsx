@@ -26,7 +26,7 @@ export default function IntelBoard({ reports }: IntelBoardProps) {
                 <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-sm">
                     <BarChart2 className="text-slate-300 w-8 h-8" />
                 </div>
-                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No Intelligence Logged</p>
+                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No Reports Logged</p>
             </div>
         );
     }
@@ -78,7 +78,7 @@ export default function IntelBoard({ reports }: IntelBoardProps) {
                                 <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Zap className="w-3 h-3 text-amber-500" />
-                                        <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Market Intel</p>
+                                        <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Market News</p>
                                     </div>
 
                                     {/* Attempt JSON Parse */}
