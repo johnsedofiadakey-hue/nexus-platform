@@ -7,7 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ShoppingBag, LogOut,
   ShieldCheck, Menu, Building2, ChevronRight,
-  MessageSquare, Loader2, Bell, Settings, FileText
+  MessageSquare, Loader2, Bell, Settings, FileText, RefreshCw
 } from "lucide-react";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import NotificationBell from "@/components/notifications/NotificationBell";
@@ -31,6 +31,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 1. 🛡️ AUTH GUARD: Redirect logic must be inside useEffect to prevent render crashes
   useEffect(() => {
@@ -44,6 +45,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     setNavigatingTo(null);
     setSidebarOpen(false);
   }, [pathname]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    router.refresh();
+    setTimeout(() => setIsRefreshing(false), 800);
+  };
 
   // 3. ⏳ LOADING STATE: Show a clean spinner while checking session
   if (authStatus === "loading" || authStatus === "unauthenticated") {
@@ -160,10 +167,23 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={handleRefresh}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-all active:scale-95 group/refresh ${isRefreshing ? 'opacity-70 cursor-wait' : ''}`}
+              title="Refresh Global Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-400 group-hover/refresh:text-blue-500 transition-colors ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover/refresh:text-slate-900">
+                {isRefreshing ? 'Refreshing...' : 'Sync'}
+              </span>
+            </button>
+
+            <div className="h-6 w-px bg-slate-200 mx-1"></div>
+
             {/* Dynamic System Status */}
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-900/5 rounded-full border border-slate-900/5">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">System Online</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Secure</span>
             </div>
 
             <div className="h-8 w-px bg-slate-200"></div>
