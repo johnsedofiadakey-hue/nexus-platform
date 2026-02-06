@@ -145,7 +145,7 @@ export default function TargetBoard({ targets, userId, onRefresh }: TargetBoardP
         <h3 className="text-xl font-black text-slate-900">Performance Targets</h3>
         <button
           onClick={() => setShowNewModal(true)}
-          className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 hover:-translate-y-0.5"
+          className="bg-blue-600 text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors border border-blue-700"
         >
           + Set New Target
         </button>
@@ -156,7 +156,7 @@ export default function TargetBoard({ targets, userId, onRefresh }: TargetBoardP
           {targets.map((target) => (
             <div
               key={target.id}
-              className="bg-slate-50 border border-slate-200 p-6 rounded-2xl relative overflow-hidden group hover:border-blue-200 transition-all"
+              className="bg-white border border-slate-200 p-6 relative overflow-hidden group hover:border-blue-300 transition-colors"
             >
               <div className={`absolute top-0 left-0 w-1 h-full ${target.status === 'ACTIVE' ? 'bg-blue-500' : 'bg-slate-300'}`} />
               
@@ -169,27 +169,27 @@ export default function TargetBoard({ targets, userId, onRefresh }: TargetBoardP
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-1 rounded text-[9px] font-black uppercase ${target.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}
+                    className={`px-2 py-1 border text-[9px] font-black uppercase ${target.status === 'ACTIVE' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
                   >
                     {target.status}
                   </span>
                   <button
                     onClick={() => handleEdit(target)}
-                    className="p-2 hover:bg-blue-100 rounded-lg text-blue-600 transition-colors"
+                    className="p-2 hover:bg-blue-50 border border-transparent hover:border-blue-200 text-blue-600 transition-colors"
                     title="Edit Target"
                   >
                     <Edit2 size={14} />
                   </button>
                   <button
                     onClick={() => handleDelete(target.id)}
-                    className="p-2 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
+                    className="p-2 hover:bg-red-50 border border-transparent hover:border-red-200 text-red-600 transition-colors"
                     title="Delete Target"
                   >
                     <Trash2 size={14} />
                   </button>
                   <button
                     onClick={() => setShowHistory(showHistory === target.id ? null : target.id)}
-                    className="p-2 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors"
+                    className="p-2 hover:bg-slate-100 border border-transparent hover:border-slate-200 text-slate-600 transition-colors"
                     title="View History"
                   >
                     {showHistory === target.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -217,13 +217,13 @@ export default function TargetBoard({ targets, userId, onRefresh }: TargetBoardP
                   </div>
                   <div className="space-y-3 max-h-60 overflow-y-auto">
                     {target.history.map((item) => (
-                      <div key={item.id} className="bg-white p-3 rounded-lg border border-slate-100 text-xs">
+                      <div key={item.id} className="bg-slate-50 p-3 border border-slate-200 text-xs">
                         <div className="flex justify-between items-start mb-1">
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                            item.action === 'CREATED' ? 'bg-blue-100 text-blue-600' :
-                            item.action === 'UPDATED' ? 'bg-amber-100 text-amber-600' :
-                            item.action === 'DELETED' ? 'bg-red-100 text-red-600' :
-                            'bg-slate-100 text-slate-600'
+                          <span className={`px-2 py-0.5 border text-[9px] font-black uppercase ${
+                            item.action === 'CREATED' ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                            item.action === 'UPDATED' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                            item.action === 'DELETED' ? 'bg-red-50 border-red-200 text-red-700' :
+                            'bg-slate-100 border-slate-200 text-slate-600'
                           }`}>
                             {item.action}
                           </span>
@@ -251,54 +251,54 @@ export default function TargetBoard({ targets, userId, onRefresh }: TargetBoardP
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+        <div className="text-center py-12 bg-slate-50 border border-dashed border-slate-200">
           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No active targets set</p>
         </div>
       )}
 
       {/* Edit Modal */}
       {editingTarget && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden">
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <div>
-                <h3 className="font-black text-2xl text-slate-900 tracking-tight">Edit Target</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Update Performance Goals</p>
+                <h3 className="font-black text-xl text-slate-900">Edit Target</h3>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1">Update Performance Goals</p>
               </div>
-              <button onClick={() => setEditingTarget(null)} className="p-3 bg-white hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all shadow-sm">
-                <X size={20} />
+              <button onClick={() => setEditingTarget(null)} className="p-2 hover:bg-slate-100 border border-slate-200 transition-colors">
+                <X size={18} />
               </button>
             </div>
 
-            <div className="p-10 space-y-6">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sales Target (₵)</label>
+            <div className="p-6 space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Sales Target (₵)</label>
                 <input
                   type="number"
-                  className="w-full h-14 px-6 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 transition-all"
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white transition-colors"
                   value={formData.targetValue}
                   onChange={(e) => setFormData({ ...formData, targetValue: e.target.value })}
                 />
               </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Quantity Target</label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Quantity Target</label>
                 <input
                   type="number"
-                  className="w-full h-14 px-6 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 transition-all"
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white transition-colors"
                   value={formData.targetQuantity}
                   onChange={(e) => setFormData({ ...formData, targetQuantity: e.target.value })}
                 />
               </div>
-              <div className="pt-6 border-t border-slate-100 flex gap-4">
+              <div className="pt-4 border-t border-slate-200 flex gap-3">
                 <button
                   onClick={handleSaveEdit}
-                  className="flex-1 h-14 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
+                  className="flex-1 h-12 bg-blue-600 text-white font-bold uppercase tracking-wider hover:bg-blue-700 transition-colors border border-blue-700"
                 >
                   Save Changes
                 </button>
                 <button
                   onClick={() => setEditingTarget(null)}
-                  className="h-14 px-6 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                  className="h-12 px-5 bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200 transition-colors border border-slate-200"
                 >
                   Cancel
                 </button>
@@ -310,58 +310,58 @@ export default function TargetBoard({ targets, userId, onRefresh }: TargetBoardP
 
       {/* New Target Modal */}
       {showNewModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden">
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <div>
-                <h3 className="font-black text-2xl text-slate-900 tracking-tight">New Target</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Set Performance Goals</p>
+                <h3 className="font-black text-xl text-slate-900">New Target</h3>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mt-1">Set Performance Goals</p>
               </div>
-              <button onClick={() => setShowNewModal(false)} className="p-3 bg-white hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all shadow-sm">
-                <X size={20} />
+              <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-slate-100 border border-slate-200 transition-colors">
+                <X size={18} />
               </button>
             </div>
 
-            <div className="p-10 space-y-6">
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Period</label>
+            <div className="p-6 space-y-5">
+              <div className="space-y-3">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Period</label>
                 <div className="grid grid-cols-3 gap-2">
                   {['WEEKLY', 'MONTHLY', 'QUARTERLY'].map((p) => (
                     <button
                       key={p}
                       onClick={() => setFormData({ ...formData, period: p })}
-                      className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${formData.period === p ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-400'}`}
+                      className={`py-2.5 text-[10px] font-bold uppercase tracking-wider border transition-colors ${formData.period === p ? 'bg-blue-600 border-blue-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
                     >
                       {p}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sales Target (₵)</label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Sales Target (₵)</label>
                 <input
                   type="number"
-                  className="w-full h-14 px-6 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 transition-all"
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white transition-colors"
                   placeholder="0.00"
                   value={formData.targetValue}
                   onChange={(e) => setFormData({ ...formData, targetValue: e.target.value })}
                 />
               </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Quantity Target</label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Quantity Target</label>
                 <input
                   type="number"
-                  className="w-full h-14 px-6 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold outline-none focus:border-blue-500 transition-all"
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white transition-colors"
                   placeholder="0"
                   value={formData.targetQuantity}
                   onChange={(e) => setFormData({ ...formData, targetQuantity: e.target.value })}
                 />
               </div>
-              <div className="pt-6 border-t border-slate-100">
+              <div className="pt-4 border-t border-slate-200">
                 <button
                   onClick={handleCreateNew}
                   disabled={!formData.targetQuantity || !formData.targetValue}
-                  className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+                  className="w-full h-12 bg-slate-900 text-white font-bold uppercase tracking-wider hover:bg-slate-800 transition-colors disabled:opacity-50 border border-slate-900 disabled:border-slate-400"
                 >
                   Create Target
                 </button>

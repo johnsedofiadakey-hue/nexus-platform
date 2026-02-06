@@ -31,10 +31,10 @@ const getColorHex = (color: string) => {
 export default function MobileTargetView({ targetProgress, themeClasses, accent }: MobileTargetViewProps) {
   if (!targetProgress) {
     return (
-      <div className={`p-12 rounded-[2rem] border shadow-sm text-center ${themeClasses.card} ${themeClasses.border}`}>
+      <div className={`p-12 border text-center ${themeClasses.card} ${themeClasses.border}`}>
         <div
-          className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-          style={{ backgroundColor: `${getColorHex(accent)}20`, color: getColorHex(accent) }}
+          className="w-16 h-16 mx-auto mb-4 flex items-center justify-center border"
+          style={{ backgroundColor: `${getColorHex(accent)}20`, color: getColorHex(accent), borderColor: `${getColorHex(accent)}40` }}
         >
           <Target className="w-8 h-8" />
         </div>
@@ -54,7 +54,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
     <div className="space-y-4">
       {/* Achievement Status Card */}
       <div
-        className={`p-6 rounded-[2rem] border shadow-lg ${themeClasses.card} ${themeClasses.border}`}
+        className={`p-6 border ${themeClasses.card} ${themeClasses.border}`}
         style={{
           background: overallProgress >= 100 
             ? `linear-gradient(135deg, ${getColorHex(accent)}10 0%, ${getColorHex(accent)}05 100%)`
@@ -64,8 +64,8 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center"
-              style={{ backgroundColor: `${getColorHex(accent)}`, color: 'white' }}
+              className="w-12 h-12 flex items-center justify-center border"
+              style={{ backgroundColor: `${getColorHex(accent)}`, color: 'white', borderColor: `${getColorHex(accent)}` }}
             >
               {overallProgress >= 100 ? <Award className="w-6 h-6" /> : <Target className="w-6 h-6" />}
             </div>
@@ -85,9 +85,9 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
         </div>
 
         {/* Overall Progress Bar */}
-        <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-6">
+        <div className="h-3 bg-slate-100 dark:bg-slate-700 overflow-hidden mb-6">
           <div
-            className="h-full transition-all duration-500 rounded-full"
+            className="h-full transition-all duration-500"
             style={{
               width: `${overallProgress}%`,
               backgroundColor: getColorHex(accent)
@@ -97,7 +97,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700">
+          <div className="bg-white/50 dark:bg-slate-800/50 p-4 border border-slate-200/50 dark:border-slate-700">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign size={16} className="text-emerald-600" />
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Revenue</p>
@@ -110,7 +110,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
             </p>
           </div>
 
-          <div className="bg-white/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-700">
+          <div className="bg-white/50 dark:bg-slate-800/50 p-4 border border-slate-200/50 dark:border-slate-700">
             <div className="flex items-center gap-2 mb-2">
               <Package size={16} className="text-blue-600" />
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Units Sold</p>
@@ -128,7 +128,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
       {/* Detailed Progress Cards */}
       <div className="space-y-3">
         {/* Revenue Progress */}
-        <div className={`p-4 rounded-2xl border ${themeClasses.card} ${themeClasses.border}`}>
+        <div className={`p-4 border ${themeClasses.card} ${themeClasses.border}`}>
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
               <DollarSign size={14} className="text-emerald-600" />
@@ -141,7 +141,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
               {valueProgress.toFixed(1)}%
             </p>
           </div>
-          <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 overflow-hidden">
             <div
               className="h-full transition-all duration-500"
               style={{
@@ -153,7 +153,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
         </div>
 
         {/* Quantity Progress */}
-        <div className={`p-4 rounded-2xl border ${themeClasses.card} ${themeClasses.border}`}>
+        <div className={`p-4 border ${themeClasses.card} ${themeClasses.border}`}>
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
               <Package size={14} className="text-blue-600" />
@@ -166,7 +166,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
               {quantityProgress.toFixed(1)}%
             </p>
           </div>
-          <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 overflow-hidden">
             <div
               className="h-full transition-all duration-500"
               style={{
@@ -180,7 +180,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
 
       {/* Motivational Message */}
       <div
-        className={`p-4 rounded-2xl border ${themeClasses.card} ${themeClasses.border} text-center`}
+        className={`p-4 border ${themeClasses.card} ${themeClasses.border} text-center`}
         style={{ 
           backgroundColor: overallProgress >= 100 
             ? `${getColorHex(accent)}10`

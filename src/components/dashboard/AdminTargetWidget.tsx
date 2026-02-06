@@ -209,8 +209,8 @@ export default function AdminTargetWidget({ adminTarget, teamPerformance, onRefr
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md border border-slate-200 shadow-2xl">
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md border border-slate-200">
             <div className="p-8 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">{adminTarget ? 'Edit' : 'Set'} Team Target</h3>
