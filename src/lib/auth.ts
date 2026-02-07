@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-  debug: true,
+  debug: process.env.NODE_ENV === 'development',
 
   // 🍪 FORCE COOKIES TO STICK (Critical for localhost)
   cookies: {
@@ -19,7 +19,12 @@ export const authOptions: NextAuthOptions = {
     }
   },
 
-  session: { strategy: "jwt" },
+  session: { 
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+
+  secret: process.env.NEXTAUTH_SECRET,
 
   providers: [
     CredentialsProvider({
@@ -98,5 +103,8 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/auth/signin',
     error: '/auth/signin', // Redirect errors back to login
-  }
+  },
+
+  // Add useSecureCookies for production
+  useSecureCookies: process.env.NODE_ENV === 'production',
 };

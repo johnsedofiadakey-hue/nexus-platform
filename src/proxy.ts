@@ -3,19 +3,35 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    // 🔓 LOGGING: Check if the server actually sees your token
     const token = req.nextauth.token;
-    console.log(`[Proxy] Visiting: ${req.nextUrl.pathname} | Role: ${token?.role || 'Guest'}`);
-
+    
+    // Allow through if authenticated
+    if (token) {
+      console.log(`[Proxy] Authenticated: ${req.nextUrl.pathname} | Role: ${token.role}`);
+      return NextResponse.next();
+    }
+    
+    // Not authenticated - let NextAuth handle the redirect
+    console.log(`[Proxy] Unauthorized access to: ${req.nextUrl.pathname}`);
     return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token }) => {
-        // 🔒 STRICT: Require a valid session token for all matched routes.
-        // If false, NextAuth automatically redirects to /auth/signin
-        return !!token;
+      authorized: ({ token, req }) => {
+        // Allow access if token exists
+        if (token) return true;
+        
+        // For API routes, return false immediately (no redirect loop)
+        if (req.nextUrl.pathname.startsWith('/api/')) {
+          return false;
+        }
+        
+        // For pages, allow NextAuth to handle redirect
+        return false;
       },
+    },
+    pages: {
+      signIn: '/auth/signin',
     },
   }
 );

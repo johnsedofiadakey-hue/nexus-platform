@@ -82,22 +82,25 @@ function SignInForm() {
         toast.error("Access Denied: Admin account cannot use Field Agent Portal.");
         // Force sign out if they tried to cross-login
         import("next-auth/react").then(({ signOut }) => signOut({ redirect: false }));
+        setMode('SELECT');
         return;
       }
 
       if (mode === 'HQ' && !isAdminRole) {
         toast.error("Access Denied: Field Agents cannot access HQ Command.");
         import("next-auth/react").then(({ signOut }) => signOut({ redirect: false }));
+        setMode('SELECT');
         return;
       }
 
       // ✅ VALID ACCESS - Redirect
       const callbackUrl = searchParams.get("callbackUrl");
-      if (callbackUrl && !callbackUrl.includes("/auth/signin")) {
+      if (callbackUrl && !callbackUrl.includes("/auth/signin") && !callbackUrl.includes("/auth/error")) {
         window.location.href = callbackUrl;
         return;
       }
 
+      // Redirect to appropriate portal
       if (isAgentRole) {
         toast.success("Uplink Established");
         window.location.href = "/mobilepos";
@@ -123,23 +126,17 @@ function SignInForm() {
       if (res?.error) {
         toast.error("Invalid Credentials. Please check your inputs.");
         setIsSubmitting(false);
+      } else if (res?.ok) {
+        // Success - session will update and useEffect will handle redirect
+        toast.success("Authentication successful!");
+        // The useEffect above will handle the redirect once session updates
       } else {
-        // 🛡️ STRICT PORTAL SEPARATION
-        // We need to check the role *before* redirecting.
-        // Since `signIn` with redirect:false doesn't return the session object directly,
-        // we rely on the session update which happens automatically.
-        // However, to be instant, we can do a quick check via a server action or just rely on the next effect?
-        // A cleaner way in client-side handling: fetch the session manually properly or strictly redirect.
-
-        // Actually, the `useEffect` above handles the redirect. 
-        // We will modify the `useEffect` to enforce the BAN instead of just redirecting.
-
-        // For now, let's allow the Effect to handle the decision, 
-        // but we will Modify the Effect to REJECT/LOGOUT if mismatched.
-        window.location.reload(); // Trigger session update & effect check
+        toast.error("Authentication failed. Please try again.");
+        setIsSubmitting(false);
       }
     } catch (error) {
-      toast.error("Connection Error");
+      console.error("Login error:", error);
+      toast.error("Connection Error. Please check your internet connection.");
       setIsSubmitting(false);
     }
   };
