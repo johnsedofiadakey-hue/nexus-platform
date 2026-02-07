@@ -53,7 +53,7 @@ export async function GET(
       include.disciplinary = { take: 30, orderBy: { createdAt: 'desc' } };
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: whereClause,
       include
     });
