@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { SessionProvider as AuthProvider } from "@/components/providers/SessionProvider";
 import { MobileThemeProvider, useMobileTheme } from "@/context/MobileThemeContext";
+import { MobileDataProvider } from "@/context/MobileDataContext";
 import LocationGuard from "@/components/auth/LocationGuard";
 import SyncManager from "@/components/mobile/SyncManager";
 import LeaveLockout from "@/components/mobile/LeaveLockout";
@@ -135,14 +136,16 @@ export default function MobilePOSLayout({ children }: { children: React.ReactNod
   return (
     <AuthProvider>
       <MobileThemeProvider>
-        <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex justify-center items-center overflow-hidden font-sans antialiased selection:bg-blue-100">
-          {/* 🛡️ GPS GUARD APPLIED HERE */}
-          <LocationGuard>
-            <MobileFrame>
-              {children}
-            </MobileFrame>
-          </LocationGuard>
-        </div>
+        <MobileDataProvider>
+          <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex justify-center items-center overflow-hidden font-sans antialiased selection:bg-blue-100">
+            {/* 🛡️ GPS GUARD APPLIED HERE */}
+            <LocationGuard>
+              <MobileFrame>
+                {children}
+              </MobileFrame>
+            </LocationGuard>
+          </div>
+        </MobileDataProvider>
       </MobileThemeProvider>
     </AuthProvider>
   );

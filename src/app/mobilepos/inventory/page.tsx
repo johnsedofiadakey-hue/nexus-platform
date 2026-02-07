@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Search, Package, AlertTriangle, Loader2, Zap, RefreshCw, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useMobileTheme } from "@/context/MobileThemeContext";
+import { useMobileData } from "@/context/MobileDataContext";
+import { useDebounce } from "@/hooks/useDebounce";
 
 const getColorHex = (color: string) => {
   const colors: Record<string, string> = {
@@ -17,11 +19,11 @@ const getColorHex = (color: string) => {
 
 export default function InventoryPage() {
   const { darkMode, accent, themeClasses } = useMobileTheme();
+  const { inventory, loading, refreshInventory, lastSync } = useMobileData();
   const accentHex = getColorHex(accent);
 
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
 
   // RECONCILIATION STATE
   const [isReconciling, setIsReconciling] = useState(false);
@@ -35,49 +37,25 @@ export default function InventoryPage() {
     alert("Inventory counts updated locally. (Backend sync pending implementation)");
   };
 
-  // --- 1. SYNC WITH ASSIGNED HUB ---
-  const fetchInventory = async () => {
-    setLoading(true);
-    try {
-      // Step A: Securely get current session's hub identity
-      const initRes = await fetch("/api/mobile/init");
-      const initData = await initRes.json();
+  // 🎯 MEMOIZED FILTERED PRODUCTS  const filteredProducts = useMemo(() => {
+    const products = inventory.map((item: any) => ({
+      dbId: item.id,
+      name: item.productName || item.name,
+      sku: item.sku || item.barcode || "N/A",
+      stock: item.stockLevel || item.quantity || 0,
+      price: item.sellingPrice || item.priceGHS || 0,
+      status: (item.stockLevel || item.quantity || 0) < 5 ? "Low Stock" : "Good"
+    }));
 
-      if (initData.shopId) {
-        // Step B: Fetch only the inventory linked to this shop
-        const res = await fetch(`/api/inventory?shopId=${initData.shopId}&t=${Date.now()}`);
+    if (!debouncedSearch) return products;
+    const search = debouncedSearch.toLowerCase();
+    return products.filter((p: any) =>
+      (p.name?.toLowerCase() || "").includes(search) ||
+      (p.sku?.toLowerCase() || "").includes(search)
+    );
+  }, [inventory, debouncedSearch]);
 
-        if (res.ok) {
-          const data = await res.json();
-          // Step C: Map DB fields to UI
-          const mappedData = Array.isArray(data) ? data.map((item: any) => ({
-            dbId: item.id,
-            name: item.productName,
-            sku: item.sku || "N/A",
-            stock: item.quantity,
-            price: item.priceGHS,
-            status: item.quantity < 5 ? "Low Stock" : "Good"
-          })) : [];
-
-          setProducts(mappedData);
-        }
-      }
-    } catch (error) {
-      console.error("Sync Failure:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchInventory(); }, []);
-
-  // --- 2. SEARCH LOGIC ---
-  const filteredProducts = products.filter(p =>
-    (p.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-    (p.sku?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-  );
-
-  if (loading && products.length === 0) {
+  if (loading && filteredProducts.length === 0) {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center gap-4 ${themeClasses.bg}`}>
         <Loader2 className="w-8 h-8 animate-spin" style={{ color: accentHex }} />
@@ -106,7 +84,7 @@ export default function InventoryPage() {
             <Zap className="w-4 h-4" fill={isReconciling ? "currentColor" : "none"} />
           </button>
           <button
-            onClick={fetchInventory}
+            onClick={refreshInventory}
             className="p-3 rounded-2xl active:rotate-180 transition-transform duration-500"
             style={{ backgroundColor: `${accentHex}15`, color: accentHex }}
           >
@@ -114,7 +92,15 @@ export default function InventoryPage() {
           </button>
         </div>
 
-        <div className="relative">
+        {lastSync && (
+          <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
+            <p className="text-[9px] font-medium text-slate-400 text-center">
+              Last synced: {new Date(lastSync).toLocaleTimeString()}
+            </p>
+          </div>
+        )}
+
+        <div className="relative mt-4">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             placeholder="Search SKU or Name..."

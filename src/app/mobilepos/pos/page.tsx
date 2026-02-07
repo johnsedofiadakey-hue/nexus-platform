@@ -7,96 +7,32 @@
  * --------------------------------------------------------------------------
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Search, ShoppingCart, Trash2, CheckCircle, Package, LogOut,
   User, Loader2, Home, RefreshCw, ArrowLeft, ArrowRight, Flag, Plus, Minus,
-  Store, AlertTriangle, MessageSquare // 👈 Added MessageSquare here
+  Store, AlertTriangle, MessageSquare
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import { processTransaction } from "@/lib/actions/transaction"; // 👈 New Server Action
+import { processTransaction } from "@/lib/actions/transaction";
+import { useMobileData } from "@/context/MobileDataContext";
+import { useDebounce } from "@/hooks/useDebounce";
+import ProductCard from "@/components/mobile/ProductCard";
 
 export default function MobilePOS() {
 
-  // --- STATE ---
-  const [identity, setIdentity] = useState<{
-    id: string; // 👈 Added User ID
-    agentName: string;
-    agentImage?: string;
-    shopName: string;
-    shopId: string;
-    managerName?: string;
-    managerPhone?: string;
-    targetProgress?: {
-      targetValue: number;
-      targetQuantity: number;
-      achievedValue: number;
-      achievedQuantity: number;
-    } | null;
-  } | null>(null);
-
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // 🚀 USE CONTEXT FOR SHARED DATA
+  const { identity, inventory, loading, error, refreshInventory, updateInventoryItem } = useMobileData();
 
   // Cart & View State
   const [cart, setCart] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300); // 🔍 Debounced search
   const [view, setView] = useState<'BROWSE' | 'CHECKOUT' | 'SUCCESS'>('BROWSE');
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastSaleId, setLastSaleId] = useState("");
-
-  // --- 1. BOOTSTRAP SYSTEM ---
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const initRes = await fetch("/api/mobile/init?t=" + Date.now(), { credentials: 'include' });
-      if (!initRes.ok) {
-        if (initRes.status === 401) signOut({ callbackUrl: '/login' });
-        throw new Error("Identity Failed");
-      }
-
-      const initData = await initRes.json();
-
-      if (!initData.shopId) {
-        setError("NO_SHOP_ASSIGNED");
-        setLoading(false);
-        return;
-      }
-
-      setIdentity({
-        id: initData.id, // 👈 Store User ID
-        agentName: initData.agentName,
-        agentImage: initData.agentImage,
-        shopName: initData.shopName,
-        shopId: initData.shopId,
-        managerName: initData.managerName,
-        managerPhone: initData.managerPhone,
-        targetProgress: initData.targetProgress
-      });
-
-      const invRes = await fetch(`/api/inventory?shopId=${initData.shopId}&t=${Date.now()}`);
-
-      if (invRes.ok) {
-        const invData = await invRes.json();
-        setInventory(Array.isArray(invData) ? invData : []);
-      } else {
-        throw new Error("Inventory Sync Failed");
-      }
-
-    } catch (e) {
-      setError("Connection Error. Swipe down to retry.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // --- CART LOGIC ---
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -104,13 +40,14 @@ export default function MobilePOS() {
   const [priceReason, setPriceReason] = useState("");
   const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
 
-  const addToCart = (product: any) => {
+  const addToCart = useCallback((product: any) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       const currentQty = existing ? existing.cartQty : 0;
+      const availableStock = product.stockLevel ?? product.quantity ?? 0;
 
-      if (currentQty + 1 > product.quantity) {
-        alert(`Stock Limit Reached! Only ${product.quantity} available.`);
+      if (currentQty + 1 > availableStock) {
+        toast.error(`Stock Limit! Only ${availableStock} available.`, { duration: 2000 });
         return prev;
       }
 
@@ -119,23 +56,24 @@ export default function MobilePOS() {
       }
       return [...prev, { ...product, cartQty: 1 }];
     });
-  };
+  }, []);
 
-  const removeFromCart = (itemId: string) => {
+  const removeFromCart = useCallback((itemId: string) => {
     setCart(prev => prev.filter(item => item.id !== itemId));
-  };
+  }, []);
 
-  const updateQty = (itemId: string, delta: number) => {
+  const updateQty = useCallback((itemId: string, delta: number) => {
     setCart(prev => prev.map(item => {
       if (item.id === itemId) {
         const newQty = item.cartQty + delta;
-        if (newQty > item.quantity) return item;
+        const availableStock = item.stockLevel ?? item.quantity ?? 0;
+        if (newQty > availableStock) return item;
         if (newQty < 1) return item;
         return { ...item, cartQty: newQty };
       }
       return item;
     }));
-  };
+  }, []);
 
   const handlePriceUpdate = async () => {
     if (!editingItem || !newPrice || !priceReason) return;
@@ -157,10 +95,8 @@ export default function MobilePOS() {
         setCart(prev => prev.map(item =>
           item.id === editingItem.id ? { ...item, priceGHS: data.data.sellingPrice } : item
         ));
-        // Update inventory
-        setInventory(prev => prev.map(item =>
-          item.id === editingItem.id ? { ...item, priceGHS: data.data.sellingPrice } : item
-        ));
+        // Update inventory (optimistic)
+        updateInventoryItem(editingItem.id, { priceGHS: data.data.sellingPrice });
         toast.success("Price updated successfully.");
         setEditingItem(null);
         setNewPrice("");
@@ -217,12 +153,8 @@ export default function MobilePOS() {
         setLastSaleId(result.saleId);
         setView('SUCCESS');
         setCart([]);
-        if (identity?.shopId) {
-          fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`).then(r => r.json()).then(d => {
-            const products = d.data || (Array.isArray(d) ? d : []);
-            setInventory(products);
-          });
-        }
+        // Background inventory refresh
+        refreshInventory();
       } else {
         alert(`⚠️ TRANSACTION FAILED\n\n${(result as any).error}`);
       }
@@ -262,9 +194,20 @@ export default function MobilePOS() {
     );
   }
 
-  const filteredProducts = inventory.filter(p =>
-    p.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+  // 🎯 MEMOIZED FILTERED PRODUCTS - Only recomputes when inventory or search changes
+  const filteredProducts = useMemo(() => {
+    if (!debouncedSearch) return inventory;
+    const search = debouncedSearch.toLowerCase();
+    return inventory.filter(p =>
+      (p.productName || p.name || "").toLowerCase().includes(search) ||
+      (p.sku && p.sku.toLowerCase().includes(search))
+    );
+  }, [inventory, debouncedSearch]);
+
+  // 🎯 MEMOIZED CART TOTAL
+  const cartTotal = useMemo(() => 
+    cart.reduce((sum, item) => sum + (item.priceGHS * item.cartQty), 0),
+    [cart]
   );
 
   return (
