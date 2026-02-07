@@ -21,7 +21,7 @@ export default function AdminCallSystem() {
       } catch (e) {}
     };
 
-    const interval = setInterval(checkCalls, 5000);
+    const interval = setInterval(checkCalls, 30000); // Poll every 30s (reduced from 5s)
     return () => clearInterval(interval);
   }, []);
 

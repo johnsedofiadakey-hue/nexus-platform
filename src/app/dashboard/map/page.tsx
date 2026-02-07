@@ -30,7 +30,7 @@ export default function SentinelMapPage() {
 
    useEffect(() => {
       fetchData();
-      const interval = setInterval(fetchData, 10000); // Poll every 10s
+      const interval = setInterval(fetchData, 30000); // Poll every 30s (reduced from 10s)
       return () => clearInterval(interval);
    }, []);
 

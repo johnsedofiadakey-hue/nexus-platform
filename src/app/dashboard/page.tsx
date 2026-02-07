@@ -61,9 +61,9 @@ export default function OperationsHub() {
 
     try {
       const t = Date.now();
-      // Added timeout signal to prevent "forever loading" if Supabase is slow
+      // Added timeout signal to prevent "forever loading" if database is slow
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort("Request Timeout"), 30000); // Increased to 30s
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
       const [analyticsRes, pulseRes, shopsRes, teamRes, adminTargetRes, agentTargetsRes] = await Promise.all([
         fetch(`/api/analytics/dashboard?t=${t}`, { signal: controller.signal }),
@@ -122,8 +122,8 @@ export default function OperationsHub() {
         router.push("/mobilepos"); // Bounce unauthorized users
       } else {
         fetchData();
-        // 🔄 LIVE SYNC: Refresh every 15 seconds
-        const interval = setInterval(fetchData, 15000);
+        // 🔄 LIVE SYNC: Refresh every 30 seconds
+        const interval = setInterval(fetchData, 30000);
         return () => clearInterval(interval);
       }
     }

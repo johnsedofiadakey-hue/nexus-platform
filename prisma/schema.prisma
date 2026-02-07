@@ -3,10 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider     = "postgresql"
-  url          = env("DATABASE_URL")
-  directUrl    = env("DIRECT_URL")
-  relationMode = "prisma"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 // --- 1. SUPER ADMIN (SAAS OWNER) ---
@@ -219,6 +217,7 @@ model Product {
 
   @@index([shopId])
   @@index([stockLevel]) // ⚡️ OPTIMIZATION: Speed up Low Stock Alerts
+  @@index([category, subCategory]) // ⚡️ OPTIMIZATION: Speed up Filtered Inventory Queries
 }
 
 // --- 4. SALES & CUSTOMERS ---
@@ -241,6 +240,7 @@ model Sale {
   @@index([userId])
   @@index([customerId])
   @@index([createdAt]) // ⚡️ OPTIMIZATION: Speed up Date Range Filtering
+  @@index([userId, createdAt]) // ⚡️ OPTIMIZATION: Speed up User-Specific Sales History
 }
 
 model SaleItem {

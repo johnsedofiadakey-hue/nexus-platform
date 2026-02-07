@@ -52,7 +52,7 @@ export default function MessagingPage() {
         };
 
         fetchMessages(); // Initial load
-        const interval = setInterval(fetchMessages, 2000); // Poll every 2s for "fast" feel
+        const interval = setInterval(fetchMessages, 10000); // Poll every 10s (reduced from 2s)
         return () => clearInterval(interval);
     }, [activeChatId]);
 

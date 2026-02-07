@@ -32,7 +32,7 @@ export default function PulseFeed() {
 
   useEffect(() => {
     fetchPulses();
-    const interval = setInterval(fetchPulses, 5000); // Poll every 5 seconds
+    const interval = setInterval(fetchPulses, 30000); // Poll every 30s (reduced from 5s)
     return () => clearInterval(interval);
   }, [fetchPulses]);
 

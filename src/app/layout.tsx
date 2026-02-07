@@ -4,7 +4,10 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import NextTopLoader from "nextjs-toploader";
 
-// 🛡️ PROVIDER IMPORTS
+// � ENVIRONMENT VALIDATION
+import "@/lib/env";
+
+// �🛡️ PROVIDER IMPORTS
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 
