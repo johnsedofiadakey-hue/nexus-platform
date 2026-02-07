@@ -91,17 +91,38 @@ export async function GET(
     });
 
   } catch (error: any) {
-    console.error("System Sync Error:", error.message);
+    console.error("System Sync Error:", error);
+    console.error("Error Details:", {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack?.split('\n').slice(0, 3).join('\n')
+    });
 
     // 🛡️ Prepared Statement Guard
-    if (error.message.includes("prepared statement")) {
+    if (error.message?.includes("prepared statement")) {
       return NextResponse.json({
         error: "Database Connection Refused. System cache desync.",
-        code: "PG_POOLER_RESET"
+        code: "PG_POOLER_RESET",
+        details: error.message
       }, { status: 503 });
     }
 
-    return NextResponse.json({ error: "Failed to sync records" }, { status: 500 });
+    // 🔍 Schema Migration Required
+    if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+      return NextResponse.json({
+        error: "Database schema out of sync. Migration required.",
+        code: "SCHEMA_MISMATCH",
+        details: "Run: npx prisma db push",
+        hint: error.message
+      }, { status: 503 });
+    }
+
+    return NextResponse.json({ 
+      error: "Failed to sync records",
+      details: error.message,
+      code: error.code || "UNKNOWN"
+    }, { status: 500 });
   }
 }
 

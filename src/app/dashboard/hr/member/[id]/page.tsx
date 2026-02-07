@@ -142,8 +142,17 @@ export default function MemberPortal() {
     } catch (e: any) {
       console.error("Nexus Sync Failure", e);
       if (full) {
-        setError(e.message || "Data Link Failure");
-        toast.error("Critical: Data link failed.");
+        const errorMsg = e.message || "Data Link Failure";
+        setError(errorMsg);
+        
+        // Show more helpful error messages
+        if (errorMsg.includes("schema") || errorMsg.includes("Migration required")) {
+          toast.error("Database schema needs update. Contact admin.");
+        } else if (errorMsg.includes("timeout") || errorMsg.includes("ECONNREFUSED")) {
+          toast.error("Database connection timeout. Check network.");
+        } else {
+          toast.error("Critical: Data link failed.");
+        }
       }
     } finally {
       if (full) setLoading(false);
