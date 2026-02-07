@@ -85,37 +85,37 @@ export default function MobileGpsGate() {
       setGpsStatus("ERROR");
       setIsLocating(false);
       if (contextError === 'NO_SHOP_ASSIGNED') {
-        toast.error("No shop assigned. Contact HQ.");
+        toast.error("No shop assigned. Contact your manager.", { duration: 5000, icon: '🏪' });
       } else if (contextError === 'AUTH_FAILED') {
-        router.push("/auth/signin");
+        toast.error("Session expired. Redirecting to login...", { duration: 3000 });
+        setTimeout(() => router.push("/auth/signin"), 2000);
+      } else if (contextError.includes('Network')) {
+        toast.error("Network issue. Pull down to refresh.", { duration: 4000, icon: '📡' });
       } else {
-        toast.error("Connection failed. Refresh to retry.");
+        toast.error("Assignment sync failed. Pull down to retry.", { duration: 4000 });
       }
       return;
     }
 
     if (contextIdentity) {
-      // Extract shop geo data from context
-      fetch("/api/mobile/init?geo=true")
-        .then(r => r.json())
-        .then(data => {
-          if (data.shopLat && data.shopLng) {
-            setShopData({
-              shopLat: data.shopLat,
-              shopLng: data.shopLng,
-              radius: data.radius || 100,
-              bypassGeofence: data.bypassGeofence
-            });
-          }
-        })
-        .catch(() => {
-          // Use defaults if geo fetch fails
-          setShopData({
-            shopLat: 5.6037,
-            shopLng: -0.1870,
-            radius: 100
-          });
+      // ✅ Use GPS data already loaded from MobileDataContext (no redundant fetch)
+      if (contextIdentity.shopLat && contextIdentity.shopLng) {
+        setShopData({
+          shopLat: contextIdentity.shopLat,
+          shopLng: contextIdentity.shopLng,
+          radius: contextIdentity.radius || 100,
+          bypassGeofence: contextIdentity.bypassGeofence
         });
+      } else {
+        // Fallback to Accra coordinates if GPS not configured
+        console.warn('Shop GPS coordinates not configured, using defaults');
+        setShopData({
+          shopLat: 5.6037,
+          shopLng: -0.1870,
+          radius: 100,
+          bypassGeofence: false
+        });
+      }
     }
   }, [status, mounted, router, contextIdentity, contextError]);
 

@@ -21,6 +21,10 @@ interface MobileIdentity {
   shopName: string;
   managerName?: string;
   managerPhone?: string;
+  // GPS Coordinates for geofencing
+  shopLat?: number;
+  shopLng?: number;
+  radius?: number;
   targetProgress?: {
     targetValue: number;
     targetQuantity: number;
@@ -141,25 +145,37 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
     try {
       // Parallel fetch for speed
+      console.log('📡 Mobile Init: Fetching assignment data...');
       const initRes = await fetch(`/api/mobile/init?t=${Date.now()}`, { credentials: 'include' });
       
       if (!initRes.ok) {
         if (initRes.status === 401) {
+          console.error('❌ Mobile Init: Authentication failed');
           throw new Error('AUTH_FAILED');
         }
         if (initRes.status === 409) {
           // User is not assigned to a shop
+          console.error('❌ Mobile Init: No shop assignment');
           setError('NO_SHOP_ASSIGNED');
+          toast.error('No shop assigned. Contact your manager.', { duration: 5000 });
           setLoading(false);
           return;
         }
+        console.error(`❌ Mobile Init: Failed with status ${initRes.status}`);
         throw new Error('Init failed');
       }
 
       const initData = await initRes.json();
+      console.log('✅ Mobile Init: Assignment data received', {
+        shopId: initData.shopId,
+        shopName: initData.shopName,
+        hasGPS: !!(initData.shopLat && initData.shopLng)
+      });
 
       if (!initData.shopId) {
+        console.error('❌ Mobile Init: Response missing shopId');
         setError('NO_SHOP_ASSIGNED');
+        toast.error('Invalid shop assignment. Please contact support.', { duration: 5000 });
         setLoading(false);
         return;
       }
@@ -172,6 +188,10 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         shopName: initData.shopName,
         managerName: initData.managerName,
         managerPhone: initData.managerPhone,
+        // GPS data for geofencing
+        shopLat: initData.shopLat,
+        shopLng: initData.shopLng,
+        radius: initData.radius || 100,
         targetProgress: initData.targetProgress,
         bypassGeofence: initData.bypassGeofence,
         lockout: initData.lockout
@@ -189,32 +209,39 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       setIdentity(identityData);
 
       // Fetch inventory
+      console.log(`📦 Fetching inventory for shop: ${initData.shopId}`);
       const invRes = await fetch(`/api/inventory?shopId=${initData.shopId}&t=${Date.now()}`);
       
       if (invRes.ok) {
         const invData = await invRes.json();
         const items = Array.isArray(invData) ? invData : (invData.data || []);
         
+        console.log(`✅ Inventory loaded: ${items.length} items`);
         setInventory(items);
         saveToCache(identityData, items);
       } else {
-        console.warn('Inventory fetch failed:', invRes.status);
+        console.warn('⚠️ Inventory fetch failed:', invRes.status);
         // Set inventory to empty array but don't fail the whole sync
         setInventory([]);
         saveToCache(identityData, []);
       }
 
     } catch (e: any) {
-      console.error('Refresh failed:', e);
+      console.error('❌ Mobile Data Sync Error:', e);
       
       // Better error messaging
       let errorMessage = 'Connection error';
       if (e.message === 'AUTH_FAILED') {
         errorMessage = 'AUTH_FAILED';
-      } else if (e.message?.includes('fetch')) {
+        toast.error('Session expired. Please login again.', { duration: 5000 });
+      } else if (e.message?.includes('fetch') || e.message?.includes('Failed to fetch')) {
         errorMessage = 'Network connection lost. Please check your internet.';
+        toast.error('Network error. Retrying...', { duration: 3000 });
       } else if (e.message?.includes('timeout')) {
         errorMessage = 'Request timeout. Slow connection detected.';
+        toast.error('Connection timeout. Please try again.', { duration: 3000 });
+      } else {
+        toast.error('Sync failed. Pull to refresh.', { duration: 3000 });
       }
       
       setError(errorMessage);
