@@ -37,7 +37,8 @@ export default function InventoryPage() {
     alert("Inventory counts updated locally. (Backend sync pending implementation)");
   };
 
-  // 🎯 MEMOIZED FILTERED PRODUCTS  const filteredProducts = useMemo(() => {
+  // 🎯 MEMOIZED FILTERED PRODUCTS
+  const filteredProducts = useMemo(() => {
     const products = inventory.map((item: any) => ({
       dbId: item.id,
       name: item.productName || item.name,

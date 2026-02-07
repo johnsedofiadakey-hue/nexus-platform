@@ -112,8 +112,6 @@ export default function MobilePOS() {
     }
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.priceGHS * item.cartQty), 0);
-
   // --- CHECKOUT LOGIC ---
   const handleCheckout = async () => {
     if (cart.length === 0) return;
