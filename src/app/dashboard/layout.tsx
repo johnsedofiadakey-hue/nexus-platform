@@ -37,9 +37,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   // 1. 🛡️ AUTH GUARD: Redirect logic must be inside useEffect to prevent render crashes
   useEffect(() => {
     if (authStatus === "unauthenticated") {
-      router.push("/auth/signin");
+      // Store the current path to return after login
+      const returnUrl = pathname !== "/dashboard" ? pathname : "/dashboard";
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(returnUrl)}`);
     }
-  }, [authStatus, router]);
+  }, [authStatus, router, pathname]);
 
   // 2. 🧹 NAVIGATION CLEANUP: Close sidebar on mobile when route changes
   useEffect(() => {

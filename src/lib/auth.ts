@@ -3,6 +3,16 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcryptjs";
 
+// Check for required environment variables
+if (!process.env.NEXTAUTH_SECRET) {
+  console.error("❌ CRITICAL: NEXTAUTH_SECRET is not set!");
+  console.error("Generate one with: openssl rand -base64 32");
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error("❌ CRITICAL: DATABASE_URL is not set!");
+}
+
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
 
@@ -36,32 +46,45 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // 1. Find User
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() }
-        });
+        try {
+          // 1. Find User
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email.toLowerCase() }
+          });
 
-        if (!user) throw new Error("User not found");
+          if (!user) {
+            console.log("User not found:", credentials.email);
+            return null;
+          }
 
-        // 2. 🛡️ SECURE PASSWORD CHECK (Bcrypt)
-        const isValid = await compare(credentials.password, user.password);
+          // 2. 🛡️ SECURE PASSWORD CHECK (Bcrypt)
+          const isValid = await compare(credentials.password, user.password);
 
-        if (!isValid) throw new Error("Invalid password");
+          if (!isValid) {
+            console.log("Invalid password for user:", credentials.email);
+            return null;
+          }
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          organizationId: user.organizationId,
-          bankName: user.bankName,
-          bankAccountNumber: user.bankAccountNumber,
-          bankAccountName: user.bankAccountName,
-          ssnitNumber: user.ssnitNumber,
-          commencementDate: user.commencementDate,
-          ghanaCard: user.ghanaCard,
-          dob: user.dob
-        };
+          console.log("✅ User authenticated:", user.email);
+          
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            organizationId: user.organizationId,
+            bankName: user.bankName,
+            bankAccountNumber: user.bankAccountNumber,
+            bankAccountName: user.bankAccountName,
+            ssnitNumber: user.ssnitNumber,
+            commencementDate: user.commencementDate,
+            ghanaCard: user.ghanaCard,
+            dob: user.dob
+          };
+        } catch (error) {
+          console.error("❌ Auth error:", error);
+          return null;
+        }
       }
     })
   ],
