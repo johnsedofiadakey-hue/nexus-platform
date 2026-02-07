@@ -1,0 +1,6 @@
+# FORCE PRIORITY BUILD
+# Build time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+# Latest commit with fixes: f15e3b7
+# This file forces Vercel to process latest code
+# Fixes: cartTotal duplicate removed, inventory page syntax fixed
+BUILD_TIMESTAMP=$(date +%s)
