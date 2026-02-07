@@ -21,11 +21,20 @@ export async function processTransaction(
     paymentMethod: string = "CASH"
 ): Promise<TransactionResult> {
     console.log("💳 SERVER_ACTION: Initiating Sale for User:", userId);
+    console.log("🏪 Shop ID:", shopId);
+    console.log("💰 Total Amount:", totalAmount);
+    console.log("📦 Items Count:", items.length);
 
     try {
         // 1. Validation
         if (!userId || !shopId || items.length === 0) {
+            console.error("❌ VALIDATION FAILED:", { userId, shopId, itemsCount: items.length });
             return { success: false, error: "Invalid Data: Missing User, Shop, or Items" };
+        }
+
+        if (totalAmount <= 0) {
+            console.error("❌ INVALID AMOUNT:", totalAmount);
+            return { success: false, error: "Invalid transaction amount" };
         }
 
         // 2. Transaction
@@ -38,11 +47,17 @@ export async function processTransaction(
                     where: { id: item.productId }
                 });
 
-                if (!product) throw new Error(`Product Not Found: ${item.productId}`);
+                if (!product) {
+                    console.error(`❌ Product Not Found: ${item.productId}`);
+                    throw new Error(`Product Not Found: ${item.productId}`);
+                }
 
                 if (product.stockLevel < item.quantity) {
-                    throw new Error(`Out of Stock: ${product.name}`);
+                    console.error(`❌ Insufficient Stock: ${product.name} (Need: ${item.quantity}, Have: ${product.stockLevel})`);
+                    throw new Error(`Out of Stock: ${product.name} (Need: ${item.quantity}, Available: ${product.stockLevel})`);
                 }
+
+                console.log(`✅ Stock Check Passed: ${product.name} (Deducting: ${item.quantity})`);
 
                 // B. Decrement Stock
                 await tx.product.update({
@@ -60,7 +75,7 @@ export async function processTransaction(
             }
 
             // D. Create Sale Record
-            return await tx.sale.create({
+            const createdSale = await tx.sale.create({
                 data: {
                     userId,
                     shopId,
@@ -72,6 +87,9 @@ export async function processTransaction(
                     }
                 }
             });
+
+            console.log("✅ DATABASE: Sale record created:", createdSale.id);
+            return createdSale;
         });
 
         console.log("✅ SERVER_ACTION: Sale Completed:", sale.id);
@@ -85,6 +103,7 @@ export async function processTransaction(
 
     } catch (error: any) {
         console.error("❌ SERVER_ACTION_ERROR:", error.message);
+        console.error("Stack:", error.stack);
         return { success: false, error: error.message || "Transaction Failed" };
     }
 }

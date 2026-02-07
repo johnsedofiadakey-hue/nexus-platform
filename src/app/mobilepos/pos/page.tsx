@@ -40,6 +40,23 @@ export default function MobilePOS() {
   const [priceReason, setPriceReason] = useState("");
   const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
 
+  // 🔄 SHOP REASSIGNMENT TRACKING: Clear cart when assigned to different shop
+  const previousShopId = React.useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (identity?.shopId) {
+      if (previousShopId.current && previousShopId.current !== identity.shopId) {
+        // Shop changed - clear cart for safety
+        setCart([]);
+        setView('BROWSE');
+        toast.info(`📦 Cart cleared - Now serving: ${identity.shopName}`, {
+          duration: 4000
+        });
+      }
+      previousShopId.current = identity.shopId;
+    }
+  }, [identity?.shopId, identity?.shopName]);
+
   const addToCart = useCallback((product: any) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -122,14 +139,39 @@ export default function MobilePOS() {
     setIsProcessing(true);
 
     try {
+      // 📍 OPTIMIZED GPS: Non-blocking with cache fallback
       let gps = { lat: 0, lng: 0 };
       if (typeof navigator !== 'undefined' && navigator.geolocation) {
         try {
+          // Try to get cached GPS first for instant checkout
+          const cached = localStorage.getItem('nexus_last_gps');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            const age = Date.now() - parsed.timestamp;
+            // Use cache if less than 10 minutes old
+            if (age < 10 * 60 * 1000) {
+              gps = { lat: parsed.lat, lng: parsed.lng };
+            }
+          }
+
+          // Try fresh GPS (non-blocking, shorter timeout)
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+            navigator.geolocation.getCurrentPosition(resolve, reject, { 
+              timeout: 1500,
+              maximumAge: 60000, // Accept 1-minute old position
+              enableHighAccuracy: false // Faster response
+            });
           });
           gps = { lat: position.coords.latitude, lng: position.coords.longitude };
-        } catch (e) { console.log("GPS Timeout - Using Last Known"); }
+          // Cache for next time
+          localStorage.setItem('nexus_last_gps', JSON.stringify({
+            lat: gps.lat,
+            lng: gps.lng,
+            timestamp: Date.now()
+          }));
+        } catch (e) { 
+          console.log("GPS unavailable - proceeding with cached/default coordinates");
+        }
       }
 
       const payloadItems = cart.map(i => ({
@@ -153,12 +195,48 @@ export default function MobilePOS() {
         setCart([]);
         // Background inventory refresh
         refreshInventory();
+        // Show success toast
+        toast.success(`Sale recorded: ₵${cartTotal.toLocaleString()}`);
       } else {
-        alert(`⚠️ TRANSACTION FAILED\n\n${(result as any).error}`);
+        // 🎯 IMPROVED ERROR HANDLING
+        const errorMsg = (result as any).error || 'Unknown error';
+        
+        // Specific error handling
+        if (errorMsg.includes('Out of Stock')) {
+          toast.error(`⚠️ Stock Issue: ${errorMsg}`, {
+            duration: 6000,
+            icon: '📦'
+          });
+        } else if (errorMsg.includes('Product Not Found')) {
+          toast.error('Product not found. Please refresh inventory.', {
+            duration: 5000,
+            icon: '🔍'
+          });
+        } else if (errorMsg.includes('Invalid Data')) {
+          toast.error('Invalid transaction data. Please try again.', {
+            duration: 5000
+          });
+        } else {
+          toast.error(`Transaction failed: ${errorMsg}`, {
+            duration: 6000
+          });
+        }
       }
 
-    } catch (err) {
-      alert("Network Error. Check connection.");
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      
+      // Better network error handling
+      if (err.message?.includes('fetch') || err.message?.includes('network')) {
+        toast.error('Network error. Check your connection and try again.', {
+          duration: 5000,
+          icon: '📡'
+        });
+      } else {
+        toast.error(err.message || 'Unexpected error. Please try again.', {
+          duration: 5000
+        });
+      }
     } finally {
       setIsProcessing(false);
     }

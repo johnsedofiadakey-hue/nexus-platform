@@ -179,6 +179,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
       // Check if shop changed (reassignment)
       if (previousShopIdRef.current && previousShopIdRef.current !== initData.shopId) {
+        console.log(`🔄 Shop Reassignment Detected: ${previousShopIdRef.current} → ${initData.shopId}`);
         toast.success(`🔄 Reassigned to ${initData.shopName}`, { duration: 3000 });
         // Clear old inventory immediately
         setInventory([]);
@@ -205,7 +206,18 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
     } catch (e: any) {
       console.error('Refresh failed:', e);
-      setError(e.message || 'Connection error');
+      
+      // Better error messaging
+      let errorMessage = 'Connection error';
+      if (e.message === 'AUTH_FAILED') {
+        errorMessage = 'AUTH_FAILED';
+      } else if (e.message?.includes('fetch')) {
+        errorMessage = 'Network connection lost. Please check your internet.';
+      } else if (e.message?.includes('timeout')) {
+        errorMessage = 'Request timeout. Slow connection detected.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
