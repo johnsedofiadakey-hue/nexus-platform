@@ -125,9 +125,12 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         if (identity) {
           saveToCache(identity, items);
         }
+      } else {
+        console.warn('Background inventory sync failed:', res.status);
       }
     } catch (e) {
       console.error('Inventory sync failed:', e);
+      // Don't set error state for background sync failures
     }
   }, [identity, saveToCache]);
 
@@ -143,6 +146,12 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       if (!initRes.ok) {
         if (initRes.status === 401) {
           throw new Error('AUTH_FAILED');
+        }
+        if (initRes.status === 409) {
+          // User is not assigned to a shop
+          setError('NO_SHOP_ASSIGNED');
+          setLoading(false);
+          return;
         }
         throw new Error('Init failed');
       }
@@ -187,6 +196,11 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         
         setInventory(items);
         saveToCache(identityData, items);
+      } else {
+        console.warn('Inventory fetch failed:', invRes.status);
+        // Set inventory to empty array but don't fail the whole sync
+        setInventory([]);
+        saveToCache(identityData, []);
       }
 
     } catch (e: any) {

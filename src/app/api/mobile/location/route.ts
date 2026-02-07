@@ -2,19 +2,24 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 /**
- * 🛰️ GEOFENCE ENGINE
+ * 🛰️ GEOFENCE ENGINE - PRODUCTION GRADE
  * Calculates real-world distance between coordinates in meters.
+ * Features GPS accuracy validation and safety buffers.
  */
+
+const GPS_ACCURACY_THRESHOLD = 50; // Only trust GPS with ≤50m accuracy
+const SAFETY_BUFFER = 30; // Add 30m buffer to geofence radius
+
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371e3; // Earth's radius
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
 
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) *
-    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) *
+    Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c;
@@ -22,7 +27,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export async function POST(req: Request) {
   try {
-    const { userId, lat, lng } = await req.json();
+    const { userId, lat, lng, accuracy } = await req.json();
 
     // 1. Authenticate Identity & Assigned Hub
     const agent = await prisma.user.findUnique({
@@ -44,19 +49,26 @@ export async function POST(req: Request) {
       agent.shop.longitude
     );
 
-    const radius = agent.shop.radius || 200;
-    const isInside = distance <= radius;
+    // 🛡️ Apply safety buffer to account for GPS inaccuracy
+    const baseRadius = agent.shop.radius || 200;
+    const effectiveRadius = baseRadius + SAFETY_BUFFER;
+    const isInside = distance <= effectiveRadius || agent.bypassGeofence;
+
+    // 🚫 Only log breaches if GPS accuracy is reliable
+    const isGpsReliable = !accuracy || accuracy <= GPS_ACCURACY_THRESHOLD;
 
     // 3. 🛡️ AUTOMATED COMPLIANCE LOGGER
-    // If a breach is detected, we file a permanent record before responding
-    if (!isInside) {
+    // Only log if:
+    // - GPS accuracy is good (prevents false positives)
+    // - Significantly outside zone (beyond safety buffer + threshold)
+    // - User doesn't have bypass permission
+    if (!isInside && isGpsReliable && !agent.bypassGeofence && distance > (effectiveRadius + 100)) {
       await prisma.disciplinaryRecord.create({
         data: {
           userId: userId,
           type: 'GEOFENCE_BREACH',
-          // Severity scales based on how far they've drifted
-          severity: distance > (radius + 500) ? 'CRITICAL' : 'WARNING',
-          description: `Geofence breach: Agent was ${Math.round(distance - radius)}m outside perimeter. GPS: ${lat}, ${lng}`,
+          severity: distance > (effectiveRadius + 500) ? 'CRITICAL' : 'WARNING',
+          description: `Geofence breach: Agent was ${Math.round(distance - baseRadius)}m outside perimeter (GPS accuracy: ${accuracy ? `±${Math.round(accuracy)}m` : 'unknown'}). GPS: ${lat}, ${lng}`,
           actionTaken: 'SYSTEM_AUTO_LOG'
         }
       });
@@ -75,12 +87,14 @@ export async function POST(req: Request) {
     return NextResponse.json({
       authorized: isInside,
       distance: Math.round(distance),
-      boundary: radius,
+      boundary: baseRadius,
+      effectiveRadius: effectiveRadius,
+      gpsAccuracy: accuracy ? Math.round(accuracy) : null,
       identity: agent.name,
       hub: agent.shop.name,
       message: isInside
         ? "Within Authorized Hub Zone"
-        : `Breach Logged: ${Math.round(distance - radius)}m outside perimeter`
+        : `Outside zone: ${Math.round(distance - baseRadius)}m beyond perimeter`
     });
   } catch (error: any) {
     console.error("GEOFENCE_CRASH:", error.message);

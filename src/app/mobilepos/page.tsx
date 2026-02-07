@@ -143,6 +143,14 @@ export default function MobileGpsGate() {
     // PRIME POSITION (CRITICAL FOR MOBILE)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        // 🛡️ Check GPS accuracy before accepting position
+        const accuracy = pos.coords.accuracy;
+        if (accuracy > 100) {
+          console.warn(`GPS accuracy too low: ${accuracy.toFixed(0)}m. Waiting for better signal...`);
+          toast('Waiting for better GPS signal...', { icon: '📶' });
+          return; // Don't accept inaccurate positions
+        }
+
         const d = calculateDistance(
           pos.coords.latitude,
           pos.coords.longitude,
@@ -154,12 +162,19 @@ export default function MobileGpsGate() {
         setIsLocating(false);
       },
       () => { },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 
     // CONTINUOUS WATCH
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
+        // 🛡️ Validate accuracy
+        const accuracy = pos.coords.accuracy;
+        if (accuracy > 100) {
+          console.warn(`Skipping inaccurate GPS: ±${accuracy.toFixed(0)}m`);
+          return;
+        }
+
         const d = calculateDistance(
           pos.coords.latitude,
           pos.coords.longitude,
@@ -174,7 +189,7 @@ export default function MobileGpsGate() {
         setGpsStatus("ERROR");
         setIsLocating(false);
       },
-      { enableHighAccuracy: true, timeout: 30000, maximumAge: 5000 }
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 }
     );
   }, [shopData, mounted]);
 

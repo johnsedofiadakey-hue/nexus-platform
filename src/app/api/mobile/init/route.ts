@@ -47,21 +47,27 @@ export async function GET() {
       // If Admin/Manager, allow access with default coordinates (e.g. Accra)
       if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'MANAGER') {
         return NextResponse.json({
+          id: user.id,
           agentName: user.name,
+          agentImage: user.image,
+          shopId: null,
           shopName: "Roaming Admin",
           shopLat: 5.6037,
           shopLng: -0.1870,
           radius: 5000,
           managerName: "Self",
-          managerPhone: user.phone || ""
+          managerPhone: user.phone || "",
+          bypassGeofence: true
         }, { status: 200 });
       }
 
       // Regular workers strictly need a shop
+      console.log(`❌ User ${user.email} has no shop assignment`);
       return NextResponse.json(
         {
           error: "UNASSIGNED",
-          agentName: user.name
+          agentName: user.name,
+          message: "No shop assigned. Contact your administrator."
         },
         { status: 409 }
       );

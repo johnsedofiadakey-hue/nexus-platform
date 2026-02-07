@@ -1,13 +1,23 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Lock, MapPin, RefreshCw, AlertTriangle, Phone } from "lucide-react";
+import { Lock, MapPin, RefreshCw, AlertTriangle, Phone, Signal } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 /**
- * 🔒 GEO LOCKOUT OVERLAY
+ * 🔒 GEO LOCKOUT OVERLAY - PRODUCTION GRADE
  * Blocks the entire screen if the user is outside their assigned zone.
+ * Features:
+ * - GPS accuracy validation
+ * - Safety buffer to prevent false lockouts
+ * - Multiple readings for consistency
+ * - User-friendly accuracy display
  */
+
+const GPS_ACCURACY_THRESHOLD = 50; // Only accept GPS readings with ≤50m accuracy
+const SAFETY_BUFFER = 30; // Add 30m buffer to geofence to account for GPS inaccuracy
+const CONSISTENCY_CHECKS = 2; // Must be outside zone this many times before locking
+
 export default function GeoLockoutOverlay({
     shopLat,
     shopLng,
@@ -19,9 +29,11 @@ export default function GeoLockoutOverlay({
     radius: number;
     bypass: boolean
 }) {
-    const [locked, setLocked] = useState(false); // Default open until checked
+    const [locked, setLocked] = useState(false);
     const [distance, setDistance] = useState(0);
+    const [accuracy, setAccuracy] = useState<number | null>(null);
     const [checking, setChecking] = useState(true);
+    const [outsideCount, setOutsideCount] = useState(0);
     const { data: session } = useSession();
 
     const checkLocation = () => {
@@ -36,19 +48,51 @@ export default function GeoLockoutOverlay({
             (pos) => {
                 const userLat = pos.coords.latitude;
                 const userLng = pos.coords.longitude;
+                const gpsAccuracy = pos.coords.accuracy;
                 const dist = calculateDistance(userLat, userLng, shopLat, shopLng);
 
                 setDistance(dist);
-                // Lock if distance > radius AND bypass is false
-                setLocked(dist > radius && !bypass);
+                setAccuracy(gpsAccuracy);
+
+                // 🛡️ PRODUCTION-SAFE LOGIC
+                // Only trust GPS if accuracy is good enough
+                if (gpsAccuracy > GPS_ACCURACY_THRESHOLD) {
+                    console.warn(`GPS accuracy too low: ${gpsAccuracy.toFixed(0)}m. Waiting for better signal...`);
+                    setChecking(false);
+                    return; // Don't lock/unlock on poor GPS
+                }
+
+                // Apply safety buffer to prevent false lockouts
+                const effectiveRadius = radius + SAFETY_BUFFER;
+                const isOutside = dist > effectiveRadius && !bypass;
+
+                // Check consistency before locking
+                if (isOutside) {
+                    setOutsideCount(prev => {
+                        const newCount = prev + 1;
+                        if (newCount >= CONSISTENCY_CHECKS) {
+                            setLocked(true);
+                        }
+                        return newCount;
+                    });
+                } else {
+                    // Inside zone - unlock immediately and reset count
+                    setLocked(false);
+                    setOutsideCount(0);
+                }
+
                 setChecking(false);
             },
             (err) => {
                 console.warn("GPS Error", err);
-                setLocked(true); // Lock on error
+                // Don't immediately lock on GPS error - user might be indoors temporarily
                 setChecking(false);
             },
-            { enableHighAccuracy: true, timeout: 5000 }
+            { 
+                enableHighAccuracy: true, 
+                timeout: 15000, // Give GPS time to get accurate fix
+                maximumAge: 0 // Always get fresh reading
+            }
         );
     };
 
@@ -90,10 +134,28 @@ export default function GeoLockoutOverlay({
             <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-2">Terminal Locked</h2>
 
             {distance > 0 ? (
-                <p className="text-slate-400 font-medium mb-6 max-w-xs mx-auto">
-                    You are <span className="text-white font-bold">{distance}m</span> away from the shop zone.
-                    Allowed radius is <span className="text-white font-bold">{radius}m</span>.
-                </p>
+                <>
+                    <p className="text-slate-400 font-medium mb-2 max-w-xs mx-auto">
+                        You are <span className="text-white font-bold">{distance}m</span> away from the shop zone.
+                        Allowed radius is <span className="text-white font-bold">{radius}m</span>.
+                    </p>
+                    {accuracy !== null && (
+                        <div className="flex items-center gap-2 text-xs mb-6">
+                            <Signal className={`w-4 h-4 ${
+                                accuracy <= 20 ? 'text-green-400' : 
+                                accuracy <= 50 ? 'text-yellow-400' : 
+                                'text-red-400'
+                            }`} />
+                            <span className="text-slate-500">
+                                GPS Accuracy: <span className={`font-bold ${
+                                    accuracy <= 20 ? 'text-green-400' : 
+                                    accuracy <= 50 ? 'text-yellow-400' : 
+                                    'text-red-400'
+                                }`}>±{accuracy.toFixed(0)}m</span>
+                            </span>
+                        </div>
+                    )}
+                </>
             ) : (
                 <p className="text-slate-400 font-medium mb-6 max-w-xs mx-auto">
                     Searching for GPS signal... Ensure location services are enabled.
