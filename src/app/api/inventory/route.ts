@@ -12,9 +12,7 @@ export async function GET(req: Request) {
     // 🔐 Require authentication
     const user = await requireAuth();
 
-    let whereClause: any = {
-      stockLevel: { gt: 0 }
-    };
+    let whereClause: any = {};
 
     // 🏢 Multi-tenancy enforcement
     if (shopId) {

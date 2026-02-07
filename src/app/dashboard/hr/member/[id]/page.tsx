@@ -90,6 +90,8 @@ export default function MemberPortal() {
         const aiData = await aRes.json();
         const targetsData = await tRes.json();
 
+        if (userData.error) throw new Error(userData.error);
+
         setData({
           ...userData,
           targets: Array.isArray(targetsData) ? targetsData : []
@@ -114,21 +116,25 @@ export default function MemberPortal() {
       } else {
         // LIGHT UPDATE: Quietly refresh position and targets without blocking UI
         fetch(`/api/hr/member/${staffId}?light=true&t=${timestamp}`).then(r => r.json()).then(userData => {
-          setData((prev: any) => ({
-            ...prev,
-            ...userData,
-            // Keep existing heavy data if not provided in light mode
-            sales: prev.sales,
-            dailyReports: prev.dailyReports,
-            attendance: prev.attendance,
-            leaves: prev.leaves,
-            disciplinary: prev.disciplinary,
-            disciplinaryLog: prev.disciplinaryLog,
-            messages: prev.messages
-          }));
+          if (userData && !userData.error) {
+            setData((prev: any) => ({
+              ...prev,
+              ...userData,
+              // Keep existing heavy data if not provided in light mode
+              sales: prev?.sales || [],
+              dailyReports: prev?.dailyReports || [],
+              attendance: prev?.attendance || [],
+              leaves: prev?.leaves || [],
+              disciplinary: prev?.disciplinary || [],
+              disciplinaryLog: prev?.disciplinaryLog || [],
+              messages: prev?.messages || []
+            }));
+          }
         });
         fetch(`/api/ai/performance-insight?userId=${staffId}&t=${timestamp}`).then(r => r.json()).then(aiData => {
-          setAiInsight(aiData);
+          if (aiData && !aiData.error) {
+            setAiInsight(aiData);
+          }
         });
       }
 

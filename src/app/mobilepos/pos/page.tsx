@@ -180,13 +180,16 @@ export default function MobilePOS() {
 
   // --- CHECKOUT LOGIC ---
   const handleCheckout = async () => {
-    // ... existing logic ...
     if (cart.length === 0) return;
+    if (!identity || !identity.id || !identity.shopId) {
+      toast.error("Terminal Out of Sync. Please refresh.");
+      return;
+    }
     setIsProcessing(true);
 
     try {
       let gps = { lat: 0, lng: 0 };
-      if (navigator.geolocation) {
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
         try {
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
@@ -203,8 +206,8 @@ export default function MobilePOS() {
 
       // ⚡️ SERVER ACTION INVOCATION
       const result = await processTransaction(
-        identity!.id,
-        identity!.shopId,
+        identity.id,
+        identity.shopId,
         cartTotal,
         payloadItems,
         "CASH"
@@ -216,8 +219,8 @@ export default function MobilePOS() {
         setCart([]);
         if (identity?.shopId) {
           fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`).then(r => r.json()).then(d => {
-            if (d.data) setInventory(d.data);
-            else setInventory(Array.isArray(d) ? d : []);
+            const products = d.data || (Array.isArray(d) ? d : []);
+            setInventory(products);
           });
         }
       } else {
