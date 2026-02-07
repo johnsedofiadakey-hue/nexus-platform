@@ -4,9 +4,7 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import NextTopLoader from "nextjs-toploader";
 
-
-// �🛡️ PROVIDER IMPORTS
-import { AuthProvider } from "@/components/providers/AuthProvider";
+// 🛡️ PROVIDER IMPORTS
 import { SessionProvider } from "@/components/providers/SessionProvider";
 
 const inter = Inter({
@@ -56,30 +54,28 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <SessionProvider>
-          <AuthProvider>
-            <NextTopLoader
-              color="#2563eb"
-              initialPosition={0.08}
-              height={3}
-              showSpinner={false}
-            />
+          <NextTopLoader
+            color="#2563eb"
+            initialPosition={0.08}
+            height={3}
+            showSpinner={false}
+          />
 
-            <Toaster
-              position="top-center"
-              toastOptions={{
-                className: 'font-sans font-medium text-sm',
-                style: {
-                  background: '#0F172A',
-                  color: '#fff',
-                  borderRadius: '8px',
-                },
-              }}
-            />
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              className: 'font-sans font-medium text-sm',
+              style: {
+                background: '#0F172A',
+                color: '#fff',
+                borderRadius: '8px',
+              },
+            }}
+          />
 
-            <main className="min-h-screen">
-              {children}
-            </main>
-          </AuthProvider>
+          <main className="min-h-screen">
+            {children}
+          </main>
         </SessionProvider>
       </body>
     </html>
