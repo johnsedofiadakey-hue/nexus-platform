@@ -9,12 +9,14 @@ import LocationGuard from "@/components/auth/LocationGuard";
 import SyncManager from "@/components/mobile/SyncManager";
 import LeaveLockout from "@/components/mobile/LeaveLockout";
 import GeoLockoutOverlay from "@/components/mobile/GeoLockoutOverlay";
+import { PWAInstallPrompt } from "@/components/mobile/PWAInstallPrompt";
 import { useEffect, useState } from "react";
 import { Loader2, Plus, Home, Package, MessageSquare, Menu } from "lucide-react";
+import { registerServiceWorker, requestPersistentStorage } from "@/lib/pwa-register";
 
 /**
  * 📱 MOBILE FRAME WRAPPER
- * High-End SaaS Overhaul
+ * High-End SaaS Overhaul + PWA Support
  */
 function MobileFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -24,6 +26,10 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
   const [geoConfig, setGeoConfig] = useState<{ lat: number; lng: number; radius: number; bypass: boolean } | null>(null);
 
   useEffect(() => {
+    // 🚀 Register PWA service worker
+    registerServiceWorker();
+    requestPersistentStorage();
+
     fetch("/api/mobile/init").then(r => r.json()).then(data => {
       if (data.lockout && data.lockout.active) {
         setLockout({ active: true, returnDate: new Date(data.lockout.endDate).toDateString() });
@@ -144,6 +150,9 @@ export default function MobilePOSLayout({ children }: { children: React.ReactNod
                 {children}
               </MobileFrame>
             </LocationGuard>
+
+            {/* 📲 PWA INSTALL PROMPT */}
+            <PWAInstallPrompt />
           </div>
         </MobileDataProvider>
       </MobileThemeProvider>
