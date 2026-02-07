@@ -8,23 +8,34 @@ import { PrismaClient } from "@prisma/client";
  * Mode: Transaction pooling (pgbouncer=true required)
  */
 
-// Validate environment variables
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL is not defined. Please set it in your .env.local file."
-  );
-}
+const globalForPrisma = global as unknown as { prisma: PrismaClient | undefined };
 
-const prismaClientSingleton = () => {
-  // Get base URL from environment
-  const baseUrl = process.env.DATABASE_URL!;
+function getPrismaClient() {
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma;
+  }
 
-  // Add required pgbouncer parameter for Supabase transaction pooler
+  // Build time: return a dummy client that will fail at runtime if used
+  if (!process.env.DATABASE_URL) {
+    // During build, create a minimal client that won't actually connect
+    const client = new PrismaClient({
+      log: [],
+    });
+    
+    if (process.env.NODE_ENV !== "production") {
+      globalForPrisma.prisma = client;
+    }
+    
+    return client;
+  }
+
+  // Runtime: create properly configured client
+  const baseUrl = process.env.DATABASE_URL;
   const connectionUrl = baseUrl.includes("?")
     ? `${baseUrl}&pgbouncer=true&connection_limit=1`
     : `${baseUrl}?pgbouncer=true&connection_limit=1`;
 
-  return new PrismaClient({
+  const client = new PrismaClient({
     datasources: {
       db: {
         url: connectionUrl,
@@ -32,12 +43,12 @@ const prismaClientSingleton = () => {
     },
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
-};
 
-declare global {
-  var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = client;
+  }
+
+  return client;
 }
 
-export const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
-
-if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;
+export const prisma = getPrismaClient();
