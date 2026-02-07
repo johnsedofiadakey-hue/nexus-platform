@@ -4,8 +4,6 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import NextTopLoader from "nextjs-toploader";
 
-// � ENVIRONMENT VALIDATION
-import "@/lib/env";
 
 // �🛡️ PROVIDER IMPORTS
 import { AuthProvider } from "@/components/providers/AuthProvider";

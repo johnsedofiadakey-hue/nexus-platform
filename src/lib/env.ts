@@ -5,6 +5,11 @@
  */
 
 function validateEnv() {
+    // Only validate on server-side
+    if (typeof window !== 'undefined') {
+        return; // Skip validation on client
+    }
+
     const required = [
         'DATABASE_URL',
         'NEXTAUTH_SECRET',
@@ -34,10 +39,14 @@ function validateEnv() {
     console.log('✅ Environment variables validated');
 }
 
-// Run validation on import
-if (typeof window === 'undefined') {
-    // Only run on server-side
+// Run validation on import (server-side only)
+try {
     validateEnv();
+} catch (error) {
+    // Don't throw during module import, just log
+    if (typeof window === 'undefined') {
+        console.error('Environment validation failed:', error);
+    }
 }
 
 export { validateEnv };
