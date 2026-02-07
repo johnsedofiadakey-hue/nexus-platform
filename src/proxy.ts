@@ -5,7 +5,7 @@ export default withAuth(
   function middleware(req) {
     // 🔓 LOGGING: Check if the server actually sees your token
     const token = req.nextauth.token;
-    console.log(`[Middleware] Visiting: ${req.nextUrl.pathname} | Role: ${token?.role || 'Guest'}`);
+    console.log(`[Proxy] Visiting: ${req.nextUrl.pathname} | Role: ${token?.role || 'Guest'}`);
 
     return NextResponse.next();
   },

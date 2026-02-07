@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
 
     //@ts-ignore - Next 15/16 workspace root detection
     turbopack: {
-        root: ".",
+        root: process.cwd(),
     },
 
     /**
