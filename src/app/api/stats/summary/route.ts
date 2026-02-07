@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, handleApiError } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
-    // 🚀 High-Speed Aggregation
+    // 🔐 Require authentication
+    const user = await requireAuth();
+
+    // 🏢 Build organization filter
+    const orgFilter = user.role === "SUPER_ADMIN" && !user.organizationId
+      ? {} // Super admin sees all
+      : { organizationId: user.organizationId };
+
+    // 🚀 High-Speed Aggregation with tenant isolation
     const [userCount, shopCount, totalSales] = await Promise.all([
-      prisma.user.count({ where: { role: 'SALES_REP' } }),
-      prisma.shop.count(),
-      prisma.sale.aggregate({ _sum: { totalAmount: true } })
+      prisma.user.count({ where: { ...orgFilter, role: 'SALES_REP' } }),
+      prisma.shop.count({ where: orgFilter }),
+      prisma.sale.aggregate({
+        where: {
+          shop: orgFilter
+        },
+        _sum: { totalAmount: true }
+      })
     ]);
 
     return NextResponse.json({

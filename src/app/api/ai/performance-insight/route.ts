@@ -52,12 +52,12 @@ function generateInsights(user: any) {
     const reports = user.dailyReports || [];
 
     // 1. Calculate Core Metrics
-    const totalRevenue = sales.reduce((sum: number, s: any) => sum + s.totalAmount, 0);
+    const totalSales = sales.reduce((sum: number, s: any) => sum + s.totalAmount, 0);
     const totalUnits = sales.length;
-    const avgOrderValue = totalUnits > 0 ? totalRevenue / totalUnits : 0;
+    const avgOrderValue = totalUnits > 0 ? totalSales / totalUnits : 0;
 
-    const targetRevenueGap = target ? Math.max(0, target.targetValue - totalRevenue) : 0;
-    const targetRevenueProgress = target ? (totalRevenue / target.targetValue) * 100 : 0;
+    const targetSalesGap = target ? Math.max(0, target.targetValue - totalSales) : 0;
+    const targetSalesProgress = target ? (totalSales / target.targetValue) * 100 : 0;
 
     const lateCheckins = attendance.filter((a: any) => {
         const hour = new Date(a.checkIn).getHours();
@@ -70,16 +70,16 @@ function generateInsights(user: any) {
     const recommendations = [];
 
     if (target) {
-        if (targetRevenueProgress >= 90) {
-            briefing = `${user.name} is performing exceptionally well, having achieved ${targetRevenueProgress.toFixed(1)}% of the revenue target. `;
+        if (targetSalesProgress >= 90) {
+            briefing = `${user.name} is performing exceptionally well, having achieved ${targetSalesProgress.toFixed(1)}% of the sales target. `;
             tone = "positive";
             recommendations.push("Consider increasing targets for the next period to maintain momentum.");
-        } else if (targetRevenueProgress < 40) {
-            briefing = `${user.name} is significantly behind revenue targets (${targetRevenueProgress.toFixed(1)}%). `;
+        } else if (targetSalesProgress < 40) {
+            briefing = `${user.name} is significantly behind sales targets (${targetSalesProgress.toFixed(1)}%). `;
             tone = "urgent";
             recommendations.push("Schedule a 1-on-1 review to identify blockers in the sales funnel.");
         } else {
-            briefing = `${user.name} is on a steady trajectory with ${targetRevenueProgress.toFixed(1)}% target completion. `;
+            briefing = `${user.name} is on a steady trajectory with ${targetSalesProgress.toFixed(1)}% target completion. `;
             tone = "neutral";
         }
     } else {
@@ -110,7 +110,7 @@ function generateInsights(user: any) {
         briefing,
         tone,
         metrics: {
-            revenueProgress: targetRevenueProgress,
+            salesProgress: targetSalesProgress,
             avgOrderValue,
             consistencyScore: Math.max(0, 100 - (lateCheckins * 10))
         },

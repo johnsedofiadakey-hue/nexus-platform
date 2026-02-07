@@ -287,7 +287,7 @@ export default function MobileGpsGate() {
                 <TrendingUp size={16} />
               </div>
               <div>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monthly Targets</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monthly Sales Targets</h3>
                 <p className="text-sm font-black text-slate-900 dark:text-white">Performance Progress</p>
               </div>
             </div>
@@ -297,10 +297,10 @@ export default function MobileGpsGate() {
           </div>
 
           <div className="space-y-4">
-            {/* Revenue Progress */}
+            {/* Sales Progress */}
             <div className="space-y-2">
               <div className="flex justify-between items-end">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Revenue (GHS)</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sales (GHS)</p>
                 <p className="text-xs font-black text-slate-900 dark:text-white">
                   ₵{identity.targetProgress.achievedValue.toLocaleString()} <span className="text-slate-400">/ ₵{identity.targetProgress.targetValue.toLocaleString()}</span>
                 </p>

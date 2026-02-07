@@ -29,12 +29,12 @@ const AdminHQMap = dynamic(() => import('@/components/maps/AdminHQMap'), {
 
 // --- UI: METRIC CARD (Professional Enterprise Design) ---
 const StatCard = ({ label, value, sub, icon: Icon, active, alert }: any) => (
-  <div className={`bg-white border p-5 flex flex-col justify-between h-28 ${active ? 'border-blue-500' : alert ? 'border-red-500' : 'border-slate-200'}`}>
+  <div className={`nexus-card p-6 flex flex-col justify-between h-32 ${active ? 'border-primary bg-primary/5' : ''} ${alert ? 'border-rose-200 bg-rose-50/10' : ''}`}>
     <div className="flex justify-between items-start">
-      <div className={`p-2 ${active ? 'bg-blue-50 text-blue-600' : alert ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
-        <Icon size={16} strokeWidth={2} />
+      <div className={`p-2.5 rounded-lg ${active ? 'bg-primary/10 text-primary' : alert ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+        <Icon size={18} strokeWidth={2} />
       </div>
-      {active && <div className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />}
+      {active && <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_var(--color-primary)]" />}
     </div>
     <div>
       <h3 className="text-2xl font-semibold text-slate-900 tracking-tight">{value}</h3>
@@ -89,7 +89,7 @@ export default function OperationsHub() {
       const teamArray = Array.isArray(team?.data) ? team.data : (Array.isArray(team) ? team : []);
       const adminTarget = Array.isArray(adminTargetData) && adminTargetData.length > 0 ? adminTargetData[0] : null;
       const agentTargets = Array.isArray(agentTargetsData) ? agentTargetsData : [];
-      
+
       // Aggregate all agent targets that are active
       const activeAgentTargets = agentTargets.filter((t: any) => t.status === 'ACTIVE');
       let teamPerformance = {
@@ -144,7 +144,7 @@ export default function OperationsHub() {
   if (status === "loading" || loading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50">
       <div className="flex flex-col items-center gap-4">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Initializing Command...</p>
       </div>
     </div>
@@ -236,10 +236,10 @@ export default function OperationsHub() {
                   <table className="w-full text-left border-collapse">
                     <thead className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
                       <tr>
-                        <th className="px-5 py-3">Hub Location</th>
-                        <th className="px-5 py-3">Address</th>
-                        <th className="px-5 py-3 text-right">Est. Value</th>
-                        <th className="px-5 py-3 text-right">Status</th>
+                        <th className="px-5 py-3 border-b border-slate-100">Hub Location</th>
+                        <th className="px-5 py-3 border-b border-slate-100">Address</th>
+                        <th className="px-5 py-3 border-b border-slate-100 text-right">Sales (Est)</th>
+                        <th className="px-5 py-3 border-b border-slate-100 text-right">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
@@ -308,6 +308,98 @@ export default function OperationsHub() {
 
       </div>
 
+      {/* 🎯 TARGET MODAL */}
+      {showTargetModal && (
+        <TargetModal onClose={() => setShowTargetModal(false)} onSuccess={() => { setShowTargetModal(false); fetchData(); }} userId={session?.user?.email} />
+      )}
+
+    </div>
+  );
+}
+
+// --- SUB-COMPONENT: TARGET MODAL ---
+function TargetModal({ onClose, onSuccess, userId }: any) {
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    targetValue: 50000,
+    targetQuantity: 500,
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  });
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      // Create for SELF
+      const res = await fetch('/api/targets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          userId: userId
+        })
+      });
+
+      // If API requires userId, we need to pass it.
+      // Let's check api/targets/route.ts. It takes userId from body.
+      // If I don't pass userId, it fails?
+      // Let's update `handleSubmit` to use a generic 'SELF' flag or better yet, pass ID from parent.
+
+      if (res.ok) onSuccess();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-8 max-w-md w-full animate-in zoom-in-95 relative overflow-hidden shadow-2xl">
+        <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
+          <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Set Leader Target</h3>
+          <button onClick={onClose}><div className="p-2 bg-slate-50 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"><RefreshCcw className="rotate-45" size={18} /></div></button>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Sales Goal (GHS)</label>
+            <input
+              type="number"
+              className="nexus-input w-full text-xl font-bold"
+              value={form.targetValue}
+              onChange={e => setForm({ ...form, targetValue: parseFloat(e.target.value) })}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Volume Goal (Units)</label>
+            <input
+              type="number"
+              className="nexus-input w-full text-xl font-bold"
+              value={form.targetQuantity}
+              onChange={e => setForm({ ...form, targetQuantity: parseInt(e.target.value) })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Start Date</label>
+              <input type="date" className="nexus-input w-full" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">End Date</label>
+              <input type="date" className="nexus-input w-full" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          className="w-full mt-8 bg-slate-900 text-white h-12 rounded-xl font-bold uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-slate-900/10 active:scale-95 flex items-center justify-center gap-2"
+          disabled={loading}
+        >
+          {loading ? <RefreshCcw className="animate-spin" size={18} /> : 'Activate Target'}
+        </button>
+      </div>
     </div>
   );
 }

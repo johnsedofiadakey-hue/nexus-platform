@@ -203,6 +203,7 @@ model Product {
   category     String    @default("General")
   subCategory  String?   @default("Unsorted")
   barcode      String?   @unique @map("sku")
+  brand        String?   // 🆕 ADDED
   
   buyingPrice  Float     @default(0)
   sellingPrice Float     @default(0) @map("priceGHS")

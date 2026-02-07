@@ -16,7 +16,8 @@ import React, { useState, useEffect } from "react";
 import {
   Package, AlertTriangle, TrendingUp, Layers,
   Search, Activity, ArrowUpRight, Loader2, Building2,
-  Zap, Turtle, ArrowDownRight, RefreshCw, Edit2, X, CheckCircle
+  Zap, Turtle, ArrowDownRight, RefreshCw, Edit2, X, CheckCircle,
+  Download
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -168,6 +169,25 @@ export default function AdminInventoryPage() {
           {/* REFRESH */}
           <button onClick={fetchInventory} className="h-12 w-12 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm active:scale-95">
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+
+          {/* DOWNLOAD */}
+          <button
+            onClick={() => {
+              const headers = ["Name,SKU,Hub,Stock,Price,Status"];
+              const rows = finalTableData.map(i => `${i.name},${i.sku || ""},${i.hub},${i.stock},${i.price},${i.status}`);
+              const csvContent = "data:text/csv;charset=utf-8," + headers.concat(rows).join("\n");
+              const encodedUri = encodeURI(csvContent);
+              const link = document.createElement("a");
+              link.setAttribute("href", encodedUri);
+              link.setAttribute("download", `nexus_national_inventory_${selectedHub.toLowerCase()}.csv`);
+              document.body.appendChild(link);
+              link.click();
+              toast.success("Inventory Exported");
+            }}
+            className="h-12 px-5 bg-white border border-slate-200 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm active:scale-95"
+          >
+            <Download className="w-4 h-4" /> Download
           </button>
 
           {/* HUB SELECTOR */}

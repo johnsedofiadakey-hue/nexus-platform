@@ -1,22 +1,36 @@
 import { PrismaClient } from "@prisma/client";
 
-// 🛡️ FINAL CONFIGURATION
-// Host: aws-1-eu-west-1.pooler.supabase.com (IPv4 - Works on your WiFi)
-// Port: 6543 (Transaction Mode - Best for Serverless)
-// Password: "Sedofia1010." (With the dot included)
+/**
+ * 🛡️ SECURE PRISMA CLIENT CONFIGURATION
+ * 
+ * Database: Supabase PostgreSQL (Transaction Pooler)
+ * Connection: Uses environment variables for security
+ * Mode: Transaction pooling (pgbouncer=true required)
+ */
 
-// ⚠️ SUPABASE TRANSACTION POOLER (Port 6543) - Requires ?pgbouncer=true
-const FINAL_URL = "postgresql://postgres.lqkpyqcokdeaefmisgbs:Sedofia1010.@aws-1-eu-west-1.pooler.supabase.com:6543/postgres";
+// Validate environment variables
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL is not defined. Please set it in your .env.local file."
+  );
+}
 
 const prismaClientSingleton = () => {
+  // Get base URL from environment
+  const baseUrl = process.env.DATABASE_URL!;
+
+  // Add required pgbouncer parameter for Supabase transaction pooler
+  const connectionUrl = baseUrl.includes("?")
+    ? `${baseUrl}&pgbouncer=true&connection_limit=1`
+    : `${baseUrl}?pgbouncer=true&connection_limit=1`;
+
   return new PrismaClient({
     datasources: {
       db: {
-        // 🚀 TRANSACTION MODE: Must disable prepared statements via &pgbouncer=true
-        url: FINAL_URL + "?pgbouncer=true&connection_limit=1",
+        url: connectionUrl,
       },
     },
-    log: ["error"], // Keep console clean
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 };
 

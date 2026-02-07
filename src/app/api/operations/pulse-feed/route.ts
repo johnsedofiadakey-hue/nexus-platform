@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, handleApiError } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
+    // 🔐 Require authentication
+    const user = await requireAuth();
+
+    // 🏢 Build organization filter
+    const orgFilter = user.role === "SUPER_ADMIN" && !user.organizationId
+      ? {} // Super admin sees all
+      : { organizationId: user.organizationId };
+
     const alerts = [];
 
     // 1. DETECT "GHOST" WORKERS (Logged in but no sales in 4 hours)
@@ -10,10 +19,10 @@ export async function GET() {
 
     const ghosts = await prisma.user.findMany({
       where: {
-        role: "WORKER", // FIXED: Was 'SALES_REP'
+        ...orgFilter,
+        role: "WORKER",
         attendance: {
           some: {
-            // FIXED: 'checkOut' instead of 'clockOutTime'
             checkOut: null,
             checkIn: { lte: fourHoursAgo }
           }
@@ -48,8 +57,8 @@ export async function GET() {
     // 2. DETECT LOW STOCK (Using your schema's 'stockLevel' and 'minStock')
     const lowStock = await prisma.product.findMany({
       where: {
-        // We use a raw comparison because Prisma fields can be tricky
-        stockLevel: { lte: 5 } // Hardcoded threshold for safety
+        stockLevel: { lte: 5 },
+        shop: orgFilter // Filter by organization
       },
       include: { shop: true },
       take: 3
@@ -69,6 +78,9 @@ export async function GET() {
 
     // 3. DETECT HIGH VALUE SALES (Live Ticker)
     const bigSales = await prisma.sale.findMany({
+      where: {
+        shop: orgFilter // Filter by organization
+      },
       include: {
         user: true,
         shop: true
@@ -91,7 +103,10 @@ export async function GET() {
 
     // 4. DETECT RECENT CHECK-INS
     const attendances = await prisma.attendance.findMany({
-      where: { checkOut: null },
+      where: {
+        checkOut: null,
+        user: orgFilter // Filter by organization
+      },
       include: {
         user: {
           include: { shop: true }
@@ -115,6 +130,9 @@ export async function GET() {
 
     // 5. RECENT FIELD REPORTS
     const reports = await prisma.dailyReport.findMany({
+      where: {
+        user: orgFilter // Filter by organization
+      },
       include: {
         user: {
           include: { shop: true }
@@ -141,8 +159,14 @@ export async function GET() {
 
     return NextResponse.json(alerts.slice(0, 20));
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ PULSE_FEED_ERROR:", error);
+
+    // Check for auth errors
+    if (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN") {
+      return handleApiError(error);
+    }
+
     // Return empty array instead of crashing
     return NextResponse.json([]);
   }

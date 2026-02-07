@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  ArrowLeft, Search, TrendingUp, DollarSign, 
+import {
+  ArrowLeft, Search, TrendingUp, DollarSign,
   Clock, Calendar, ChevronRight, Loader2
 } from "lucide-react";
 import { useMobileTheme } from "@/context/MobileThemeContext";
@@ -33,7 +33,7 @@ export default function MobileSalesLog() {
     const fetchHistory = async () => {
       try {
         // Calls the backend API we are about to create
-        const res = await fetch(`/api/sales/history?t=${Date.now()}`); 
+        const res = await fetch(`/api/sales/history?t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
           setSales(Array.isArray(data) ? data : []);
@@ -48,7 +48,7 @@ export default function MobileSalesLog() {
   }, []);
 
   // 2. SEARCH & FILTERING
-  const filteredSales = sales.filter(s => 
+  const filteredSales = sales.filter(s =>
     s.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -65,7 +65,7 @@ export default function MobileSalesLog() {
 
   return (
     <div className={`min-h-screen font-sans pb-32 transition-colors duration-500 ${themeClasses.bg}`}>
-      
+
       {/* 🏗️ THEMED HEADER */}
       <div className={`px-6 py-6 border-b sticky top-0 z-20 shadow-sm ${themeClasses.nav} ${themeClasses.border}`}>
         <div className="flex items-center gap-4 mb-4">
@@ -77,36 +77,35 @@ export default function MobileSalesLog() {
 
         {/* SEARCH BOX */}
         <div className="relative">
-           <Search className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
-           <input 
-             placeholder="Search Receipt ID..."
-             className={`w-full h-12 pl-11 pr-4 rounded-xl text-xs font-bold outline-none border transition-all ${
-               darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
-             }`}
-             style={{ borderColor: darkMode ? undefined : accentHex }}
-             value={searchTerm}
-             onChange={(e) => setSearchTerm(e.target.value)}
-           />
+          <Search className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+          <input
+            placeholder="Search Receipt ID..."
+            className={`w-full h-12 pl-11 pr-4 rounded-xl text-xs font-bold outline-none border transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+              }`}
+            style={{ borderColor: darkMode ? undefined : accentHex }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
 
       {/* 📊 PERFORMANCE SUMMARY CARD */}
       <div className="p-6">
-        <div 
+        <div
           className="rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden active:scale-[0.98] transition-transform"
           style={{ backgroundColor: accentHex, boxShadow: `0 20px 40px -10px ${accentHex}60` }}
         >
           <div className="relative z-10">
-             <div className="flex justify-between items-start mb-4">
-               <div className="bg-white/20 p-2 rounded-lg backdrop-blur-md">
-                 <TrendingUp className="w-5 h-5 text-white" />
-               </div>
-               <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Today's Revenue</span>
-             </div>
-             <h2 className="text-4xl font-black tracking-tighter mb-1">₵{todayTotal.toLocaleString()}</h2>
-             <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">{sales.length} Sales Today</p>
+            <div className="flex justify-between items-start mb-4">
+              <div className="bg-white/20 p-2 rounded-lg backdrop-blur-md">
+                <TrendingUp className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Today's Sales</span>
+            </div>
+            <h2 className="text-4xl font-black tracking-tighter mb-1">₵{todayTotal.toLocaleString()}</h2>
+            <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">{sales.length} Sales Today</p>
           </div>
-          
+
           {/* Abstract background shapes */}
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-black/10 rounded-full blur-3xl" />
@@ -116,36 +115,36 @@ export default function MobileSalesLog() {
       {/* 📋 TRANSACTION LIST */}
       <div className="px-6 space-y-4">
         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Recent Activity</h3>
-        
+
         {filteredSales.length > 0 ? (
           filteredSales.map((sale) => (
-            <div 
-              key={sale.id} 
+            <div
+              key={sale.id}
               className={`p-5 rounded-[2rem] border shadow-sm flex items-center justify-between group active:scale-95 transition-all ${themeClasses.card} ${themeClasses.border}`}
             >
-               <div className="flex items-center gap-4">
-                 <div 
-                   className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                   style={{ backgroundColor: `${accentHex}15`, color: accentHex }}
-                 >
-                   <DollarSign className="w-6 h-6" />
-                 </div>
-                 <div>
-                   <p className={`font-black text-xs ${themeClasses.text} opacity-70`}>#{sale.id.slice(-6).toUpperCase()}</p>
-                   <div className="flex items-center gap-1.5 mt-1 text-slate-400">
-                     <Clock className="w-3 h-3" />
-                     <p className="text-[9px] font-bold uppercase">{new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                   </div>
-                 </div>
-               </div>
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                  style={{ backgroundColor: `${accentHex}15`, color: accentHex }}
+                >
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className={`font-black text-xs ${themeClasses.text} opacity-70`}>#{sale.id.slice(-6).toUpperCase()}</p>
+                  <div className="flex items-center gap-1.5 mt-1 text-slate-400">
+                    <Clock className="w-3 h-3" />
+                    <p className="text-[9px] font-bold uppercase">{new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+              </div>
 
-               <div className="text-right flex items-center gap-3">
-                 <div>
-                    <p className={`text-lg font-black ${themeClasses.text}`}>₵{sale.totalAmount.toLocaleString()}</p>
-                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Paid</p>
-                 </div>
-                 <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors" />
-               </div>
+              <div className="text-right flex items-center gap-3">
+                <div>
+                  <p className={`text-lg font-black ${themeClasses.text}`}>₵{sale.totalAmount.toLocaleString()}</p>
+                  <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Paid</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors" />
+              </div>
             </div>
           ))
         ) : (

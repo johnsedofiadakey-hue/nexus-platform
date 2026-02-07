@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { resolveSessionUser } from "@/lib/sessionUser";
+import { requireAuth, handleApiError } from "@/lib/auth-helpers";
 import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    // 🔐 Require authentication (vetted auth helper)
+    const user = await requireAuth();
 
     const body = await req.json();
 
@@ -24,17 +17,9 @@ export async function POST(req: Request) {
       buyers,
       conversions,
       marketIntel,
-      stockGaps, // 🆕 ADDED
+      stockGaps,
       notes,
     } = body;
-
-    const resolvedUser = await resolveSessionUser(session);
-    if (!resolvedUser) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
 
     const walkInsNum = Number(walkIns) || 0;
     const inquiriesNum = Number(inquiries) || 0;
@@ -43,7 +28,7 @@ export async function POST(req: Request) {
     // 🛡️ PGBOUNCER-SAFE WRITE (NO EXTRA FIELDS)
     const report = await prisma.dailyReport.create({
       data: {
-        userId: resolvedUser.id,
+        userId: user.id,
         walkIns: walkInsNum,
         inquiries: inquiriesNum,
         buyers: buyersNum,
@@ -60,11 +45,11 @@ export async function POST(req: Request) {
       }
     });
 
-    // Log activity
+    // 📝 Log activity for HQ feed
     await logActivity({
-      userId: resolvedUser.id,
-      userName: resolvedUser.name || "Unknown Agent",
-      userRole: resolvedUser.role || "WORKER",
+      userId: user.id,
+      userName: user.name || "Unknown Agent",
+      userRole: (user as any).role || "WORKER",
       action: "DAILY_REPORT_SUBMITTED",
       entity: "DailyReport",
       entityId: report.id,
@@ -72,8 +57,8 @@ export async function POST(req: Request) {
       metadata: { walkIns: walkInsNum, inquiries: inquiriesNum, buyers: buyersNum, hasIntel: !!marketIntel },
       ipAddress: getClientIp(req),
       userAgent: getUserAgent(req),
-      shopId: resolvedUser.shopId,
-      shopName: resolvedUser.shop?.name,
+      shopId: (user as any).shopId,
+      shopName: (user as any).shop?.name,
     });
 
     return NextResponse.json({
@@ -82,6 +67,12 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("DAILY REPORT ERROR:", error);
+
+    // Check for auth errors via helper
+    if (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN") {
+      return handleApiError(error);
+    }
+
     return NextResponse.json(
       { success: false, error: "Failed to submit report" },
       { status: 500 }
@@ -91,10 +82,18 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // 🔐 Require authentication
+    const user = await requireAuth();
+
+    // 🏢 Build organization filter
+    const orgFilter = user.role === "SUPER_ADMIN" && !user.organizationId
+      ? {} // Super admin sees all
+      : { organizationId: user.organizationId };
 
     const reports = await prisma.dailyReport.findMany({
+      where: {
+        user: orgFilter // Filter by organization
+      },
       include: {
         user: { select: { name: true, image: true, shop: { select: { name: true } } } }
       },

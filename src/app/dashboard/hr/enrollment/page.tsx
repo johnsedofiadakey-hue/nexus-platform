@@ -107,10 +107,12 @@ export default function AddMemberWizard() {
         setCompleted(true);
         toast.success("Personnel Uplink Established");
       } else {
-        toast.error(responseData.error || "Uplink Rejected by Terminal.");
+        console.error("🏁 ENROLLMENT_TERMINAL_REJECTION:", responseData);
+        toast.error(responseData.error || "Uplink Rejected by Terminal. Cross-check access credentials.");
       }
-    } catch (error) {
-      toast.error("Connection Error. Check database status.");
+    } catch (error: any) {
+      console.error("🚨 ENROLLMENT_NETWORK_CRITICAL:", error);
+      toast.error(`Connection Error: ${error.message || "Shield Breach Detected"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -158,7 +160,7 @@ export default function AddMemberWizard() {
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="flex items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${step === i ? 'bg-slate-900 border-slate-900 text-white' :
-                  step > i ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-white border-slate-200 text-slate-300'
+                step > i ? 'bg-slate-100 border-slate-200 text-slate-500' : 'bg-white border-slate-200 text-slate-300'
                 }`}>
                 {step > i ? <CheckCircle className="w-4 h-4" /> : i}
               </div>

@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleApiError } from "@/lib/auth-helpers";
 
 /**
  * 🔐 NEXUS ENROLLMENT ENGINE
  * High-performance operative onboarding for the Nexus Platform.
+ * 🔒 SECURED: Enforces authentication and multi-tenancy isolation
  */
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.organizationId) {
-      return NextResponse.json({ error: "Unauthorized: Organization required" }, { status: 401 });
+    // 🔐 Require authentication
+    const user = await requireAuth();
+
+    if (!user.organizationId) {
+      return NextResponse.json({ error: "Organization required" }, { status: 400 });
     }
 
     const body = await req.json();
@@ -76,10 +78,25 @@ export async function POST(req: Request) {
       }
     }
 
+    // 🏢 VERIFY SHOP OWNERSHIP (if shopId provided)
+    if (shopId) {
+      const shop = await prisma.shop.findUnique({
+        where: { id: shopId },
+        select: { organizationId: true }
+      });
+
+      if (!shop || shop.organizationId !== user.organizationId) {
+        return NextResponse.json(
+          { error: "Invalid shop: Shop does not belong to your organization" },
+          { status: 403 }
+        );
+      }
+    }
+
     // 5. ATOMIC PERSISTENCE: Save Operative to Database
     const newUser = await prisma.user.create({
       data: {
-        organization: { connect: { id: session.user.organizationId } }, // 🔐 TENANT LINK
+        organization: { connect: { id: user.organizationId } }, // 🔐 TENANT LINK
         name: name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
@@ -124,6 +141,11 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("❌ ENROLLMENT_ENGINE_CRITICAL_FAILURE:", error);
+
+    // Check for auth errors
+    if (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN") {
+      return handleApiError(error);
+    }
 
     if (error.name === 'PrismaClientValidationError') {
       return NextResponse.json({

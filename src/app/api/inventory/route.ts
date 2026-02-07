@@ -1,40 +1,42 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleApiError } from "@/lib/auth-helpers";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const shopId = searchParams.get("shopId");
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   try {
+    // 🔐 Require authentication
+    const user = await requireAuth();
+
     let whereClause: any = {
       stockLevel: { gt: 0 }
     };
 
-    // If shopId is provided, filter by it.
+    // 🏢 Multi-tenancy enforcement
     if (shopId) {
+      // Verify shop belongs to user's organization
+      const shop = await prisma.shop.findUnique({
+        where: { id: shopId },
+        select: { organizationId: true }
+      });
+
+      if (shop && user.role !== "SUPER_ADMIN") {
+        if (shop.organizationId !== user.organizationId) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      }
       whereClause.shopId = shopId;
     } else {
-      // If NO shopId, check if user is allowed to see all (Admin/SuperAdmin)
-      // Or if user is linked to a shop, default to their shop
-      const userRole = (session.user as any).role;
-      const userShopId = (session.user as any).shopId;
-
-      if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {
-        // Allow global fetch - No restriction
-      } else if (userShopId) {
-        // Default to user's shop
-        whereClause.shopId = userShopId;
+      // No shopId: filter by organization
+      if (user.role === "SUPER_ADMIN" && !user.organizationId) {
+        // Super admin sees all
       } else {
-        return NextResponse.json({ error: "Shop Context Required" }, { status: 400 });
+        // Filter products through shops in user's organization
+        whereClause.shop = { organizationId: user.organizationId };
       }
     }
 

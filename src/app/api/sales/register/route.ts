@@ -1,22 +1,41 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth, handleApiError } from "@/lib/auth-helpers";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        // 🔐 Require authentication
+        const user = await requireAuth();
 
         const { searchParams } = new URL(req.url);
         const shopId = searchParams.get("shopId");
         const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : 100;
 
-        // Build filter
+        // 🏢 Build filter with tenant isolation
         const where: any = {};
-        if (shopId) where.shopId = shopId;
+
+        // If shopId provided, verify it belongs to user's organization
+        if (shopId) {
+            const shop = await prisma.shop.findUnique({
+                where: { id: shopId },
+                select: { organizationId: true }
+            });
+
+            // Verify shop belongs to user's org (unless super admin)
+            if (shop && user.role !== "SUPER_ADMIN") {
+                if (shop.organizationId !== user.organizationId) {
+                    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+                }
+            }
+            where.shopId = shopId;
+        } else {
+            // No shopId: filter by organization
+            if (user.role !== "SUPER_ADMIN" || user.organizationId) {
+                where.shop = { organizationId: user.organizationId };
+            }
+        }
 
         const sales = await prisma.sale.findMany({
             where,
@@ -27,7 +46,14 @@ export async function GET(req: Request) {
                 user: { select: { name: true, image: true } },
                 items: {
                     include: {
-                        product: { select: { name: true, modelNumber: true } }
+                        product: {
+                            select: {
+                                name: true,
+                                modelNumber: true,
+                                category: true,
+                                brand: true
+                            }
+                        }
                     }
                 }
             }

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
 import { processTransaction } from "@/lib/actions/transaction"; // 👈 New Server Action
 
 export default function MobilePOS() {
@@ -98,6 +99,11 @@ export default function MobilePOS() {
   };
 
   // --- CART LOGIC ---
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [newPrice, setNewPrice] = useState("");
+  const [priceReason, setPriceReason] = useState("");
+  const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
+
   const addToCart = (product: any) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -131,10 +137,50 @@ export default function MobilePOS() {
     }));
   };
 
+  const handlePriceUpdate = async () => {
+    if (!editingItem || !newPrice || !priceReason) return;
+    setIsUpdatingPrice(true);
+    try {
+      const res = await fetch('/api/products/update-price', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: editingItem.id,
+          newPrice: parseFloat(newPrice),
+          reason: priceReason
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Update local cart
+        setCart(prev => prev.map(item =>
+          item.id === editingItem.id ? { ...item, priceGHS: data.data.sellingPrice } : item
+        ));
+        // Update inventory
+        setInventory(prev => prev.map(item =>
+          item.id === editingItem.id ? { ...item, priceGHS: data.data.sellingPrice } : item
+        ));
+        toast.success("Price updated successfully.");
+        setEditingItem(null);
+        setNewPrice("");
+        setPriceReason("");
+      } else {
+        const errorData = await res.json();
+        toast.error(errorData.error || "Failed to update price.");
+      }
+    } catch (e) {
+      toast.error("Network error.");
+    } finally {
+      setIsUpdatingPrice(false);
+    }
+  };
+
   const cartTotal = cart.reduce((sum, item) => sum + (item.priceGHS * item.cartQty), 0);
 
   // --- CHECKOUT LOGIC ---
   const handleCheckout = async () => {
+    // ... existing logic ...
     if (cart.length === 0) return;
     setIsProcessing(true);
 
@@ -169,7 +215,10 @@ export default function MobilePOS() {
         setView('SUCCESS');
         setCart([]);
         if (identity?.shopId) {
-          fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`).then(r => r.json()).then(d => setInventory(d));
+          fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`).then(r => r.json()).then(d => {
+            if (d.data) setInventory(d.data);
+            else setInventory(Array.isArray(d) ? d : []);
+          });
         }
       } else {
         alert(`⚠️ TRANSACTION FAILED\n\n${(result as any).error}`);
@@ -217,6 +266,55 @@ export default function MobilePOS() {
 
   return (
     <div className="min-h-screen flex flex-col pb-24 bg-slate-50 text-slate-900 font-sans">
+      {/* PRICE EDIT MODAL */}
+      {editingItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-black text-slate-900 mb-2">Adjust Price</h3>
+            <p className="text-xs text-slate-400 font-bold uppercase mb-6 tracking-wide">{editingItem.productName}</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">New Price (GHS)</label>
+                <input
+                  type="number"
+                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500"
+                  value={newPrice}
+                  onChange={e => setNewPrice(e.target.value)}
+                  placeholder="e.g. 150"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Reason for Change</label>
+                <textarea
+                  className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-blue-500 resize-none"
+                  value={priceReason}
+                  onChange={e => setPriceReason(e.target.value)}
+                  placeholder="e.g. Bulk discount, seasonal promo..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setEditingItem(null)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePriceUpdate}
+                  disabled={isUpdatingPrice || !newPrice || !priceReason}
+                  className="flex-2 py-4 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
+                >
+                  {isUpdatingPrice ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Change"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HEADER */}
       <div className="px-6 pt-8 pb-4 bg-white shadow-sm border-b border-slate-100 mb-4 sticky top-0 z-20">
@@ -253,13 +351,13 @@ export default function MobilePOS() {
         </div>
       </div>
 
-      {/* 🎯 TARGET PROGRESS CARD */}
+      {/* 🎯 SALES TARGET PROGRESS CARD */}
       {identity?.targetProgress && (
         <div className="px-6 mb-6 animate-in slide-in-from-top-4 duration-700 delay-100">
           <div className="bg-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-slate-900/20 relative overflow-hidden">
             <div className="flex justify-between items-start mb-4 relative z-10">
               <div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Monthly Target</h3>
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Monthly Sales Target</h3>
                 <p className="text-lg font-black mt-1">
                   {Math.round((identity.targetProgress.achievedValue / identity.targetProgress.targetValue) * 100)}%
                   <span className="text-xs text-slate-500 font-bold ml-2">Completed</span>
@@ -384,11 +482,22 @@ export default function MobilePOS() {
           <div className="flex-1 space-y-4">
             {cart.map(item => (
               <div key={item.id} className="p-4 rounded-2xl border border-slate-200 bg-white flex justify-between items-center shadow-sm">
-                <div>
-                  <h4 className="font-bold text-sm text-slate-900">{item.productName}</h4>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="font-bold text-sm text-slate-900">{item.productName}</h4>
+                    <button
+                      onClick={() => {
+                        setEditingItem(item);
+                        setNewPrice(item.priceGHS.toString());
+                      }}
+                      className="p-1 px-2 border border-blue-100 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                    >
+                      Edit Price
+                    </button>
+                  </div>
                   <p className="text-xs text-slate-400 font-bold">₵ {item.priceGHS} x {item.cartQty}</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 ml-4">
                   <p className="font-black text-sm text-slate-900">₵ {(item.priceGHS * item.cartQty).toLocaleString()}</p>
                   <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-500 active:scale-90 transition-transform">
                     <Trash2 className="w-4 h-4" />

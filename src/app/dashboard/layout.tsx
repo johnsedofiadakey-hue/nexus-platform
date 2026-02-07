@@ -20,6 +20,7 @@ const navItems = [
   { icon: Users, label: "Team", path: "/dashboard/hr" },
   { icon: ShoppingBag, label: "Inventory", path: "/dashboard/inventory" },
   { icon: FileText, label: "Sales Register", path: "/dashboard/sales" },
+  { icon: ShieldCheck, label: "Admin", path: "/dashboard/admin" }, // 🆕 ADDED
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
 ];
 
@@ -57,7 +58,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
       </div>
     );
@@ -82,7 +83,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           <div className="h-20 flex items-center px-8 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-primary/20"
                 style={{ backgroundColor: theme.primaryColor || '#0f172a' }}
               >
                 {theme.logoUrl ? (
@@ -115,7 +116,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                 >
-                  <item.icon className={`w-4 h-4 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <item.icon className={`w-4 h-4 transition-colors ${isActive ? 'text-primary' : 'text-slate-400'}`} />
                   {item.label}
                   {item.label === "Inventory" && <span className="ml-auto w-2 h-2 rounded-full bg-rose-500"></span>}
                   {navigatingTo === item.path && <Loader2 className="absolute right-4 w-3.5 h-3.5 animate-spin text-slate-400" />}
@@ -161,7 +162,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-all active:scale-95 group/refresh ${isRefreshing ? 'opacity-70 cursor-wait' : ''}`}
               title="Refresh Global Data"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-400 group-hover/refresh:text-blue-500 transition-colors ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-400 group-hover/refresh:text-primary transition-colors ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover/refresh:text-slate-900">
                 {isRefreshing ? 'Refreshing...' : 'Sync'}
               </span>
