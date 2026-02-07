@@ -45,7 +45,7 @@ export default function GeofenceHistoryTable({ geofenceEvents }: GeofenceHistory
                 </span>
               </td>
               <td className="px-6 py-4 text-right text-[10px] font-mono text-slate-400">
-                {event.lat.toFixed(4)}, {event.lng.toFixed(4)}
+                {(event.lat || 0).toFixed(4)}, {(event.lng || 0).toFixed(4)}
               </td>
             </tr>
           ))}

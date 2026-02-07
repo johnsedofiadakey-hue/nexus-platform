@@ -244,7 +244,7 @@ export default function ShopDetailPortal() {
                       </p>
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <p className="font-mono font-bold text-slate-700">₵{item.sellingPrice?.toFixed(2)}</p>
+                      <p className="font-mono font-bold text-slate-700">₵{(item.sellingPrice || 0).toFixed(2)}</p>
                     </td>
                     <td className="px-5 py-3 text-center">
                       <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${item.stockLevel < 5 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-700 border-slate-200'

@@ -23,8 +23,12 @@ export default function AdminTargetWidget({ adminTarget, teamPerformance, onRefr
     period: "MONTHLY"
   });
 
-  const valueProgress = adminTarget ? Math.min((teamPerformance.totalSales / adminTarget.targetValue) * 100, 100) : 0;
-  const quantityProgress = adminTarget ? Math.min((teamPerformance.totalQuantity / adminTarget.targetQuantity) * 100, 100) : 0;
+  const valueProgress = adminTarget && teamPerformance?.totalSales != null && adminTarget.targetValue
+    ? Math.min((teamPerformance.totalSales / adminTarget.targetValue) * 100, 100)
+    : 0;
+  const quantityProgress = adminTarget && teamPerformance?.totalQuantity != null && adminTarget.targetQuantity
+    ? Math.min((teamPerformance.totalQuantity / adminTarget.targetQuantity) * 100, 100)
+    : 0;
 
   const handleCreateOrUpdate = async () => {
     setLoading(true);
@@ -153,7 +157,7 @@ export default function AdminTargetWidget({ adminTarget, teamPerformance, onRefr
                 <div className="flex items-center gap-1.5">
                   <TrendingUp size={12} className={valueProgress >= 100 ? 'text-emerald-600' : valueProgress >= 50 ? 'text-amber-600' : 'text-slate-400'} />
                   <p className={`text-sm font-bold ${valueProgress >= 100 ? 'text-emerald-600' : valueProgress >= 50 ? 'text-amber-600' : 'text-slate-900'}`}>
-                    {valueProgress.toFixed(1)}%
+                    {(valueProgress || 0).toFixed(1)}%
                   </p>
                 </div>
               </div>
@@ -180,7 +184,7 @@ export default function AdminTargetWidget({ adminTarget, teamPerformance, onRefr
                   </p>
                 </div>
                 <p className={`text-sm font-bold ${quantityProgress >= 100 ? 'text-emerald-600' : quantityProgress >= 50 ? 'text-amber-600' : 'text-slate-900'}`}>
-                  {quantityProgress.toFixed(1)}%
+                  {(quantityProgress || 0).toFixed(1)}%
                 </p>
               </div>
               <div className="h-2 bg-slate-100 border border-slate-200 overflow-hidden">

@@ -106,24 +106,24 @@ export default function ComplianceBoard({
                      <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
                         <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest block mb-1">On-Site Hours</span>
                         <div className="text-2xl font-black text-emerald-700">
-                           {attendance.reduce((acc: number, log: any) => {
+                           {(attendance.reduce((acc: number, log: any) => {
                               if (log.status !== 'OFF_SITE' && log.checkOut) {
                                  return acc + (new Date(log.checkOut).getTime() - new Date(log.checkIn).getTime()) / (1000 * 60 * 60);
                               }
                               return acc;
-                           }, 0).toFixed(1)}
+                           }, 0) || 0).toFixed(1)}
                            <span className="text-[10px] text-emerald-400 ml-1 font-bold">HRS</span>
                         </div>
                      </div>
                      <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
                         <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest block mb-1">Roaming / Field</span>
                         <div className="text-2xl font-black text-blue-700">
-                           {attendance.reduce((acc: number, log: any) => {
+                           {(attendance.reduce((acc: number, log: any) => {
                               if (log.status === 'OFF_SITE' && log.checkOut) {
                                  return acc + (new Date(log.checkOut).getTime() - new Date(log.checkIn).getTime()) / (1000 * 60 * 60);
                               }
                               return acc;
-                           }, 0).toFixed(1)}
+                           }, 0) || 0).toFixed(1)}
                            <span className="text-[10px] text-blue-400 ml-1 font-bold">HRS</span>
                         </div>
                      </div>

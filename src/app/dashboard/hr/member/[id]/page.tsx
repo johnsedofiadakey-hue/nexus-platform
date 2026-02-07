@@ -478,14 +478,14 @@ export default function MemberPortal() {
                             </div>
                             <div className="flex flex-col items-end">
                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Target Progress</p>
-                              <p className="text-2xl font-black text-blue-600">{aiInsight.metrics.revenueProgress.toFixed(1)}%</p>
+                              <p className="text-2xl font-black text-blue-600">{(aiInsight.metrics.revenueProgress || 0).toFixed(1)}%</p>
                             </div>
                           </div>
 
                           <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
                             <div
                               className="h-full bg-blue-600 transition-all duration-1000"
-                              style={{ width: `${aiInsight.metrics.revenueProgress}%` }}
+                              style={{ width: `${aiInsight.metrics.revenueProgress || 0}%` }}
                             />
                           </div>
 

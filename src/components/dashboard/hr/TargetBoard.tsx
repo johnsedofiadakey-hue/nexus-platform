@@ -237,9 +237,9 @@ export default function TargetBoard({ targets, userId, onRefresh }: TargetBoardP
                         {item.progress > 0 && (
                           <div className="mt-2 flex items-center gap-2 text-[10px]">
                             <BarChart3 size={12} className="text-blue-600" />
-                            <span className="font-bold text-slate-700">{item.progress.toFixed(1)}% Complete</span>
+                            <span className="font-bold text-slate-700">{(item.progress || 0).toFixed(1)}% Complete</span>
                             <span className="text-slate-400">•</span>
-                            <span className="text-slate-600">₵{item.achievedValue.toLocaleString()} / {item.achievedQuantity} units</span>
+                            <span className="text-slate-600">₵{(item.achievedValue || 0).toLocaleString()} / {item.achievedQuantity || 0} units</span>
                           </div>
                         )}
                       </div>

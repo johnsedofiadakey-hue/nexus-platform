@@ -46,8 +46,12 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
 
   const { targetValue, targetQuantity, achievedValue, achievedQuantity } = targetProgress;
   
-  const valueProgress = Math.min((achievedValue / targetValue) * 100, 100);
-  const quantityProgress = Math.min((achievedQuantity / targetQuantity) * 100, 100);
+  const valueProgress = targetValue > 0 && achievedValue != null
+    ? Math.min((achievedValue / targetValue) * 100, 100)
+    : 0;
+  const quantityProgress = targetQuantity > 0 && achievedQuantity != null
+    ? Math.min((achievedQuantity / targetQuantity) * 100, 100)
+    : 0;
   const overallProgress = (valueProgress + quantityProgress) / 2;
 
   return (
@@ -80,7 +84,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
             className="text-3xl font-black"
             style={{ color: getColorHex(accent) }}
           >
-            {overallProgress.toFixed(0)}%
+            {(overallProgress || 0).toFixed(0)}%
           </div>
         </div>
 
@@ -138,7 +142,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
               className="text-sm font-black"
               style={{ color: valueProgress >= 100 ? '#10b981' : valueProgress >= 50 ? '#f59e0b' : '#64748b' }}
             >
-              {valueProgress.toFixed(1)}%
+              {(valueProgress || 0).toFixed(1)}%
             </p>
           </div>
           <div className="h-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 overflow-hidden">
@@ -163,7 +167,7 @@ export default function MobileTargetView({ targetProgress, themeClasses, accent 
               className="text-sm font-black"
               style={{ color: quantityProgress >= 100 ? '#10b981' : quantityProgress >= 50 ? '#f59e0b' : '#64748b' }}
             >
-              {quantityProgress.toFixed(1)}%
+              {(quantityProgress || 0).toFixed(1)}%
             </p>
           </div>
           <div className="h-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 overflow-hidden">

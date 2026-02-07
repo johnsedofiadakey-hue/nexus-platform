@@ -30,8 +30,12 @@ export default function PerformanceBoard({ sales = [], dailyReports = [], target
    }, [sales, dailyReports]);
 
    // Target Progress
-   const revProgress = targetForm.monthlyRevenue > 0 ? Math.min(100, (stats.totalRevenue / targetForm.monthlyRevenue) * 100) : 0;
-   const volProgress = targetForm.monthlyVolume > 0 ? Math.min(100, (stats.totalVolume / targetForm.monthlyVolume) * 100) : 0;
+   const revProgress = targetForm.monthlyRevenue > 0 && stats.totalRevenue != null
+      ? Math.min(100, (stats.totalRevenue / targetForm.monthlyRevenue) * 100)
+      : 0;
+   const volProgress = targetForm.monthlyVolume > 0 && stats.totalVolume != null
+      ? Math.min(100, (stats.totalVolume / targetForm.monthlyVolume) * 100)
+      : 0;
 
    return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -76,7 +80,7 @@ export default function PerformanceBoard({ sales = [], dailyReports = [], target
                   <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden mb-2">
                      <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{ width: `${revProgress}%` }} />
                   </div>
-                  <p className="text-[10px] text-emerald-400 font-bold text-right">{revProgress.toFixed(1)}% Achieved</p>
+                  <p className="text-[10px] text-emerald-400 font-bold text-right">{(revProgress || 0).toFixed(1)}% Achieved</p>
                </div>
 
                {/* Volume Target */}
@@ -97,7 +101,7 @@ export default function PerformanceBoard({ sales = [], dailyReports = [], target
                   <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden mb-2">
                      <div className="bg-blue-500 h-full rounded-full transition-all duration-1000" style={{ width: `${volProgress}%` }} />
                   </div>
-                  <p className="text-[10px] text-blue-400 font-bold text-right">{volProgress.toFixed(1)}% Achieved</p>
+                  <p className="text-[10px] text-blue-400 font-bold text-right">{(volProgress || 0).toFixed(1)}% Achieved</p>
                </div>
             </div>
          </div>

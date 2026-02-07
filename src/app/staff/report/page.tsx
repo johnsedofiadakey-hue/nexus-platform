@@ -12,9 +12,9 @@ export default function DailyReportPage() {
   });
 
   // Business Logic: Auto-calculate conversion
-  const conversionRate = formData.walkIns > 0 
+  const conversionRate = formData.walkIns > 0 && formData.buyers != null
     ? ((formData.buyers / formData.walkIns) * 100).toFixed(1) 
-    : 0;
+    : '0';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

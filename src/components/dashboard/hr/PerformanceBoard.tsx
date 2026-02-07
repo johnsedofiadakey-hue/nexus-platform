@@ -23,7 +23,7 @@ export default function PerformanceBoard({
   const inquiries = dailyReports.reduce((acc: number, r: any) => acc + (r.inquiries || 0), 0);
   const actualSales = dailyReports.reduce((acc: number, r: any) => acc + (r.buyers || 0), 0);
 
-  const conversionRate = footTraffic > 0 ? ((actualSales / footTraffic) * 100) : 0;
+  const conversionRate = footTraffic > 0 && actualSales != null ? ((actualSales / footTraffic) * 100) : 0;
   const breachesCount = geofenceStats.reduce((acc: number, g: any) => acc + (g.breaches || 0), 0);
 
   return (
@@ -89,9 +89,9 @@ export default function PerformanceBoard({
                 <div className="p-2 bg-blue-500 rounded-xl text-white shadow-lg shadow-blue-500/20"><Zap size={16} className="animate-pulse" /></div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-400/80">Success Rate</span>
               </div>
-              <p className="text-3xl font-black text-white tracking-tighter">{conversionRate.toFixed(1)}%</p>
+              <p className="text-3xl font-black text-white tracking-tighter">{(conversionRate || 0).toFixed(1)}%</p>
               <div className="mt-4 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${conversionRate}%` }} />
+                <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${conversionRate || 0}%` }} />
               </div>
             </div>
           </div>
