@@ -3,26 +3,45 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json([], { status: 401 });
     }
 
-    // ✅ Resolve user safely via email
-    const user = await prisma.user.findUnique({
+    const { searchParams } = new URL(req.url);
+    const targetUserId = searchParams.get("userId");
+
+    // ✅ Resolve current user safely
+    const me = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true },
+      select: { id: true, role: true, organizationId: true },
     });
 
-    if (!user) {
+    if (!me) {
       return NextResponse.json([], { status: 401 });
+    }
+
+    // Determine whose messages we are looking at
+    let viewUserId = me.id;
+    if (targetUserId && (me.role === 'ADMIN' || me.role === 'SUPER_ADMIN' || me.role === 'MANAGER')) {
+      // Check tenant isolation for the target user if not super admin
+      if (me.role !== 'SUPER_ADMIN') {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: targetUserId },
+          select: { organizationId: true }
+        });
+        if (targetUser?.organizationId !== me.organizationId) {
+          return NextResponse.json({ error: "Access Denied" }, { status: 403 });
+        }
+      }
+      viewUserId = targetUserId;
     }
 
     const messages = await prisma.message.findMany({
       where: {
-        OR: [{ senderId: user.id }, { receiverId: user.id }],
+        OR: [{ senderId: viewUserId }, { receiverId: viewUserId }],
       },
       orderBy: { createdAt: "asc" },
       take: 100,
@@ -31,7 +50,7 @@ export async function GET() {
     return NextResponse.json(
       messages.map((m) => ({
         ...m,
-        direction: m.senderId === user.id ? "OUTGOING" : "INCOMING",
+        direction: m.senderId === viewUserId ? "OUTGOING" : "INCOMING",
       }))
     );
   } catch (error) {
@@ -62,7 +81,7 @@ export async function POST(req: Request) {
       // 1. Try to find the Shop Manager
       if (sender.shopId) {
         const manager = await prisma.user.findFirst({
-          where: { shopId: sender.shopId, role: 'MANAGER' } // OR ADMIN?
+          where: { shopId: sender.shopId, role: 'MANAGER' }
         });
         finalReceiverId = manager?.id;
       }

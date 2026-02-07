@@ -10,7 +10,7 @@ import {
   Smartphone, Fingerprint, ShieldCheck, Info,
   ChevronRight, Calendar, BarChart3, Clock,
   Map as MapIcon, Globe, Lock, FileText, Layout,
-  Brain, Sparkles, TrendingUp, Search, Target
+  Brain, Sparkles, TrendingUp, Search, Target, RefreshCw
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
@@ -46,6 +46,7 @@ export default function MemberPortal() {
   const [aiInsight, setAiInsight] = useState<any>(null);
   const [shops, setShops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true); // Default to visible
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState('OVERVIEW');
@@ -138,9 +139,12 @@ export default function MemberPortal() {
         });
       }
 
-    } catch (e) {
-      console.error("Nexus Sync Failure");
-      if (full) toast.error("Critical: Data link failed.");
+    } catch (e: any) {
+      console.error("Nexus Sync Failure", e);
+      if (full) {
+        setError(e.message || "Data Link Failure");
+        toast.error("Critical: Data link failed.");
+      }
     } finally {
       if (full) setLoading(false);
     }
@@ -207,10 +211,36 @@ export default function MemberPortal() {
     });
   };
 
-  if (!mounted || loading || !data) return (
+  if (!mounted || loading) return (
     <div className="h-screen w-full bg-[#FAFAFA] flex flex-col items-center justify-center">
       <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-4" />
       <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Acquiring Personnel Intel...</span>
+    </div>
+  );
+
+  if (error || !data) return (
+    <div className="h-screen w-full bg-[#FAFAFA] flex flex-col items-center justify-center p-8 text-center">
+      <div className="w-20 h-20 bg-rose-50 rounded-[2.5rem] flex items-center justify-center text-rose-500 mb-6 border border-rose-100 shadow-sm">
+        <AlertTriangle size={32} />
+      </div>
+      <h2 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight">Intelligence Link Severed</h2>
+      <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8 max-w-xs leading-relaxed">
+        {error || "Personnel record is currently unreachable or does not exist."}
+      </p>
+      <div className="flex gap-4">
+        <button
+          onClick={() => { setError(null); sync(true); }}
+          className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+        >
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Retry Uplink
+        </button>
+        <button
+          onClick={() => router.push('/dashboard/hr')}
+          className="px-8 py-4 bg-white text-slate-500 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-50 transition-all active:scale-95"
+        >
+          Return to Registry
+        </button>
+      </div>
     </div>
   );
 
