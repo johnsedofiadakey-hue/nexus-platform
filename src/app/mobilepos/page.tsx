@@ -219,7 +219,7 @@ export default function MobileGpsGate() {
     return distance <= shopData.radius;
   }, [distance, shopData]);
 
-  if (!mounted || status === "loading\" || contextLoading) {
+  if (!mounted || status === "loading" || contextLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center">
         <Loader2 className="animate-spin" size={32} />
