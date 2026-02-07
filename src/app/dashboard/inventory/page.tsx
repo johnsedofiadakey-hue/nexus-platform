@@ -20,6 +20,8 @@ import {
   Download
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function AdminInventoryPage() {
   // --- STATE ---
@@ -174,16 +176,48 @@ export default function AdminInventoryPage() {
           {/* DOWNLOAD */}
           <button
             onClick={() => {
-              const headers = ["Name,SKU,Hub,Stock,Price,Status"];
-              const rows = finalTableData.map(i => `${i.name},${i.sku || ""},${i.hub},${i.stock},${i.price},${i.status}`);
-              const csvContent = "data:text/csv;charset=utf-8," + headers.concat(rows).join("\n");
-              const encodedUri = encodeURI(csvContent);
-              const link = document.createElement("a");
-              link.setAttribute("href", encodedUri);
-              link.setAttribute("download", `nexus_national_inventory_${selectedHub.toLowerCase()}.csv`);
-              document.body.appendChild(link);
-              link.click();
-              toast.success("Inventory Exported");
+              try {
+                const doc = new jsPDF();
+
+                // Header
+                doc.setFontSize(18);
+                doc.setFont("helvetica", "bold");
+                doc.text("NATIONAL INVENTORY REPORT", 14, 20);
+
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 26);
+                doc.text(`Location: ${selectedHub === "ALL" ? "All Locations" : selectedHub}`, 14, 31);
+                doc.text(`Filter: ${filterType === "ALL" ? "All Items" : filterType === "FAST" ? "Fast Moving" : filterType === "SLOW" ? "Slow Moving" : "Low Stock"}`, 14, 36);
+                doc.text(`Total Items: ${finalTableData.length}`, 14, 41);
+
+                // Table data
+                const rows = finalTableData.map(item => [
+                  item.name || "N/A",
+                  item.sku || "-",
+                  item.hub || "Unknown",
+                  item.category || "General",
+                  item.price?.toLocaleString() || "0",
+                  item.stock?.toString() || "0",
+                  item.status || "OK"
+                ]);
+
+                autoTable(doc, {
+                  head: [['Product', 'SKU', 'Location', 'Category', 'Price (GHS)', 'Stock', 'Status']],
+                  body: rows,
+                  startY: 48,
+                  styles: { fontSize: 8, cellPadding: 2 },
+                  headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+                  alternateRowStyles: { fillColor: [248, 250, 252] },
+                  theme: 'grid'
+                });
+
+                doc.save(`Nexus_Inventory_${selectedHub}_${filterType}_${new Date().toISOString().split('T')[0]}.pdf`);
+                toast.success("PDF Downloaded Successfully");
+              } catch (e) {
+                console.error(e);
+                toast.error("Failed to generate PDF");
+              }
             }}
             className="h-12 px-5 bg-white border border-slate-200 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm active:scale-95"
           >

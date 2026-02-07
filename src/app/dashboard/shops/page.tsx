@@ -204,6 +204,7 @@ export default function AdminShopsPage() {
         // UPDATE MODE
         const res = await fetch(`/api/shops/${shopForm.id}`, {
           method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...shopForm, radius: parseInt(shopForm.radius) })
         });
         if (!res.ok) throw new Error("Update Failed");
@@ -212,6 +213,7 @@ export default function AdminShopsPage() {
         // CREATE MODE
         const res = await fetch("/api/shops/list", {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...shopForm, radius: parseInt(shopForm.radius) })
         });
         if (!res.ok) throw new Error("Creation Failed");

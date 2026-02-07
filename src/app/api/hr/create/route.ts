@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { requireAuth, handleApiError } from "@/lib/auth-helpers";
+import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
 
 /**
  * 🔐 NEXUS ENROLLMENT ENGINE
@@ -140,6 +141,22 @@ export async function POST(req: Request) {
     });
 
     console.log(`✅ Uplink Established: ${newUser.name} assigned to hub ${newUser.shop?.name || 'Mobile'}`);
+
+    // 📊 Log Activity
+    await logActivity({
+      userId: user.id,
+      userName: user.name || "Unknown",
+      userRole: user.role || "USER",
+      action: "USER_CREATED",
+      entity: "User",
+      entityId: newUser.id,
+      description: `Created new user "${newUser.name}" with role ${newUser.role}`,
+      metadata: { newUserId: newUser.id, newUserEmail: newUser.email, newUserRole: newUser.role, shopId: newUser.shopId },
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req),
+      shopId: newUser.shopId || undefined,
+      shopName: newUser.shop?.name || undefined
+    });
 
     return NextResponse.json({
       message: "Operative enrolled successfully",

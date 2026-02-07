@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-
+import { authOptions } from "@/lib/auth";import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
 export async function POST(req: Request) {
   try {
     // 🛡️ AUTH
@@ -67,6 +66,23 @@ export async function POST(req: Request) {
           // formulation: "FINISHED_GOOD", // Not in schema
         },
       });
+    });
+
+    // 📊 Log Activity
+    const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { name: true } });
+    await logActivity({
+      userId: session.user.id,
+      userName: session.user.name || "Unknown",
+      userRole: (session.user as any).role || "USER",
+      action: action === "ADD" ? "INVENTORY_ADDED" : "INVENTORY_SOLD",
+      entity: "Product",
+      entityId: result.id,
+      description: `${action === "ADD" ? "Added" : "Sold"} ${quantity} units of ${result.name} (SKU: ${sku})`,
+      metadata: { productId: result.id, sku, quantity, action },
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req),
+      shopId,
+      shopName: shop?.name || "Unknown Shop"
     });
 
     return NextResponse.json({ success: true, data: result });

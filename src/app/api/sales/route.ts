@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
 
 export const dynamic = 'force-dynamic';
 
@@ -125,6 +126,23 @@ export async function POST(req: Request) {
       });
 
       return sale;
+    });
+
+    // 📊 Log Activity
+    const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { name: true } });
+    await logActivity({
+      userId: session.user.id,
+      userName: session.user.name || "Unknown",
+      userRole: (session.user as any).role || "USER",
+      action: "SALE_CREATED",
+      entity: "Sale",
+      entityId: result.id,
+      description: `Recorded sale of GHS ${totalAmount.toFixed(2)} with ${items.length} item(s)`,
+      metadata: { saleId: result.id, totalAmount, itemCount: items.length, source },
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req),
+      shopId,
+      shopName: shop?.name || "Unknown Shop"
     });
 
     return NextResponse.json({ success: true, saleId: result.id });

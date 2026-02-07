@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
 
 // 🚀 Force dynamic fetching to ensure the list is always fresh
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,22 @@ export async function POST(req: Request) {
           connect: { id: session.user.organizationId }
         }
       },
+    });
+
+    // 📊 Log Activity
+    await logActivity({
+      userId: session.user.id,
+      userName: session.user.name || "Unknown",
+      userRole: (session.user as any).role || "USER",
+      action: "SHOP_CREATED",
+      entity: "Shop",
+      entityId: shop.id,
+      description: `Created shop "${name}" at ${location}`,
+      metadata: { shopId: shop.id, name, location, managerName },
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req),
+      shopId: shop.id,
+      shopName: name
     });
 
     return NextResponse.json(shop);

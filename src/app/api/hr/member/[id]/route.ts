@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import bcrypt from "bcryptjs";
-
+import bcrypt from "bcryptjs";import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
 // --- 🛰️ GET: SYNC COMPLETE MEMBER INTEL ---
 export async function GET(
   req: Request,
@@ -206,6 +205,21 @@ export async function PATCH(
         where: { id },
         data: updateData
       });
+
+      // 📊 Log Activity
+      await logActivity({
+        userId: session.user.id,
+        userName: session.user.name || "Unknown",
+        userRole: session.user.role || "USER",
+        action: "USER_UPDATED",
+        entity: "User",
+        entityId: id,
+        description: `Updated profile for "${updated.name}"`,
+        metadata: { targetUserId: id, changes: payload },
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req)
+      });
+
       return NextResponse.json({ success: true, data: updated });
     }
 
@@ -261,6 +275,21 @@ export async function DELETE(
 
     // First delete or unassign related records if Prisma relation isn't set to Cascade
     await prisma.user.delete({ where: { id } });
+
+    // 📊 Log Activity
+    await logActivity({
+      userId: session.user.id,
+      userName: session.user.name || "Unknown",
+      userRole: session.user.role || "USER",
+      action: "USER_DELETED",
+      entity: "User",
+      entityId: id,
+      description: `Deleted user "${targetUser.name}"`,
+      metadata: { deletedUserId: id, deletedUserName: targetUser.name, deletedUserEmail: targetUser.email },
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req)
+    });
+
     return NextResponse.json({ success: true });
 
   } catch (error: any) {

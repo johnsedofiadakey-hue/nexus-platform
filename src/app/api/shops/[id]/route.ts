@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
 
 // ----------------------------------------------------------------------
 // 1. GET: FETCH SHOP & INVENTORY
@@ -84,6 +85,22 @@ export async function PATCH(
         latitude: latitude ? parseFloat(latitude) : undefined,
         longitude: longitude ? parseFloat(longitude) : undefined,
       }
+    });
+
+    // 📊 Log Activity
+    await logActivity({
+      userId: session.user.id,
+      userName: session.user.name || "Unknown",
+      userRole: (session.user as any).role || "USER",
+      action: "SHOP_UPDATED",
+      entity: "Shop",
+      entityId: id,
+      description: `Updated shop details for "${name || shop.name}"`,
+      metadata: { shopId: id, changes: { name, location, managerName, managerContact, radius } },
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req),
+      shopId: id,
+      shopName: name || shop.name
     });
 
     return NextResponse.json({ success: true, data: shop });
@@ -279,6 +296,23 @@ export async function DELETE(
       if (!product) return NextResponse.json({ error: "Item not found in this shop" }, { status: 404 });
 
       await prisma.product.delete({ where: { id: body.id } });
+
+      // 📊 Log Activity
+      await logActivity({
+        userId: session.user.id,
+        userName: session.user.name || "Unknown",
+        userRole: (session.user as any).role || "USER",
+        action: "PRODUCT_DELETED",
+        entity: "Product",
+        entityId: body.id,
+        description: `Deleted product "${product.name}" from inventory`,
+        metadata: { productId: body.id, productName: product.name },
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+        shopId: id,
+        shopName: shopOwner.name
+      });
+
       return NextResponse.json({ success: true, message: "Item deleted" });
     }
 
@@ -297,7 +331,21 @@ export async function DELETE(
       }),
       prisma.shop.delete({ where: { id } })
     ]);
-
+    // 📊 Log Activity
+    await logActivity({
+      userId: session.user.id,
+      userName: session.user.name || "Unknown",
+      userRole: (session.user as any).role || "USER",
+      action: "SHOP_DELETED",
+      entity: "Shop",
+      entityId: id,
+      description: `Deleted shop "${shopOwner.name}" and all associated data`,
+      metadata: { shopId: id, shopName: shopOwner.name },
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req),
+      shopId: id,
+      shopName: shopOwner.name
+    });
     return NextResponse.json({ success: true, message: "Shop and all related data purged." });
 
   } catch (error: any) {
