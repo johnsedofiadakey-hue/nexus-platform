@@ -50,7 +50,7 @@ export default function AdminActivityDashboard() {
                         <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-lg">
                             <ShieldCheck className="w-6 h-6 text-blue-400" />
                         </div>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Master Activity Logs</h1>
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Master Activity Log</h1>
                     </div>
                     <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
                         <Activity className="w-3 h-3 text-emerald-500 animate-pulse" /> Live System Audit Trail
@@ -123,8 +123,8 @@ export default function AdminActivityDashboard() {
                                         <td className="px-8 py-5">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${log.action.includes('CREATE') ? 'bg-emerald-50 text-emerald-600' :
-                                                        log.action.includes('DELETE') ? 'bg-rose-50 text-rose-600' :
-                                                            'bg-blue-50 text-blue-600'
+                                                    log.action.includes('DELETE') ? 'bg-rose-50 text-rose-600' :
+                                                        'bg-blue-50 text-blue-600'
                                                     }`}>
                                                     <Database className="w-4 h-4" />
                                                 </div>

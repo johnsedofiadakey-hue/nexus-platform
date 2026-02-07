@@ -20,7 +20,7 @@ const navItems = [
   { icon: Users, label: "Team", path: "/dashboard/hr" },
   { icon: ShoppingBag, label: "Inventory", path: "/dashboard/inventory" },
   { icon: FileText, label: "Sales Register", path: "/dashboard/sales" },
-  { icon: ShieldCheck, label: "Admin", path: "/dashboard/admin" }, // 🆕 ADDED
+  { icon: ShieldCheck, label: "Master Activity Log", path: "/dashboard/admin" }, // 🆕 RENAMED
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
 ];
 

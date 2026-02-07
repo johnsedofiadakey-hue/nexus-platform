@@ -137,6 +137,17 @@ export async function PATCH(
         ssnitNumber: payload.ssnitNumber || null,
       };
 
+      // 🏆 Sync Organization if Shop is changed
+      if (payload.shopId && payload.shopId !== targetUser.shopId) {
+        const newShop = await prisma.shop.findUnique({
+          where: { id: payload.shopId },
+          select: { organizationId: true }
+        });
+        if (newShop) {
+          updateData.organizationId = newShop.organizationId;
+        }
+      }
+
       if (payload.commencementDate) {
         const parsedDate = new Date(payload.commencementDate);
         if (!isNaN(parsedDate.getTime())) {
