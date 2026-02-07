@@ -53,12 +53,25 @@ export async function GET(
       include.disciplinary = { take: 30, orderBy: { createdAt: 'desc' } };
     }
 
-    const user = await prisma.user.findFirst({
+    // Add query timeout protection
+    const queryPromise = prisma.user.findFirst({
       where: whereClause,
       include
     });
 
-    if (!user) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Database query timeout')), 10000)
+    );
+
+    const user = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+    if (!user) {
+      console.log(`Member not found with ID: ${id}`);
+      return NextResponse.json({ 
+        error: "Member not found",
+        details: `No agent found with ID: ${id}. Check if this person exists in your organization.`
+      }, { status: 404 });
+    }
 
     const disciplinaryLog = user.disciplinary || [];
 
