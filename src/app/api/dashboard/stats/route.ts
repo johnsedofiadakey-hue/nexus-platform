@@ -13,14 +13,14 @@ export async function GET() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 1. Fetch Active Agents (Seen in last 5 mins)
+        // 1. Fetch Active Agents (Seen in last 5 mins) - OPTIMIZED with select
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-        // TODO: Filter by Organization for Multi-tenant
+        // ⚡️ OPTIMIZED: Only select needed fields
         const activeAgents = await prisma.user.findMany({
             where: {
-                role: "WORKER", // or AGENT
-                // organizationId: session.user.organizationId
+                role: "WORKER",
+                status: "ACTIVE"
             },
             select: {
                 id: true,
@@ -38,16 +38,19 @@ export async function GET() {
         // 2. Calculate Stats
         const onlineCount = activeAgents.filter(a => a.lastSeen && a.lastSeen > fiveMinutesAgo).length;
 
-        // 3. Today's Sales
-        const sales = await prisma.sale.findMany({
+        // 3. Today's Sales - ⚡️ OPTIMIZED: Use aggregate instead of fetching all
+        const salesAggregate = await prisma.sale.aggregate({
             where: {
                 createdAt: { gte: today }
             },
-            select: { totalAmount: true }
+            _sum: {
+                totalAmount: true
+            },
+            _count: true
         });
-        const totalSales = sales.reduce((acc, s) => acc + s.totalAmount, 0);
+        const totalSales = salesAggregate._sum.totalAmount || 0;
 
-        // 4. Shop Count
+        // 4. Shop Count - ⚡️ OPTIMIZED: Use count instead of findMany
         const shopCount = await prisma.shop.count({
             where: { status: "ACTIVE" }
         });

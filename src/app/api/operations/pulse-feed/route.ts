@@ -13,33 +13,109 @@ export async function GET() {
       : { organizationId: user.organizationId };
 
     const alerts = [];
-
-    // 1. DETECT "GHOST" WORKERS (Logged in but no sales in 4 hours)
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
-    const ghosts = await prisma.user.findMany({
-      where: {
-        ...orgFilter,
-        role: "WORKER",
-        attendance: {
-          some: {
-            checkOut: null,
-            checkIn: { lte: fourHoursAgo }
+    // ⚡️ OPTIMIZED: Execute all queries in parallel for speed
+    const [ghosts, lowStock, bigSales, attendances, reports] = await Promise.all([
+      // 1. DETECT "GHOST" WORKERS (Logged in but no sales in 4 hours)
+      prisma.user.findMany({
+        where: {
+          ...orgFilter,
+          role: "WORKER",
+          status: "ACTIVE",
+          attendance: {
+            some: {
+              checkOut: null,
+              checkIn: { lte: fourHoursAgo }
+            }
+          },
+          sales: {
+            none: {
+              createdAt: { gte: fourHoursAgo }
+            }
           }
         },
-        sales: {
-          none: {
-            createdAt: { gte: fourHoursAgo }
+        select: {
+          id: true,
+          name: true,
+          shop: { select: { name: true } }
+        },
+        take: 5
+      }),
+
+      // 2. DETECT LOW STOCK - ⚡️ OPTIMIZED with select
+      prisma.product.findMany({
+        where: {
+          stockLevel: { lte: 5 },
+          shop: orgFilter
+        },
+        select: {
+          id: true,
+          name: true,
+          stockLevel: true,
+          shop: { select: { name: true } }
+        },
+        take: 3
+      }),
+
+      // 3. DETECT HIGH VALUE SALES - ⚡️ OPTIMIZED with select
+      prisma.sale.findMany({
+        where: {
+          shop: orgFilter,
+          createdAt: { gte: fourHoursAgo } // Only recent sales for performance
+        },
+        select: {
+          id: true,
+          totalAmount: true,
+          createdAt: true,
+          user: { select: { name: true } },
+          shop: { select: { name: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      }),
+
+      // 4. DETECT RECENT CHECK-INS - ⚡️ OPTIMIZED with select
+      prisma.attendance.findMany({
+        where: {
+          checkOut: null,
+          checkIn: { gte: fourHoursAgo }, // Only recent check-ins
+          user: orgFilter
+        },
+        select: {
+          id: true,
+          checkIn: true,
+          user: {
+            select: {
+              name: true,
+              shop: { select: { name: true } }
+            }
           }
-        }
-      },
-      select: {
-        id: true,
-        name: true,
-        shop: { select: { name: true } }
-      },
-      take: 5
-    });
+        },
+        orderBy: { checkIn: 'desc' },
+        take: 5
+      }),
+
+      // 5. RECENT FIELD REPORTS - ⚡️ OPTIMIZED with select
+      prisma.dailyReport.findMany({
+        where: {
+          user: orgFilter,
+          createdAt: { gte: fourHoursAgo } // Only recent reports
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          user: {
+            select: {
+              name: true,
+              shop: { select: { name: true } }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      })
+    ]);
 
     // Format Ghost Alerts
     ghosts.forEach(ghost => {
@@ -54,16 +130,7 @@ export async function GET() {
       });
     });
 
-    // 2. DETECT LOW STOCK (Using your schema's 'stockLevel' and 'minStock')
-    const lowStock = await prisma.product.findMany({
-      where: {
-        stockLevel: { lte: 5 },
-        shop: orgFilter // Filter by organization
-      },
-      include: { shop: true },
-      take: 3
-    });
-
+    // Format Low Stock Alerts
     lowStock.forEach(item => {
       alerts.push({
         id: `stock-${item.id}`,
@@ -76,19 +143,7 @@ export async function GET() {
       });
     });
 
-    // 3. DETECT HIGH VALUE SALES (Live Ticker)
-    const bigSales = await prisma.sale.findMany({
-      where: {
-        shop: orgFilter // Filter by organization
-      },
-      include: {
-        user: true,
-        shop: true
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 5
-    });
-
+    // Format Sale Events
     bigSales.forEach(sale => {
       alerts.push({
         id: `sale-${sale.id}`,
@@ -101,21 +156,7 @@ export async function GET() {
       });
     });
 
-    // 4. DETECT RECENT CHECK-INS
-    const attendances = await prisma.attendance.findMany({
-      where: {
-        checkOut: null,
-        user: orgFilter // Filter by organization
-      },
-      include: {
-        user: {
-          include: { shop: true }
-        }
-      },
-      orderBy: { checkIn: 'desc' },
-      take: 5
-    });
-
+    // Format Attendance Events
     attendances.forEach(a => {
       alerts.push({
         id: `att-${a.id}`,
@@ -128,20 +169,7 @@ export async function GET() {
       });
     });
 
-    // 5. RECENT FIELD REPORTS
-    const reports = await prisma.dailyReport.findMany({
-      where: {
-        user: orgFilter // Filter by organization
-      },
-      include: {
-        user: {
-          include: { shop: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 5
-    });
-
+    // Format Report Events
     reports.forEach(r => {
       alerts.push({
         id: `report-${r.id}`,

@@ -189,6 +189,11 @@ model User {
 
   @@index([shopId])
   @@index([organizationId])
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([role, status])
+  @@index([lastSeen])
 }
 
 // --- 3. INVENTORY ---
@@ -407,6 +412,9 @@ model LeaveRequest {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([status])
+  @@index([userId, status])
+  @@index([startDate, endDate])
 }
 
 model DisciplinaryRecord {
@@ -452,6 +460,8 @@ model Message {
 
   @@index([senderId])
   @@index([receiverId])
+  @@index([receiverId, isRead])
+  @@index([createdAt])
 }
 
 // --- 8. SYSTEM NOTIFICATIONS ---
@@ -470,4 +480,6 @@ model Notification {
 
   @@index([organizationId])
   @@index([isRead])
+  @@index([organizationId, isRead])
+  @@index([createdAt])
 }

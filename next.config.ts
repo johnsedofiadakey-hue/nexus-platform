@@ -30,23 +30,23 @@ const nextConfig: NextConfig = {
     },
 
     /**
-     * 🧪 Experimental (CLEANED)
+     * 🧪 Experimental - Performance Optimizations
      */
     experimental: {
         serverActions: {
             allowedOrigins: ["localhost:3000", "192.168.100.216", "*.vercel.app"],
         },
 
-        /**
-         * ❌ REMOVED react-leaflet
-         * It causes hydration + ref reuse issues
-         */
-        // optimizePackageImports: [
-        //     "lucide-react",
-        //     "framer-motion",
-        //     "recharts",
-        //     "geolib",
-        // ],
+        // ⚡️ OPTIMIZATION: Tree-shake large packages
+        optimizePackageImports: [
+            "lucide-react",
+            "framer-motion",
+            "recharts",
+            "date-fns",
+        ],
+
+        // ⚡️ OPTIMIZATION: Parallel route processing
+        ppr: false, // Keep false unless you need partial prerendering
     },
 
     /**

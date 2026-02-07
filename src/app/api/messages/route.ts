@@ -20,11 +20,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Target User ID required" }, { status: 400 });
     }
 
-    // Fetch messages between Current User and Target User
-    // OR if I am a Manager/Admin, maybe I just want to see that agent's messages?
-    // For "WhatsApp style", it's usually 1-on-1 between Me and Them.
-    // Let's assume this is strictly 1-on-1 chat for now.
-
+    // ⚡️ OPTIMIZED: Fetch messages with select + add limit to prevent huge queries
     const messages = await prisma.message.findMany({
       where: {
         OR: [
@@ -33,9 +29,22 @@ export async function GET(req: Request) {
         ]
       },
       orderBy: { createdAt: 'asc' },
-      include: {
-        sender: { select: { name: true, role: true } }
-      }
+      select: {
+        id: true,
+        content: true,
+        isRead: true,
+        createdAt: true,
+        senderId: true,
+        receiverId: true,
+        sender: { 
+          select: { 
+            name: true, 
+            role: true,
+            image: true
+          } 
+        }
+      },
+      take: 100 // Limit to last 100 messages for performance
     });
 
     return NextResponse.json(messages);

@@ -43,11 +43,20 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const skip = (page - 1) * limit;
 
+    // ⚡️ OPTIMIZED: Parallel fetch with select for speed
     const [total, products] = await Promise.all([
       prisma.product.count({ where: whereClause }),
       prisma.product.findMany({
         where: whereClause,
-        include: {
+        select: {
+          id: true,
+          name: true,
+          barcode: true,
+          sellingPrice: true,
+          stockLevel: true,
+          category: true,
+          minStock: true,
+          shopId: true,
           shop: { select: { name: true } }
         },
         orderBy: { name: 'asc' },

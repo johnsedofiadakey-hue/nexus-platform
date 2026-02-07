@@ -14,17 +14,30 @@ export async function GET(req: Request) {
       return NextResponse.json([]); // Return empty array instead of crashing
     }
 
-    // 🚀 OPTIMIZATION: Only fetch the last 50 sales to prevent timeout
+    // ⚡️ OPTIMIZED: Only fetch the last 50 sales with select for speed
     const sales = await prisma.sale.findMany({
       where: { userId },
       take: 50,
       orderBy: { createdAt: 'desc' },
-      include: {
+      select: {
+        id: true,
+        totalAmount: true,
+        amountPaid: true,
+        paymentMethod: true,
+        status: true,
+        createdAt: true,
         shop: {
           select: { name: true }
         },
-        _count: {
-          select: { items: true }
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            product: {
+              select: { name: true }
+            }
+          }
         }
       }
     });

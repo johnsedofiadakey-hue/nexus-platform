@@ -15,34 +15,48 @@ export async function GET() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // ⚡️ OPTIMIZED: Fetch agents with only required fields
         const agents = await prisma.user.findMany({
             where: {
                 organizationId: session.user.organizationId,
                 role: { in: ['WORKER', 'MANAGER'] },
                 status: 'ACTIVE'
             },
-            include: {
-                shop: { select: { name: true } },
-                _count: {
-                    select: {
-                        sales: { where: { createdAt: { gte: today } } }
-                    }
+            select: {
+                id: true,
+                name: true,
+                role: true,
+                lastSeen: true,
+                shop: { 
+                    select: { 
+                        name: true 
+                    } 
                 },
-                // Fetch today's sales sum? Prisma aggregate is separate...
-                // For list view, maybe count is enough, or we do a separate grouped query.
-                // Let's keep it simple: Count of sales today.
-
                 attendance: {
                     where: { date: { gte: today } },
                     orderBy: { checkIn: 'desc' },
-                    take: 1
+                    take: 1,
+                    select: {
+                        checkIn: true,
+                        checkOut: true
+                    }
                 }
             },
             orderBy: { name: 'asc' }
         });
 
-        // 2. Calculate Sales Volume separately if needed (Aggregate)
-        // For now, let's just return the list with sale count.
+        // ⚡️ OPTIMIZED: Batch fetch sales counts for all agents
+        const salesCounts = await prisma.sale.groupBy({
+            by: ['userId'],
+            where: {
+                userId: { in: agents.map(a => a.id) },
+                createdAt: { gte: today }
+            },
+            _count: true
+        });
+
+        // Create a map for quick lookup
+        const salesMap = new Map(salesCounts.map(s => [s.userId, s._count]));
 
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
@@ -57,7 +71,7 @@ export async function GET() {
                 shopName: agent.shop?.name || "Unassigned",
                 isOnline,
                 lastSeen: agent.lastSeen,
-                salesToday: agent._count.sales,
+                salesToday: salesMap.get(agent.id) || 0,
                 attendanceStatus: lastAttendance
                     ? (lastAttendance.checkOut ? 'CLOCKED_OUT' : 'CLOCKED_IN')
                     : 'ABSENT',
