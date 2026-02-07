@@ -13,10 +13,6 @@ export async function POST(req: Request) {
     // 🔐 Require authentication
     const user = await requireAuth();
 
-    if (!user.organizationId) {
-      return NextResponse.json({ error: "Organization required" }, { status: 400 });
-    }
-
     const body = await req.json();
     const {
       name,
@@ -36,6 +32,33 @@ export async function POST(req: Request) {
       commencementDate
     } = body;
 
+    // 🏆 Determine Target Organization
+    // If shopId is provided, the user MUST belong to that shop's organization.
+    // Otherwise, they belong to the creator's organization.
+    let targetOrgId = user.organizationId;
+
+    if (shopId) {
+      const shop = await prisma.shop.findUnique({
+        where: { id: shopId },
+        select: { organizationId: true }
+      });
+
+      if (!shop) {
+        return NextResponse.json({ error: "Operational Hub not found." }, { status: 404 });
+      }
+
+      // Security: Creator must either be a Super Admin or belong to the same organization as the shop
+      if (user.role !== "SUPER_ADMIN" && shop.organizationId !== user.organizationId) {
+        return NextResponse.json({ error: "Access Denied: You do not have authority over this hub." }, { status: 403 });
+      }
+
+      targetOrgId = shop.organizationId;
+    }
+
+    if (!targetOrgId) {
+      return NextResponse.json({ error: "Organization Context Required: Please assign a hub or ensure your profile is linked to an organization." }, { status: 400 });
+    }
+
     // 1. DATA VALIDATION: Strict verification of core identity markers
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -45,7 +68,6 @@ export async function POST(req: Request) {
     }
 
     // 2. DUPLICATE CHECK: Normalize email to prevent duplicate entries
-    // Also check if user exists in ANY org (email must be unique globally in NextAuth usually)
     const normalizedEmail = email.toLowerCase().trim();
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail }
@@ -78,25 +100,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // 🏢 VERIFY SHOP OWNERSHIP (if shopId provided)
-    if (shopId) {
-      const shop = await prisma.shop.findUnique({
-        where: { id: shopId },
-        select: { organizationId: true }
-      });
-
-      if (!shop || shop.organizationId !== user.organizationId) {
-        return NextResponse.json(
-          { error: "Invalid shop: Shop does not belong to your organization" },
-          { status: 403 }
-        );
-      }
-    }
-
     // 5. ATOMIC PERSISTENCE: Save Operative to Database
     const newUser = await prisma.user.create({
       data: {
-        organization: { connect: { id: user.organizationId } }, // 🔐 TENANT LINK
+        organization: { connect: { id: targetOrgId } }, // 🔐 TENANT LINK
         name: name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
