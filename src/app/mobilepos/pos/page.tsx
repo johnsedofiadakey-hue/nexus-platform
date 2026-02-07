@@ -68,18 +68,23 @@ export default function MobilePOS() {
         return prev;
       }
 
+      // 🚀 OPTIMISTIC UPDATE: Update cart immediately
       if (existing) {
         return prev.map(item => item.id === product.id ? { ...item, cartQty: item.cartQty + 1 } : item);
       }
       return [...prev, { ...product, cartQty: 1 }];
     });
+    
+    // No API call needed - cart is local state
   }, []);
 
   const removeFromCart = useCallback((itemId: string) => {
+    // 🚀 OPTIMISTIC UPDATE: Remove immediately
     setCart(prev => prev.filter(item => item.id !== itemId));
   }, []);
 
   const updateQty = useCallback((itemId: string, delta: number) => {
+    // 🚀 OPTIMISTIC UPDATE: Update quantity immediately
     setCart(prev => prev.map(item => {
       if (item.id === itemId) {
         const newQty = item.cartQty + delta;

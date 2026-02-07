@@ -41,11 +41,19 @@ export async function processTransaction(
         const sale = await prisma.$transaction(async (tx) => {
             const saleLines = [];
 
+            // 🚀 OPTIMIZED: Batch fetch all products (eliminates N+1 query problem)
+            const productIds = items.map(item => item.productId);
+            const products = await tx.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, name: true, stockLevel: true }
+            });
+
+            // Create product map for O(1) lookup
+            const productMap = new Map(products.map(p => [p.id, p]));
+
+            // Validate all items first
             for (const item of items) {
-                // A. Check Stock
-                const product = await tx.product.findUnique({
-                    where: { id: item.productId }
-                });
+                const product = productMap.get(item.productId);
 
                 if (!product) {
                     console.error(`❌ Product Not Found: ${item.productId}`);
@@ -59,20 +67,22 @@ export async function processTransaction(
 
                 console.log(`✅ Stock Check Passed: ${product.name} (Deducting: ${item.quantity})`);
 
-                // B. Decrement Stock
-                await tx.product.update({
-                    where: { id: item.productId },
-                    data: { stockLevel: { decrement: item.quantity } }
-                });
-
-                // C. Prepare Line Item (STRICT TYPE MAPPING)
-                // Explicitly constructing query to avoid "productName" injection
                 saleLines.push({
                     productId: item.productId,
                     quantity: item.quantity,
                     price: item.price
                 });
             }
+
+            // 🚀 OPTIMIZED: Batch update all products in parallel
+            await Promise.all(
+                items.map(item =>
+                    tx.product.update({
+                        where: { id: item.productId },
+                        data: { stockLevel: { decrement: item.quantity } }
+                    })
+                )
+            );
 
             // D. Create Sale Record
             const createdSale = await tx.sale.create({

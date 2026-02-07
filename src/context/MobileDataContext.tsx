@@ -64,8 +64,21 @@ const CACHE_KEYS = {
   LAST_SYNC: 'nexus_mobile_last_sync'
 };
 
-const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
-const SYNC_INTERVAL = 30 * 1000; // 30 seconds background sync
+// 🚀 OPTIMIZED: Tiered cache strategy
+const CACHE_DURATION = {
+  IDENTITY: 30 * 60 * 1000,    // 30 minutes (rarely changes)
+  INVENTORY: 5 * 60 * 1000,    // 5 minutes (changes occasionally)
+  GPS: 24 * 60 * 60 * 1000     // 24 hours (static)
+};
+
+// 🚀 OPTIMIZED: Smart sync intervals based on visibility
+const SYNC_INTERVAL = {
+  ACTIVE: 2 * 60 * 1000,       // 2 minutes when tab active
+  BACKGROUND: 10 * 60 * 1000   // 10 minutes when tab hidden
+};
+
+// Request deduplication cache
+const activeRequests = new Map<string, Promise<any>>();
 
 export function MobileDataProvider({ children }: { children: React.ReactNode }) {
   const [identity, setIdentity] = useState<MobileIdentity | null>(null);
@@ -76,7 +89,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
   const syncIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const previousShopIdRef = useRef<string | null>(null);
 
-  // 📦 LOAD FROM CACHE
+  // 📦 OPTIMIZED: Load from cache with tiered TTL
   const loadFromCache = useCallback(() => {
     try {
       const cachedIdentity = localStorage.getItem(CACHE_KEYS.IDENTITY);
@@ -87,11 +100,19 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         const syncTime = new Date(cachedSync);
         const age = Date.now() - syncTime.getTime();
 
-        if (age < CACHE_DURATION) {
-          setIdentity(JSON.parse(cachedIdentity));
-          setInventory(JSON.parse(cachedInventory));
+        // Use inventory cache duration (5 minutes)
+        if (age < CACHE_DURATION.INVENTORY) {
+          const parsedIdentity = JSON.parse(cachedIdentity);
+          const parsedInventory = JSON.parse(cachedInventory);
+          
+          setIdentity(parsedIdentity);
+          setInventory(parsedInventory);
           setLastSync(syncTime);
+          
+          console.log(`✅ Cache loaded (age: ${Math.round(age/1000)}s)`);
           return true;
+        } else {
+          console.log(`⏰ Cache expired (age: ${Math.round(age/1000)}s, max: ${CACHE_DURATION.INVENTORY/1000}s)`);
         }
       }
     } catch (e) {
@@ -113,118 +134,152 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
-  // 🔄 REFRESH INVENTORY ONLY (Fast)
+  // 🔄 OPTIMIZED: Refresh inventory with request deduplication
   const refreshInventory = useCallback(async () => {
     if (!identity?.shopId) return;
 
+    const cacheKey = `inventory-${identity.shopId}`;
+    
+    // Check if request already in flight
+    if (activeRequests.has(cacheKey)) {
+      console.log('⏩ Deduplicating inventory request');
+      return activeRequests.get(cacheKey);
+    }
+
     try {
-      const res = await fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`);
-      if (res.ok) {
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : (data.data || []);
-        
-        setInventory(items);
-        
-        // Update cache
-        if (identity) {
-          saveToCache(identity, items);
-        }
-      } else {
-        console.warn('Background inventory sync failed:', res.status);
-      }
-    } catch (e) {
-      console.error('Inventory sync failed:', e);
+      const requestPromise = fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`)
+        .then(res => {
+          if (res.ok) {
+            return res.json();
+          }
+          throw new Error(`HTTP ${res.status}`);
+        })
+        .then(data => {
+          const items = Array.isArray(data) ? data : (data.data || []);
+          setInventory(items);
+          
+          // Update cache
+          if (identity) {
+            saveToCache(identity, items);
+          }
+          return items;
+        })
+        .finally(() => {
+          activeRequests.delete(cacheKey);
+        });
+      
+      activeRequests.set(cacheKey, requestPromise);
+      await requestPromise;
+    } catch (e: any) {
+      console.warn('⚠️ Background inventory sync failed:', e.message);
       // Don't set error state for background sync failures
     }
   }, [identity, saveToCache]);
 
-  // 🔄 FULL DATA REFRESH
+  // 🔄 FULL DATA REFRESH WITH REQUEST DEDUPLICATION
   const refreshData = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
     setError(null);
 
+    const cacheKey = 'mobile-init';
+    
+    // Check if request already in flight
+    if (activeRequests.has(cacheKey)) {
+      console.log('⏩ Deduplicating init request');
+      return activeRequests.get(cacheKey);
+    }
+
     try {
       // Parallel fetch for speed
       console.log('📡 Mobile Init: Fetching assignment data...');
-      const initRes = await fetch(`/api/mobile/init?t=${Date.now()}`, { credentials: 'include' });
       
-      if (!initRes.ok) {
-        if (initRes.status === 401) {
-          console.error('❌ Mobile Init: Authentication failed');
-          throw new Error('AUTH_FAILED');
+      const requestPromise = (async () => {
+        const initRes = await fetch(`/api/mobile/init?t=${Date.now()}`, { credentials: 'include' });
+        
+        if (!initRes.ok) {
+          if (initRes.status === 401) {
+            console.error('❌ Mobile Init: Authentication failed');
+            throw new Error('AUTH_FAILED');
+          }
+          if (initRes.status === 409) {
+            // User is not assigned to a shop
+            console.error('❌ Mobile Init: No shop assignment');
+            setError('NO_SHOP_ASSIGNED');
+            toast.error('No shop assigned. Contact your manager.', { duration: 5000 });
+            setLoading(false);
+            return;
+          }
+          console.error(`❌ Mobile Init: Failed with status ${initRes.status}`);
+          throw new Error('Init failed');
         }
-        if (initRes.status === 409) {
-          // User is not assigned to a shop
-          console.error('❌ Mobile Init: No shop assignment');
+
+        const initData = await initRes.json();
+        console.log('✅ Mobile Init: Assignment data received', {
+          shopId: initData.shopId,
+          shopName: initData.shopName,
+          hasGPS: !!(initData.shopLat && initData.shopLng)
+        });
+
+        if (!initData.shopId) {
+          console.error('❌ Mobile Init: Response missing shopId');
           setError('NO_SHOP_ASSIGNED');
-          toast.error('No shop assigned. Contact your manager.', { duration: 5000 });
+          toast.error('Invalid shop assignment. Please contact support.', { duration: 5000 });
           setLoading(false);
           return;
         }
-        console.error(`❌ Mobile Init: Failed with status ${initRes.status}`);
-        throw new Error('Init failed');
-      }
 
-      const initData = await initRes.json();
-      console.log('✅ Mobile Init: Assignment data received', {
-        shopId: initData.shopId,
-        shopName: initData.shopName,
-        hasGPS: !!(initData.shopLat && initData.shopLng)
+        const identityData: MobileIdentity = {
+          id: initData.id,
+          agentName: initData.agentName,
+          agentImage: initData.agentImage,
+          shopId: initData.shopId,
+          shopName: initData.shopName,
+          managerName: initData.managerName,
+          managerPhone: initData.managerPhone,
+          // GPS data for geofencing
+          shopLat: initData.shopLat,
+          shopLng: initData.shopLng,
+          radius: initData.radius || 100,
+          targetProgress: initData.targetProgress,
+          bypassGeofence: initData.bypassGeofence,
+          lockout: initData.lockout
+        };
+
+        // Check if shop changed (reassignment)
+        if (previousShopIdRef.current && previousShopIdRef.current !== initData.shopId) {
+          console.log(`🔄 Shop Reassignment Detected: ${previousShopIdRef.current} → ${initData.shopId}`);
+          toast.success(`🔄 Reassigned to ${initData.shopName}`, { duration: 3000 });
+          // Clear old inventory immediately
+          setInventory([]);
+        }
+        previousShopIdRef.current = initData.shopId;
+
+        setIdentity(identityData);
+
+        // Fetch inventory
+        console.log(`📦 Fetching inventory for shop: ${initData.shopId}`);
+        const invRes = await fetch(`/api/inventory?shopId=${initData.shopId}&t=${Date.now()}`);
+        
+        if (invRes.ok) {
+          const invData = await invRes.json();
+          const items = Array.isArray(invData) ? invData : (invData.data || []);
+          
+          console.log(`✅ Inventory loaded: ${items.length} items`);
+          setInventory(items);
+          saveToCache(identityData, items);
+        } else {
+          console.warn('⚠️ Inventory fetch failed:', invRes.status);
+          // Set inventory to empty array but don't fail the whole sync
+          setInventory([]);
+          saveToCache(identityData, []);
+        }
+      })().finally(() => {
+        activeRequests.delete(cacheKey);
+        setLoading(false);
       });
 
-      if (!initData.shopId) {
-        console.error('❌ Mobile Init: Response missing shopId');
-        setError('NO_SHOP_ASSIGNED');
-        toast.error('Invalid shop assignment. Please contact support.', { duration: 5000 });
-        setLoading(false);
-        return;
-      }
-
-      const identityData: MobileIdentity = {
-        id: initData.id,
-        agentName: initData.agentName,
-        agentImage: initData.agentImage,
-        shopId: initData.shopId,
-        shopName: initData.shopName,
-        managerName: initData.managerName,
-        managerPhone: initData.managerPhone,
-        // GPS data for geofencing
-        shopLat: initData.shopLat,
-        shopLng: initData.shopLng,
-        radius: initData.radius || 100,
-        targetProgress: initData.targetProgress,
-        bypassGeofence: initData.bypassGeofence,
-        lockout: initData.lockout
-      };
-
-      // Check if shop changed (reassignment)
-      if (previousShopIdRef.current && previousShopIdRef.current !== initData.shopId) {
-        console.log(`🔄 Shop Reassignment Detected: ${previousShopIdRef.current} → ${initData.shopId}`);
-        toast.success(`🔄 Reassigned to ${initData.shopName}`, { duration: 3000 });
-        // Clear old inventory immediately
-        setInventory([]);
-      }
-      previousShopIdRef.current = initData.shopId;
-
-      setIdentity(identityData);
-
-      // Fetch inventory
-      console.log(`📦 Fetching inventory for shop: ${initData.shopId}`);
-      const invRes = await fetch(`/api/inventory?shopId=${initData.shopId}&t=${Date.now()}`);
-      
-      if (invRes.ok) {
-        const invData = await invRes.json();
-        const items = Array.isArray(invData) ? invData : (invData.data || []);
-        
-        console.log(`✅ Inventory loaded: ${items.length} items`);
-        setInventory(items);
-        saveToCache(identityData, items);
-      } else {
-        console.warn('⚠️ Inventory fetch failed:', invRes.status);
-        // Set inventory to empty array but don't fail the whole sync
-        setInventory([]);
-        saveToCache(identityData, []);
-      }
+      activeRequests.set(cacheKey, requestPromise);
+      await requestPromise;
 
     } catch (e: any) {
       console.error('❌ Mobile Data Sync Error:', e);
@@ -245,7 +300,6 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       }
       
       setError(errorMessage);
-    } finally {
       setLoading(false);
     }
   }, [saveToCache]);
@@ -257,7 +311,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
     ));
   }, []);
 
-  // 🚀 INITIAL LOAD
+  // 🚀 INITIAL LOAD WITH VISIBILITY-BASED SYNC
   useEffect(() => {
     // Try cache first for instant load
     const hasCachedData = loadFromCache();
@@ -270,15 +324,44 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       refreshData(true);
     }
 
-    // Setup background sync
-    syncIntervalRef.current = setInterval(() => {
-      refreshInventory();
-    }, SYNC_INTERVAL);
+    // 🎯 OPTIMIZED: Smart sync based on page visibility
+    let currentInterval = SYNC_INTERVAL.ACTIVE;
+    let syncIntervalId: NodeJS.Timeout;
+
+    const startSync = () => {
+      if (syncIntervalId) clearInterval(syncIntervalId);
+      syncIntervalId = setInterval(() => {
+        refreshInventory();
+      }, currentInterval);
+    };
+
+    // Handle visibility changes
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab hidden - slow down sync
+        console.log('📴 Tab hidden - reducing sync frequency');
+        currentInterval = SYNC_INTERVAL.BACKGROUND;
+      } else {
+        // Tab visible - speed up sync
+        console.log('📱 Tab active - increasing sync frequency');
+        currentInterval = SYNC_INTERVAL.ACTIVE;
+        // Immediate sync on resume
+        refreshInventory();
+      }
+      startSync();
+    };
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Start initial sync
+    startSync();
 
     return () => {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
+      if (syncIntervalId) {
+        clearInterval(syncIntervalId);
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [loadFromCache, refreshData, refreshInventory]);
 
