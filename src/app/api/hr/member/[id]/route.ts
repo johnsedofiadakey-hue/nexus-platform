@@ -30,25 +30,32 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const light = searchParams.get('light') === 'true';
 
+    const include: any = {
+      shop: {
+        select: {
+          id: true, name: true, location: true,
+          latitude: true, longitude: true, radius: true
+        }
+      },
+      targets: { where: { status: 'ACTIVE' }, orderBy: { endDate: 'desc' } }
+    };
+
+    if (!light) {
+      include.sales = { take: 20, orderBy: { createdAt: 'desc' } };
+      include.dailyReports = { take: 50, orderBy: { createdAt: 'desc' } };
+      include.attendance = { take: 30, orderBy: { date: 'desc' } };
+      include.leaves = { take: 50, orderBy: { createdAt: 'desc' } };
+      include.disciplinary = { take: 30, orderBy: { createdAt: 'desc' } };
+      include.sentMessages = { take: 20, orderBy: { createdAt: 'desc' } };
+      include.receivedMessages = { take: 20, orderBy: { createdAt: 'desc' } };
+    } else {
+      // Light mode might still need minimal disciplinary for geofence breaches if required by the UI
+      include.disciplinary = { take: 30, orderBy: { createdAt: 'desc' } };
+    }
+
     const user = await prisma.user.findUnique({
       where: whereClause,
-      include: {
-        shop: {
-          select: {
-            id: true, name: true, location: true,
-            latitude: true, longitude: true, radius: true
-          }
-        },
-        // Only fetch heavy relations if NOT in light mode
-        sales: light ? false : { take: 20, orderBy: { createdAt: 'desc' } },
-        dailyReports: light ? false : { take: 50, orderBy: { createdAt: 'desc' } },
-        attendance: light ? false : { take: 30, orderBy: { date: 'desc' } },
-        leaves: light ? false : { take: 50, orderBy: { createdAt: 'desc' } },
-        disciplinary: light ? { take: 30, orderBy: { createdAt: 'desc' } } : { take: 30, orderBy: { createdAt: 'desc' } }, // Disciplinary needed for geofence breaches if light
-        sentMessages: light ? false : { take: 20, orderBy: { createdAt: 'desc' } },
-        receivedMessages: light ? false : { take: 20, orderBy: { createdAt: 'desc' } },
-        targets: { where: { status: 'ACTIVE' }, orderBy: { endDate: 'desc' } }
-      }
+      include
     });
 
     if (!user) return NextResponse.json({ error: "Member not found" }, { status: 404 });
