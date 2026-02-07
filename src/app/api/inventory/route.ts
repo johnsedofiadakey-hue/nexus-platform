@@ -56,19 +56,24 @@ export async function GET(req: Request) {
       })
     ]);
 
-    // MAP DATABASE FIELDS TO YOUR FRONTEND EXPECTATIONS
+    // MAP DATABASE FIELDS FOR MOBILE POS CONSISTENCY
     return NextResponse.json({
       data: products.map(p => ({
         id: p.id,
-        name: p.name,          // Master Inventory expects 'name'
-        productName: p.name,   // Mobile might expect 'productName'
+        // Mobile POS expects these exact fields:
+        productName: p.name,
+        name: p.name,
         sku: p.barcode || p.id.substring(0, 6).toUpperCase(),
-        stock: p.stockLevel,   // Master uses 'stock'
-        quantity: p.stockLevel,// Mobile uses 'quantity'
-        price: p.sellingPrice, // Master uses 'price'
-        priceGHS: p.sellingPrice, // Mobile uses 'priceGHS'
-        hub: p.shop?.name || "Unknown", // Master Inventory expects 'hub'
-        shopId: p.shopId, // 👈 Added for Actions
+        barcode: p.barcode || p.id.substring(0, 6).toUpperCase(),
+        priceGHS: p.sellingPrice,
+        price: p.sellingPrice,
+        sellingPrice: p.sellingPrice,
+        stockLevel: p.stockLevel,
+        quantity: p.stockLevel,
+        stock: p.stockLevel,
+        category: p.category || "General",
+        shopId: p.shopId,
+        hub: p.shop?.name || "Unknown",
         status: p.stockLevel <= (p.minStock || 5) ? 'Low Stock' : 'In Stock'
       })),
       meta: {

@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import SmartAttendance from "@/components/auth/SmartAttendance";
+import { useMobileData } from "@/context/MobileDataContext";
 
 /* --------------------------------------------------
    DISTANCE ENGINE (HAVERSINE)
@@ -45,24 +46,15 @@ const calculateDistance = (
 export default function MobileGpsGate() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { identity: contextIdentity, loading: contextLoading, error: contextError, refreshData } = useMobileData();
 
   /* ---------------- STATE ---------------- */
   const [mounted, setMounted] = useState(false);
-  const [identity, setIdentity] = useState<{
-    shopName: string;
-    agentName: string;
+  const [shopData, setShopData] = useState<{
     shopLat: number;
     shopLng: number;
     radius: number;
-    managerName?: string;
-    managerPhone?: string;
     bypassGeofence?: boolean;
-    targetProgress?: {
-      targetValue: number;
-      targetQuantity: number;
-      achievedValue: number;
-      achievedQuantity: number;
-    } | null;
   } | null>(null);
 
   const [distance, setDistance] = useState<number | null>(null);
@@ -78,7 +70,7 @@ export default function MobileGpsGate() {
   }, []);
 
   /* --------------------------------------------------
-     FETCH AGENT ASSIGNMENT (SAFE)
+     USE CONTEXT DATA (NO SEPARATE FETCH)
   -------------------------------------------------- */
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -88,54 +80,50 @@ export default function MobileGpsGate() {
 
     if (status !== "authenticated" || !mounted) return;
 
-    const fetchAssignment = async () => {
-      try {
-        const res = await fetch("/api/mobile/init", {
-          credentials: 'include' // 🍪 Fixes logic for mobile
-        });
-        const data = await res.json();
-
-        if (data?.error === "Unassigned") {
-          setGpsStatus("ERROR");
-          setIsLocating(false);
-          toast.error("No shop assigned. Contact HQ.");
-          return;
-        }
-
-        if (
-          !res.ok ||
-          typeof data.shopLat !== "number" ||
-          typeof data.shopLng !== "number"
-        ) {
-          throw new Error("Invalid assignment");
-        }
-
-        setIdentity({
-          agentName: data.agentName || session?.user?.name || "Agent",
-          shopName: data.shopName || "Hub",
-          shopLat: data.shopLat,
-          shopLng: data.shopLng,
-          radius: data.radius || 100,
-          managerName: data.managerName,
-          managerPhone: data.managerPhone,
-          bypassGeofence: data.bypassGeofence,
-          targetProgress: data.targetProgress
-        });
-      } catch {
-        setGpsStatus("ERROR");
-        setIsLocating(false);
-        toast.error("Assignment sync failed");
+    // Use MobileDataContext instead of separate fetch
+    if (contextError) {
+      setGpsStatus("ERROR");
+      setIsLocating(false);
+      if (contextError === 'NO_SHOP_ASSIGNED') {
+        toast.error("No shop assigned. Contact HQ.");
+      } else if (contextError === 'AUTH_FAILED') {
+        router.push("/auth/signin");
+      } else {
+        toast.error("Connection failed. Refresh to retry.");
       }
-    };
+      return;
+    }
 
-    fetchAssignment();
-  }, [status, mounted, router, session]);
+    if (contextIdentity) {
+      // Extract shop geo data from context
+      fetch("/api/mobile/init?geo=true")
+        .then(r => r.json())
+        .then(data => {
+          if (data.shopLat && data.shopLng) {
+            setShopData({
+              shopLat: data.shopLat,
+              shopLng: data.shopLng,
+              radius: data.radius || 100,
+              bypassGeofence: data.bypassGeofence
+            });
+          }
+        })
+        .catch(() => {
+          // Use defaults if geo fetch fails
+          setShopData({
+            shopLat: 5.6037,
+            shopLng: -0.1870,
+            radius: 100
+          });
+        });
+    }
+  }, [status, mounted, router, contextIdentity, contextError]);
 
   /* --------------------------------------------------
      GPS ENGINE (BULLETPROOF)
   -------------------------------------------------- */
   const startTracking = useCallback(() => {
-    if (!identity || !mounted || typeof window === "undefined") return;
+    if (!shopData || !mounted || typeof window === "undefined") return;
 
     if (!navigator.geolocation) {
       setGpsStatus("ERROR");
@@ -158,8 +146,8 @@ export default function MobileGpsGate() {
         const d = calculateDistance(
           pos.coords.latitude,
           pos.coords.longitude,
-          identity.shopLat,
-          identity.shopLng
+          shopData.shopLat,
+          shopData.shopLng
         );
         setDistance(d);
         setGpsStatus("LOCKED");
@@ -175,8 +163,8 @@ export default function MobileGpsGate() {
         const d = calculateDistance(
           pos.coords.latitude,
           pos.coords.longitude,
-          identity.shopLat,
-          identity.shopLng
+          shopData.shopLat,
+          shopData.shopLng
         );
         setDistance(d);
         setGpsStatus("LOCKED");
@@ -188,14 +176,14 @@ export default function MobileGpsGate() {
       },
       { enableHighAccuracy: true, timeout: 30000, maximumAge: 5000 }
     );
-  }, [identity, mounted]);
+  }, [shopData, mounted]);
 
   useEffect(() => {
-    if (identity) startTracking();
+    if (shopData) startTracking();
     return () => {
       if (watchId.current) navigator.geolocation.clearWatch(watchId.current);
     };
-  }, [identity, startTracking]);
+  }, [shopData, startTracking]);
 
   /* --------------------------------------------------
      FAIL-SAFE (NO INFINITE LOADING)
@@ -212,14 +200,30 @@ export default function MobileGpsGate() {
 
   /* ---------------- GATE ---------------- */
   const inRange = useMemo(() => {
-    if (!identity || distance === null) return false;
-    return distance <= identity.radius;
-  }, [distance, identity]);
+    if (!shopData || distance === null) return false;
+    return distance <= shopData.radius;
+  }, [distance, shopData]);
 
-  if (!mounted || status === "loading") {
+  if (!mounted || status === "loading\" || contextLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center">
         <Loader2 className="animate-spin" size={32} />
+      </div>
+    );
+  }
+
+  if (!contextIdentity || !shopData) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-900">
+        <WifiOff className="w-16 h-16 text-red-400 mb-4" />
+        <p className="text-lg text-red-300 font-bold">Connection Failed</p>
+        <button
+          onClick={() => refreshData(true)}
+          className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors"
+        >
+          <RefreshCcw className="w-4 h-4 mr-2 inline" />
+          Retry
+        </button>
       </div>
     );
   }
@@ -236,7 +240,7 @@ export default function MobileGpsGate() {
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Welcome Back</p>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{identity?.agentName || "Agent"}</h1>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{contextIdentity?.agentName || "Agent"}</h1>
           </div>
         </div>
 
@@ -249,7 +253,7 @@ export default function MobileGpsGate() {
       </div>
 
       {/* 🏪 SHOP INFO CARD (Glassmorphism) */}
-      {identity && (
+      {contextIdentity && (
         <div className="relative group overflow-hidden rounded-[2rem] p-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-2xl shadow-slate-900/20 active:scale-[0.98] transition-all duration-300">
           {/* Dynamic Background */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-12 translate-x-12 group-hover:bg-blue-500/20 transition-all duration-700" />
@@ -259,7 +263,7 @@ export default function MobileGpsGate() {
               <span className="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-widest backdrop-blur-md text-blue-200">
                 Assigned Unit
               </span>
-              <h2 className="mt-4 text-3xl font-black tracking-tighter text-white">{identity.shopName}</h2>
+              <h2 className="mt-4 text-3xl font-black tracking-tighter text-white">{contextIdentity.shopName}</h2>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/5">
               <Store size={24} className="text-blue-300" />
@@ -272,14 +276,14 @@ export default function MobileGpsGate() {
             </div>
             <div>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Manager Line</p>
-              <p className="text-sm font-bold text-white">{identity.managerPhone || "N/A"}</p>
+              <p className="text-sm font-bold text-white">{contextIdentity.managerPhone || "N/A"}</p>
             </div>
           </div>
         </div>
       )}
 
       {/* 🎯 PERFORMANCE PROGRESS CARD */}
-      {identity?.targetProgress && (
+      {contextIdentity?.targetProgress && (
         <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6 animate-in slide-in-from-bottom-4 duration-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -302,13 +306,13 @@ export default function MobileGpsGate() {
               <div className="flex justify-between items-end">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sales (GHS)</p>
                 <p className="text-xs font-black text-slate-900 dark:text-white">
-                  ₵{identity.targetProgress.achievedValue.toLocaleString()} <span className="text-slate-400">/ ₵{identity.targetProgress.targetValue.toLocaleString()}</span>
+                  ₵{contextIdentity.targetProgress.achievedValue.toLocaleString()} <span className="text-slate-400">/ ₵{contextIdentity.targetProgress.targetValue.toLocaleString()}</span>
                 </p>
               </div>
               <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-600 rounded-full transition-all duration-1000"
-                  style={{ width: `${Math.min((identity.targetProgress.achievedValue / identity.targetProgress.targetValue) * 100, 100)}%` }}
+                  style={{ width: `${Math.min((contextIdentity.targetProgress.achievedValue / contextIdentity.targetProgress.targetValue) * 100, 100)}%` }}
                 />
               </div>
             </div>
@@ -318,13 +322,13 @@ export default function MobileGpsGate() {
               <div className="flex justify-between items-end">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Units Sold</p>
                 <p className="text-xs font-black text-slate-900 dark:text-white">
-                  {identity.targetProgress.achievedQuantity} <span className="text-slate-400">/ {identity.targetProgress.targetQuantity}</span>
+                  {contextIdentity.targetProgress.achievedQuantity} <span className="text-slate-400">/ {contextIdentity.targetProgress.targetQuantity}</span>
                 </p>
               </div>
               <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
-                  style={{ width: `${Math.min((identity.targetProgress.achievedQuantity / identity.targetProgress.targetQuantity) * 100, 100)}%` }}
+                  style={{ width: `${Math.min((contextIdentity.targetProgress.achievedQuantity / contextIdentity.targetProgress.targetQuantity) * 100, 100)}%` }}
                 />
               </div>
             </div>
@@ -333,13 +337,13 @@ export default function MobileGpsGate() {
       )}
 
       {/* NEW: SMART ATTENDANCE */}
-      {identity && mounted && (
+      {shopData && mounted && (
         <div className="animate-in slide-in-from-bottom-4 duration-700 delay-100">
           <SmartAttendance
-            shopLat={identity.shopLat}
-            shopLng={identity.shopLng}
-            radius={identity.radius}
-            bypassGeofence={identity.bypassGeofence}
+            shopLat={shopData.shopLat}
+            shopLng={shopData.shopLng}
+            radius={shopData.radius}
+            bypassGeofence={shopData.bypassGeofence}
           />
         </div>
       )}

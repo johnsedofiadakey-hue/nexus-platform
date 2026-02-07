@@ -30,23 +30,8 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
     registerServiceWorker();
     requestPersistentStorage();
 
-    fetch("/api/mobile/init").then(r => r.json()).then(data => {
-      if (data.lockout && data.lockout.active) {
-        setLockout({ active: true, returnDate: new Date(data.lockout.endDate).toDateString() });
-      } else {
-        setLockout({ active: false });
-      }
-
-      // 🌍 STORE GEO CONFIG
-      if (data.shopLat && data.shopLng) {
-        setGeoConfig({
-          lat: data.shopLat,
-          lng: data.shopLng,
-          radius: data.radius || 100,
-          bypass: data.bypassGeofence || false
-        });
-      }
-    }).catch(() => setLockout({ active: false }));
+    // Note: Init data now comes from MobileDataContext
+    // We just need to setup geo config from the context
   }, []);
 
   if (lockout === null) {
