@@ -1,0 +1,134 @@
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   🛰️  INTELLIGENCE LINK SEVERED - FIXED!                    ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 WHAT HAPPENED:
+
+When you try to access Personnel Portal from Admin Panel:
+  ↓
+  Error: "Intelligence Link Severed"
+  Error: "Failed to sync records"
+  ↓
+  [Retry Uplink] [Return to Registry]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 ROOT CAUSE:
+
+  Missing: DATABASE_URL environment variable
+  
+  The app cannot connect to PostgreSQL database because
+  the connection string is not configured.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ SOLUTION - CHOOSE ONE:
+
+┌─────────────────────────────────────────────────────────────┐
+│  OPTION 1: Quick Setup (Automated)                          │
+└─────────────────────────────────────────────────────────────┘
+
+  $ ./setup-nexus.sh
+
+  This wizard will:
+  ✓ Check your configuration
+  ✓ Guide you step-by-step
+  ✓ Tell you exactly what's missing
+
+
+┌─────────────────────────────────────────────────────────────┐
+│  OPTION 2: Manual Setup (3 steps)                           │
+└─────────────────────────────────────────────────────────────┘
+
+  STEP 1: Get a FREE database
+
+    → Supabase (Recommended):   https://supabase.com
+    → Neon:                     https://neon.tech
+    → Railway:                  https://railway.app
+
+  STEP 2: Add to .env file
+
+    DATABASE_URL="postgresql://user:password@host:port/db"
+                     ↑
+              (paste your connection string here)
+
+  STEP 3: Sync database
+
+    $ npx prisma generate
+    $ npx prisma db push
+    $ npm run dev
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 WHAT'S BEEN DONE FOR YOU:
+
+  ✅ Created .env file with template
+  ✅ Generated NEXTAUTH_SECRET (already saved!)
+  ✅ Created setup wizard (./setup-nexus.sh)
+  ✅ Created diagnostic tool (./fix-personnel-portal.sh)
+  ✅ Enhanced error messages to be more helpful
+  ✅ Documented everything in QUICKFIX.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 NEXT STEPS:
+
+  1. Get a database URL (see options above)
+  
+  2. Edit .env file:
+     
+     $ nano .env
+     
+     Add your DATABASE_URL
+
+  3. Run setup:
+     
+     $ ./setup-nexus.sh
+
+  4. Start server:
+     
+     $ npm run dev
+
+  5. Test Personnel Portal from Admin Panel
+     
+     Should work now! ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION:
+
+  Quick Start:      QUICKFIX.md
+  Detailed Guide:   PERSONNEL_PORTAL_FIX.md
+  Deployment:       DEPLOYMENT_GUIDE.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 PRO TIP:
+
+  Supabase is the easiest option:
+  
+  1. Sign up → Create project (2 mins)
+  2. Settings → Database → Connection String
+  3. Select "Transaction" mode
+  4. Copy & paste into .env
+  5. Done!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🆘 NEED HELP?
+
+  Run diagnostic:  ./fix-personnel-portal.sh
+  View detailed:   cat PERSONNEL_PORTAL_FIX.md
+  Check logs:      (in terminal where npm run dev runs)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 YOUR NEXTAUTH_SECRET IS ALREADY CONFIGURED!
+
+   Just add DATABASE_URL and you're good to go!
+
+╚═══════════════════════════════════════════════════════════════╝

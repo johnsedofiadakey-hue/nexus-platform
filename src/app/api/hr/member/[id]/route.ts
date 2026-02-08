@@ -111,6 +111,19 @@ export async function GET(
       stack: error.stack?.split('\n').slice(0, 3).join('\n')
     });
 
+    // � Database Connection Error
+    if (error.message?.includes("Can't reach database server") || 
+        error.message?.includes("ECONNREFUSED") ||
+        error.message?.includes("getaddrinfo") ||
+        error.code === 'P1001') {
+      return NextResponse.json({
+        error: "Database connection failed",
+        code: "DB_CONNECTION_ERROR",
+        details: "Cannot reach database server. Please verify DATABASE_URL is configured correctly in environment variables.",
+        hint: "Check .env file or run: ./setup-nexus.sh"
+      }, { status: 503 });
+    }
+
     // 🛡️ Prepared Statement Guard
     if (error.message?.includes("prepared statement")) {
       return NextResponse.json({
@@ -127,6 +140,17 @@ export async function GET(
         code: "SCHEMA_MISMATCH",
         details: "Run: npx prisma db push",
         hint: error.message
+      }, { status: 503 });
+    }
+
+    // 🔐 Environment Variable Missing
+    if (error.message?.includes("Environment variable") || 
+        error.message?.includes("DATABASE_URL")) {
+      return NextResponse.json({
+        error: "Database not configured",
+        code: "ENV_MISSING",
+        details: "DATABASE_URL environment variable is not set. Please configure your database connection.",
+        hint: "Create/edit .env file with DATABASE_URL or run: ./setup-nexus.sh"
       }, { status: 503 });
     }
 

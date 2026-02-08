@@ -162,9 +162,9 @@ export default function MobilePOS() {
           // Try fresh GPS (non-blocking, shorter timeout)
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, { 
-              timeout: 1500,
-              maximumAge: 60000, // Accept 1-minute old position
-              enableHighAccuracy: false // Faster response
+              timeout: 5000,
+              maximumAge: 15000, // Accept only 15-second old position for accuracy
+              enableHighAccuracy: true // Accurate location for sales records
             });
           });
           gps = { lat: position.coords.latitude, lng: position.coords.longitude };

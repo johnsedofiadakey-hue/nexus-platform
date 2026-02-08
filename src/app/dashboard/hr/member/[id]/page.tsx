@@ -91,7 +91,12 @@ export default function MemberPortal() {
         const aiData = await aRes.json();
         const targetsData = await tRes.json();
 
-        if (userData.error) throw new Error(userData.error);
+        if (userData.error) {
+          // Include additional error details if available
+          const errorDetails = userData.details || userData.hint || '';
+          const fullError = errorDetails ? `${userData.error}: ${errorDetails}` : userData.error;
+          throw new Error(fullError);
+        }
 
         setData({
           ...userData,
@@ -145,10 +150,16 @@ export default function MemberPortal() {
         const errorMsg = e.message || "Data Link Failure";
         setError(errorMsg);
         
-        // Show more helpful error messages
-        if (errorMsg.includes("schema") || errorMsg.includes("Migration required")) {
-          toast.error("Database schema needs update. Contact admin.");
-        } else if (errorMsg.includes("timeout") || errorMsg.includes("ECONNREFUSED")) {
+        // Show more helpful error messages based on error type
+        if (errorMsg.includes("Database connection") || errorMsg.includes("Cannot reach database") || errorMsg.includes("DATABASE_URL")) {
+          toast.error("Database connection error. Check your .env configuration.");
+        } else if (errorMsg.includes("schema") || errorMsg.includes("Migration required")) {
+          toast.error("Database schema needs update. Run: npx prisma db push");
+        } else if (errorMsg.includes("not configured") || errorMsg.includes("ENV_MISSING")) {
+          toast.error("Database not configured. Run: ./setup-nexus.sh");
+        } else {
+          toast.error(errorMsg.substring(0, 100));
+        }        } else if (errorMsg.includes("timeout") || errorMsg.includes("ECONNREFUSED")) {
           toast.error("Database connection timeout. Check network.");
         } else {
           toast.error("Critical: Data link failed.");

@@ -16,7 +16,8 @@ import {
   RefreshCcw,
   Store,
   Phone,
-  TrendingUp
+  TrendingUp,
+  Signal
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -59,8 +60,7 @@ export default function MobileGpsGate() {
 
   const [distance, setDistance] = useState<number | null>(null);
   const [gpsStatus, setGpsStatus] =
-    useState<"SEARCHING" | "LOCKED" | "ERROR">("SEARCHING");
-  const [isLocating, setIsLocating] = useState(true);
+    useState<"SEARCHING" | "LOCKED" | "ERROR">("SEARCHING");  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);  const [isLocating, setIsLocating] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const watchId = useRef<number | null>(null);
 
@@ -145,7 +145,8 @@ export default function MobileGpsGate() {
       (pos) => {
         // 🛡️ Check GPS accuracy before accepting position
         const accuracy = pos.coords.accuracy;
-        if (accuracy > 100) {
+        setGpsAccuracy(accuracy); // Store accuracy for display
+        if (accuracy > 50) {
           console.warn(`GPS accuracy too low: ${accuracy.toFixed(0)}m. Waiting for better signal...`);
           toast('Waiting for better GPS signal...', { icon: '📶' });
           return; // Don't accept inaccurate positions
@@ -170,7 +171,8 @@ export default function MobileGpsGate() {
       (pos) => {
         // 🛡️ Validate accuracy
         const accuracy = pos.coords.accuracy;
-        if (accuracy > 100) {
+        setGpsAccuracy(accuracy); // Update accuracy for display
+        if (accuracy > 50) {
           console.warn(`Skipping inaccurate GPS: ±${accuracy.toFixed(0)}m`);
           return;
         }
@@ -389,9 +391,34 @@ export default function MobileGpsGate() {
       </div>
 
       {/* GPS STATUS (Subtle) */}
-      <div className="flex items-center justify-center gap-2 opacity-40 grayscale py-4">
-        <div className={`w-2 h-2 rounded-full ${gpsStatus === 'LOCKED' ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
-        <p className="text-[10px] font-mono text-slate-400">{gpsStatus === 'LOCKED' ? `GPS LOCKED • ${distance}m` : 'SEARCHING...'}</p>
+      <div className="flex flex-col items-center justify-center gap-2 py-4">
+        <div className="flex items-center gap-2 opacity-40 grayscale">
+          <div className={`w-2 h-2 rounded-full ${gpsStatus === 'LOCKED' ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
+          <p className="text-[10px] font-mono text-slate-400">
+            {gpsStatus === 'LOCKED' ? `GPS LOCKED • ${distance}m` : 'SEARCHING...'}
+          </p>
+        </div>
+        {/* GPS Accuracy Indicator */}
+        {gpsAccuracy !== null && (
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+            gpsAccuracy <= 20 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/30' :
+            gpsAccuracy <= 50 ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-900/30' :
+            'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-900/30'
+          }`}>
+            <Signal className={`w-3 h-3 ${
+              gpsAccuracy <= 20 ? 'text-green-600 dark:text-green-400' :
+              gpsAccuracy <= 50 ? 'text-yellow-600 dark:text-yellow-400' :
+              'text-orange-600 dark:text-orange-400'
+            }`} />
+            <span className={`text-[10px] font-bold ${
+              gpsAccuracy <= 20 ? 'text-green-700 dark:text-green-400' :
+              gpsAccuracy <= 50 ? 'text-yellow-700 dark:text-yellow-400' :
+              'text-orange-700 dark:text-orange-400'
+            }`}>
+              GPS Accuracy: ±{Math.round(gpsAccuracy)}m {gpsAccuracy <= 20 ? '(Excellent)' : gpsAccuracy <= 50 ? '(Good)' : '(Fair)'}
+            </span>
+          </div>
+        )}
       </div>
 
     </div>
