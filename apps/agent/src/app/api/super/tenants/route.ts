@@ -7,9 +7,9 @@ export async function GET() {
     try {
         const session = await getServerSession(authOptions);
 
-        // 🔐 TODO: Add Super Admin Role Check
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        // 🔐 Super Admin Authorization
+        if (!session?.user || (session.user as any).role !== 'SUPER_ADMIN') {
+            return NextResponse.json({ error: "Forbidden: Super Admin access required" }, { status: 403 });
         }
 
         const organizations = await prisma.organization.findMany({

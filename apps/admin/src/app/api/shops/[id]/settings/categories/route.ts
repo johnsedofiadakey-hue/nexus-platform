@@ -89,17 +89,24 @@ export async function DELETE(req: Request) {
 
     const body = await req.json();
 
-    // Security check: Find shop linked to this category
-    // This is expensive but necessary for security.
-    // For now, assuming if they can hit this endpoint via the UI they have the shop ID context.
-    // But to be safe, let's just let it be if it's protected by the parent layout? 
-    // No, standard practice: verify.
-    // ... Skipping complex check for speed, relying on ID obfuscation (CUID) for now + user trust level.
-    // TODO: Implement deep ownership check for DELETE category.
-
+    // 🔒 Security: Verify category belongs to user's organization
     if (body.isSub) {
+      const subCategory = await prisma.inventorySubCategory.findUnique({
+        where: { id: body.id },
+        include: { parent: { include: { shop: true } } }
+      });
+      if (!subCategory || subCategory.parent.shop.organizationId !== session.user.organizationId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       await prisma.inventorySubCategory.delete({ where: { id: body.id } });
     } else {
+      const category = await prisma.inventoryCategory.findUnique({
+        where: { id: body.id },
+        include: { shop: true }
+      });
+      if (!category || category.shop.organizationId !== session.user.organizationId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       await prisma.inventoryCategory.delete({ where: { id: body.id } });
     }
     return NextResponse.json({ success: true });

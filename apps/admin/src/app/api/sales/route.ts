@@ -55,7 +55,6 @@ export async function GET(req: Request) {
 // ----------------------------------------------------------------------
 export async function POST(req: Request) {
   try {
-    console.log("🛒 SALES_API_V4_FINAL: Processing Sale...");
     const body = await req.json();
     const { shopId, items, totalAmount, gps, source = "MOBILE" } = body;
 
