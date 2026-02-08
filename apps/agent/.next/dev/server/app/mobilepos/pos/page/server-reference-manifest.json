@@ -1,0 +1,20 @@
+{
+  "node": {
+    "7cc3ec16eba3023776a0853c7f2f780d37ac8f14b7": {
+      "workers": {
+        "app/mobilepos/pos/page": {
+          "moduleId": "[project]/apps/agent/.next-internal/server/app/mobilepos/pos/page/actions.js { ACTIONS_MODULE0 => \"[project]/apps/agent/src/lib/actions/transaction.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "processTransaction",
+          "filename": "apps/agent/src/lib/actions/transaction.ts"
+        }
+      },
+      "layer": {
+        "app/mobilepos/pos/page": "action-browser"
+      },
+      "exportedName": "processTransaction",
+      "filename": "apps/agent/src/lib/actions/transaction.ts"
+    }
+  },
+  "edge": {}
+}

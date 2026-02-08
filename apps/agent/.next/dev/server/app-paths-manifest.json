@@ -1,0 +1,15 @@
+{
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/inventory/route": "app/api/inventory/route.js",
+  "/api/mobile/init/route": "app/api/mobile/init/route.js",
+  "/api/mobile/pulse/route": "app/api/mobile/pulse/route.js",
+  "/auth/signin/page": "app/auth/signin/page.js",
+  "/mobilepos/history/page": "app/mobilepos/history/page.js",
+  "/mobilepos/inventory/page": "app/mobilepos/inventory/page.js",
+  "/mobilepos/messages/page": "app/mobilepos/messages/page.js",
+  "/mobilepos/page": "app/mobilepos/page.js",
+  "/mobilepos/pos/page": "app/mobilepos/pos/page.js",
+  "/mobilepos/profile/page": "app/mobilepos/profile/page.js",
+  "/mobilepos/sales/page": "app/mobilepos/sales/page.js",
+  "/page": "app/page.js"
+}

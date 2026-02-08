@@ -1,0 +1,25 @@
+[00:00:02.606] Server  WARN    ⚠ Turbopack's filesystem cache has been deleted because we previously detected an internal error in Turbopack. Builds or page loads may be slower as a result.
+[00:00:05.706] Server  LOG     ✓ Ready in 5s
+[00:00:21.183] Server  LOG     ○ Compiling /auth/signin ...
+[00:01:41.398] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:43.783] Server  LOG     ○ Compiling /api/auth/[...nextauth] ...
+[00:01:46.662] Server  WARN    [next-auth][warn][DEBUG_ENABLED] "\nhttps://next-auth.js.org/warnings#debug_enabled"
+[00:02:02.483] Server  LOG     ✅ User authenticated: "john@nexus.com"
+[00:02:07.555] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:02:07.555] Browser LOG     📡 Mobile Init: Fetching assignment data...
+[00:02:07.555] Browser LOG     💾 Persistent storage: granted
+[00:02:07.967] Browser LOG     ✅ Service Worker registered: https://redesigned-spoon-pjqxq4qxg4w9frw7r-3002.app.github.dev/
+[00:02:09.797] Browser LOG     ✅ Mobile Init: Assignment data received {"hasGPS":true,"shopId":"cml5odm8s0001p994x126lit1","shopName":"LakeMart"}
+[00:02:09.798] Browser LOG     📦 Fetching inventory for shop: cml5odm8s0001p994x126lit1
+[00:02:09.798] Browser LOG     ⏩ Deduplicating init request
+[00:02:10.438] Server  LOG     ○ Compiling /api/mobile/init ...
+[00:02:11.241] Browser LOG     ✅ Inventory loaded: 3 items
+[00:02:13.890] Browser LOG     📴 Tab hidden - reducing sync frequency
+[00:02:14.993] Browser LOG     📱 Tab active - increasing sync frequency
+[00:02:27.893] Browser LOG     📴 Tab hidden - reducing sync frequency
+[00:02:57.323] Browser LOG     📱 Tab active - increasing sync frequency
+[00:03:01.876] Browser LOG     📴 Tab hidden - reducing sync frequency
+[00:04:22.251] Browser LOG     📱 Tab active - increasing sync frequency
+[00:04:29.886] Browser LOG     📴 Tab hidden - reducing sync frequency
+[00:04:31.026] Browser LOG     📱 Tab active - increasing sync frequency
+[00:04:33.881] Browser LOG     📴 Tab hidden - reducing sync frequency

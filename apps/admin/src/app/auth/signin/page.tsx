@@ -37,16 +37,16 @@ function WelcomeHeader() {
   return (
     <div className="text-center mb-10 space-y-3 animate-in fade-in slide-in-from-top-4 duration-700">
       <div className="flex justify-center mb-6">
-        <div className="w-16 h-16 bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl flex items-center justify-center shadow-2xl shadow-slate-300 ring-4 ring-white">
-          <ShieldCheck className="text-white w-8 h-8" strokeWidth={1.5} />
+        <div className="w-20 h-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 rounded-2xl flex items-center justify-center shadow-2xl shadow-slate-400/50 ring-4 ring-white/90">
+          <Building2 className="text-white w-10 h-10" strokeWidth={1.5} />
         </div>
       </div>
       <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
-        {greeting}.
+        {greeting}, Admin
       </h1>
       <div className="flex items-center justify-center gap-2 text-slate-500 font-medium">
-        <Sparkles size={14} className="text-blue-500" />
-        <p className="text-sm tracking-wide">{quote}</p>
+        <ShieldCheck size={16} className="text-blue-600" />
+        <p className="text-sm tracking-wide">Administrative Control Panel</p>
       </div>
     </div>
   );

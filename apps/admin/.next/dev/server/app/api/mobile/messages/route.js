@@ -1,0 +1,10 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/mobile/messages/route.js")
+R.c("server/chunks/979b6_next_5a3ceb29._.js")
+R.c("server/chunks/58c51_next-auth_b9ce2add._.js")
+R.c("server/chunks/0a374_openid-client_812b4fc9._.js")
+R.c("server/chunks/c1491_jose_dist_node_cjs_ad7cf29d._.js")
+R.c("server/chunks/[root-of-the-server]__877d8172._.js")
+R.c("server/chunks/[root-of-the-server]__92cf5113._.js")
+R.c("server/chunks/apps_admin__next-internal_server_app_api_mobile_messages_route_actions_5b8ecd76.js")
+R.m("[project]/node_modules/.pnpm/next@16.1.6_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/apps/admin/src/app/api/mobile/messages/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/node_modules/.pnpm/next@16.1.6_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/apps/admin/src/app/api/mobile/messages/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

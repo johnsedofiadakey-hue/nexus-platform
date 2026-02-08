@@ -1,0 +1,10 @@
+var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/inventory/route.js")
+R.c("server/chunks/979b6_next_04020e2c._.js")
+R.c("server/chunks/58c51_next-auth_b9ce2add._.js")
+R.c("server/chunks/0a374_openid-client_812b4fc9._.js")
+R.c("server/chunks/c1491_jose_dist_node_cjs_ad7cf29d._.js")
+R.c("server/chunks/[root-of-the-server]__877d8172._.js")
+R.c("server/chunks/[root-of-the-server]__376f0c39._.js")
+R.c("server/chunks/apps_agent__next-internal_server_app_api_inventory_route_actions_ae52eb8b.js")
+R.m("[project]/node_modules/.pnpm/next@16.1.6_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/apps/agent/src/app/api/inventory/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/node_modules/.pnpm/next@16.1.6_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/apps/agent/src/app/api/inventory/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports
