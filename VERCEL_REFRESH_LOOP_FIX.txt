@@ -1,0 +1,167 @@
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   🔴 VERCEL REFRESH LOOP - QUICK FIX                        ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+🚨 IMMEDIATE FIX (2 minutes):
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: Fix NEXTAUTH_URL in Vercel
+═══════════════════════════════════
+
+1. Go to: https://vercel.com/dashboard
+
+2. Click your project: "nexus-platform"
+
+3. Settings → Environment Variables
+
+4. Find "NEXTAUTH_URL" (or add it if missing)
+
+5. Set the EXACT value to your Vercel URL:
+   
+   ⚠️  COMMON MISTAKE: http://localhost:3000 (WRONG in production!)
+   
+   ✅  CORRECT FORMAT:
+   
+   KEY:   NEXTAUTH_URL
+   VALUE: https://nexus-platform-YOUR-USERNAME.vercel.app
+   
+   (Replace with YOUR actual Vercel domain - shown at top of project)
+
+6. Important: Apply to ALL environments:
+   ☑ Production
+   ☑ Preview
+   ☑ Development
+
+7. Click "Save"
+
+8. Deployments → Latest → "Redeploy" (⋯ menu → Redeploy)
+
+9. Wait 1-2 minutes for redeploy
+
+10. Test: Your site should work now! ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DON'T KNOW YOUR VERCEL URL?
+════════════════════════════
+
+Look at the top of your Vercel project page:
+┌────────────────────────────────────────┐
+│ nexus-platform                         │
+│ https://nexus-platform-abc123.vercel.app  <-- THIS IS YOUR URL
+└────────────────────────────────────────┘
+
+Copy the EXACT URL including "https://"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 2: Verify Other Environment Variables
+═══════════════════════════════════════════
+
+While in Settings → Environment Variables, verify:
+
+✅ DATABASE_URL (should be your Supabase URL)
+✅ NEXTAUTH_SECRET (should be a long random string)
+✅ NEXTAUTH_URL (should match your Vercel domain)
+
+All three must be present!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHY THIS HAPPENS:
+═════════════════
+
+NextAuth checks if the callback URL matches NEXTAUTH_URL.
+
+If they don't match:
+- Login succeeds on server
+- Redirect happens to wrong URL
+- NextAuth thinks you're not logged in
+- Redirects to login page again
+- INFINITE LOOP! 🔄
+
+Fix: Make NEXTAUTH_URL match your actual domain exactly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VERIFICATION AFTER FIX:
+═══════════════════════
+
+1. Clear your browser cookies/cache or try incognito
+
+2. Go to: https://your-app.vercel.app
+
+3. Login page should appear (not refresh)
+
+4. Enter credentials and login
+
+5. Should redirect to dashboard (not loop back)
+
+✅ WORKING!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STILL NOT WORKING?
+══════════════════
+
+Try this diagnostic URL:
+
+https://your-app.vercel.app/api/env-check
+
+This will show if your environment variables are set correctly.
+
+Should show:
+{
+  "DATABASE_URL": true,
+  "NEXTAUTH_SECRET": true,
+  "NEXTAUTH_URL": true,
+  "NEXTAUTH_URL_VALUE": "https://your-app.vercel.app"
+}
+
+If any are "false" - they're missing in Vercel!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE: CORRECT VERCEL ENVIRONMENT VARIABLES
+══════════════════════════════════════════════
+
+NAME                VALUE                                       ENV
+─────────────────── ─────────────────────────────────────────── ────────────────
+DATABASE_URL        postgresql://postgres.xyz:pass@host:5432... Production, Preview
+NEXTAUTH_SECRET     SJkGuwDQCjUf0yYmGEIq+1as58oSJ7M9kjjde... Production, Preview  
+NEXTAUTH_URL        https://nexus-platform-user.vercel.app      Production, Preview
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NUCLEAR OPTION (If nothing else works):
+════════════════════════════════════════
+
+1. Vercel Dashboard → Your Project
+
+2. Settings → General → Delete Project (bottom)
+
+3. Re-import from GitHub:
+   - New Project
+   - Import: johnsedofiadakey-hue/nexus-platform
+   - Add all 3 env vars CORRECTLY
+   - Deploy
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📞 QUICK CHECKLIST:
+
+□ NEXTAUTH_URL matches your EXACT Vercel URL
+□ Includes "https://" 
+□ No trailing slash
+□ Redeployed after changing env vars
+□ Cleared browser cookies/cache
+□ Tried in incognito/private window
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱️  This should fix the refresh loop in 2-3 minutes!
+
+╚══════════════════════════════════════════════════════════════╝

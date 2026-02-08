@@ -13,8 +13,23 @@ if (!process.env.DATABASE_URL) {
   console.error("❌ CRITICAL: DATABASE_URL is not set!");
 }
 
+// 🚨 CRITICAL: Check NEXTAUTH_URL for deployment
+if (!process.env.NEXTAUTH_URL) {
+  console.error("⚠️  WARNING: NEXTAUTH_URL is not set!");
+  console.error("This can cause refresh loops in production.");
+  console.error("Set it to your deployment URL: https://your-app.vercel.app");
+} else if (process.env.NEXTAUTH_URL.includes('localhost') && process.env.NODE_ENV === 'production') {
+  console.error("🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!");
+  console.error("Current value:", process.env.NEXTAUTH_URL);
+  console.error("This WILL cause refresh loops. Update to your actual domain!");
+}
+
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
+
+  // 🔒 TRUST HOST for Vercel/production deployments
+  // This prevents callback URL mismatches
+  trustHost: true,
 
   // 🍪 FORCE COOKIES TO STICK (Critical for localhost)
   cookies: {
