@@ -34,3 +34,9 @@ ts-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+apps/*/.next
+apps/*/.turbo
+**/.next
+**/.turbo
+**/node_modules
+
