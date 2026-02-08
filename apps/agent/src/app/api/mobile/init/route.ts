@@ -28,10 +28,30 @@ export async function GET() {
       );
     }
 
-    // 🧠 Resolve user safely
+    // 🧠 Resolve user safely with optimized query
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: { shop: true }
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        role: true,
+        phone: true,
+        status: true,
+        bypassGeofence: true,
+        shopId: true,
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            latitude: true,
+            longitude: true,
+            radius: true,
+            managerName: true,
+            managerContact: true
+          }
+        }
+      }
     }) as any; // Cast for bypassGeofence logic
 
     if (!user) {
@@ -73,11 +93,15 @@ export async function GET() {
       );
     }
 
-    // 🔍 Find Manager (Admin assigned to this shop)
+    // 🔍 Find Manager (Admin assigned to this shop) - optimized query
     const manager = await prisma.user.findFirst({
       where: {
         shopId: user.shop.id,
         role: 'ADMIN'
+      },
+      select: {
+        name: true,
+        phone: true
       }
     });
 
@@ -89,6 +113,9 @@ export async function GET() {
         status: 'APPROVED',
         startDate: { lte: today },
         endDate: { gte: today }
+      },
+      select: {
+        endDate: true
       }
     });
 
@@ -100,22 +127,48 @@ export async function GET() {
         startDate: { lte: today },
         endDate: { gte: today }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      select: {
+        startDate: true,
+        endDate: true,
+        targetValue: true,
+        targetQuantity: true
+      }
     });
 
-    // 📊 CALCULATE PROGRESS (If Target Exists)
+    // 📊 CALCULATE PROGRESS (If Target Exists) - optimized with aggregation
     let targetProgress = null;
     if (activeTarget) {
-      const sales = await prisma.sale.findMany({
+      // Use aggregation instead of fetching all sales
+      const salesAgg = await prisma.sale.aggregate({
         where: {
           userId: user.id,
           createdAt: { gte: activeTarget.startDate, lte: activeTarget.endDate }
         },
-        include: { items: true }
+        _sum: {
+          totalAmount: true
+        }
+      });
+      
+      // Get quantity separately (cheaper than fetching all items)
+      const salesWithQty = await prisma.sale.findMany({
+        where: {
+          userId: user.id,
+          createdAt: { gte: activeTarget.startDate, lte: activeTarget.endDate }
+        },
+        select: {
+          items: {
+            select: {
+              quantity: true
+            }
+          }
+        }
       });
 
-      const achievedValue = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-      const achievedQty = sales.reduce((sum, s) => sum + s.items.reduce((q, i) => q + i.quantity, 0), 0);
+      const achievedValue = salesAgg._sum.totalAmount || 0;
+      const achievedQty = salesWithQty.reduce((sum, s) => 
+        sum + s.items.reduce((q, i) => q + i.quantity, 0), 0
+      );
 
       targetProgress = {
         targetValue: activeTarget.targetValue,
