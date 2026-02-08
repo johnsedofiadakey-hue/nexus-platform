@@ -21,12 +21,24 @@ export default function ActivityLogWidget() {
     const fetchLogs = async () => {
       try {
         const response = await fetch("/api/activity-log?limit=10");
-        const data = await response.json();
-        if (data.success) {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const text = await response.text();
+        if (!text) {
+          console.warn("Empty response from activity log API");
+          setActivities([]);
+          return;
+        }
+        const data = JSON.parse(text);
+        if (data.success && Array.isArray(data.data)) {
           setActivities(data.data);
+        } else {
+          setActivities([]);
         }
       } catch (error) {
         console.error("Failed to fetch activity log:", error);
+        setActivities([]);
       } finally {
         setLoading(false);
       }
