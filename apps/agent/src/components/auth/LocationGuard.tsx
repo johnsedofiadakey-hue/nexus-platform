@@ -20,7 +20,7 @@ export default function LocationGuard({ children }: { children: React.ReactNode 
       return;
     }
 
-    const sendPulse = async (lat: number, lng: number) => {
+    const sendPulse = async (lat: number, lng: number, accuracy?: number) => {
       const now = Date.now();
       // Throttle: Send once every 30 seconds (Optimized)
       if (now - lastPulse.current < 30000) return;
@@ -30,7 +30,7 @@ export default function LocationGuard({ children }: { children: React.ReactNode 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include', // 🍪 Include auth cookies
-          body: JSON.stringify({ lat, lng })
+          body: JSON.stringify({ lat, lng, accuracy })
         });
 
         if (res.ok) {
@@ -50,9 +50,12 @@ export default function LocationGuard({ children }: { children: React.ReactNode 
         // Save to storage
         sessionStorage.setItem('nexus_gps_lat', pos.coords.latitude.toString());
         sessionStorage.setItem('nexus_gps_lng', pos.coords.longitude.toString());
+        if (pos.coords.accuracy !== undefined) {
+          sessionStorage.setItem('nexus_gps_accuracy', pos.coords.accuracy.toString());
+        }
 
-        // 🔥 FIRE PULSE
-        sendPulse(pos.coords.latitude, pos.coords.longitude);
+        // 🔥 FIRE PULSE with accuracy data
+        sendPulse(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
       },
       (err) => console.warn(err.message),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }

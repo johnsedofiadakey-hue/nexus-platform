@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Lock, MapPin, RefreshCw, AlertTriangle, Phone, Signal } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { calculateDistance } from "@/lib/utils";
 
 /**
  * 🔒 GEO LOCKOUT OVERLAY - PRODUCTION GRADE
@@ -101,22 +102,6 @@ export default function GeoLockoutOverlay({
         const interval = setInterval(checkLocation, 30000); // Re-check every 30s
         return () => clearInterval(interval);
     }, [shopLat, shopLng, radius, bypass]);
-
-    // Haversine Formula
-    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371e3; // Earth radius in meters
-        const φ1 = lat1 * Math.PI / 180;
-        const φ2 = lat2 * Math.PI / 180;
-        const Δφ = (lat2 - lat1) * Math.PI / 180;
-        const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        return Math.round(R * c);
-    };
 
     if (!locked && !checking) return null; // 🟢 Safe Zone
 

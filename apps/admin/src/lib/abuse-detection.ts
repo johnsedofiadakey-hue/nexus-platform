@@ -3,17 +3,7 @@
  * Real-time anomaly detection for field operations.
  */
 
-// Haversine Formula for distance (Meters)
-function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371e3; // Earth radius in meters
-    const toRad = (v: number) => (v * Math.PI) / 180;
-    const a =
-        Math.sin(toRad(lat2 - lat1) / 2) ** 2 +
-        Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(toRad(lng2 - lng1) / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+import { calculateDistance } from './utils';
 
 // 1. VELOCITY CHECK (Teleportation)
 // Returns TRUE if speed is suspiciously high (e.g., > 200km/h implies GPS spoofing)

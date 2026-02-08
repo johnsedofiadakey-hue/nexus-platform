@@ -16,11 +16,15 @@ export async function POST(req: Request) {
     }
 
     // 2. Parse Payload
-    const { lat, lng } = await req.json();
+    const { lat, lng, accuracy } = await req.json();
 
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       return NextResponse.json({ error: "Invalid Coordinates" }, { status: 400 });
     }
+
+    // 🛡️ GPS Accuracy Validation (optional but recommended)
+    const GPS_ACCURACY_THRESHOLD = 50; // Only trust GPS with ≤50m accuracy
+    const isGpsReliable = !accuracy || accuracy <= GPS_ACCURACY_THRESHOLD;
 
     // 3. Fetch User & Shop Context with caching
     const cacheKey = session.user.email;
@@ -95,15 +99,15 @@ export async function POST(req: Request) {
       }
     });
     
-    // 7. Log breach only if transitioning from inside to outside (async, don't wait)
-    if (shouldLogBreach && updatedAgent.isInsideZone === false) {
+    // 7. Log breach only if GPS is reliable and transitioning from inside to outside
+    if (shouldLogBreach && updatedAgent.isInsideZone === false && isGpsReliable) {
       // Fire and forget - don't await to speed up response
       prisma.disciplinaryRecord.create({
         data: {
           userId: agent.id,
           type: 'GEOFENCE_BREACH',
-          severity: 'WARNING',
-          description: `Agent left assigned zone. Dist: ${breachDistance}m`,
+          severity: breachDistance > 500 ? 'CRITICAL' : 'WARNING',
+          description: `Agent left assigned zone. Dist: ${breachDistance}m${accuracy ? ` (GPS accuracy: ±${Math.round(accuracy)}m)` : ''}`,
           actionTaken: 'SYSTEM_AUTO_LOG'
         }
       }).catch(err => console.error('Breach log failed:', err));
