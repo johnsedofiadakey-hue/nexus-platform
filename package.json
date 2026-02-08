@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "pnpm db:generate",
     "dev": "turbo run dev",
     "dev:admin": "turbo run dev --filter=admin",
     "dev:agent": "turbo run dev --filter=agent",
