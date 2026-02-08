@@ -88,6 +88,12 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const syncIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const previousShopIdRef = useRef<string | null>(null);
+  const identityRef = useRef<MobileIdentity | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    identityRef.current = identity;
+  }, [identity]);
 
   // 📦 OPTIMIZED: Load from cache with tiered TTL
   const loadFromCache = useCallback(() => {
@@ -136,9 +142,10 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
   // 🔄 OPTIMIZED: Refresh inventory with request deduplication
   const refreshInventory = useCallback(async () => {
-    if (!identity?.shopId) return;
+    const currentIdentity = identityRef.current;
+    if (!currentIdentity?.shopId) return;
 
-    const cacheKey = `inventory-${identity.shopId}`;
+    const cacheKey = `inventory-${currentIdentity.shopId}`;
     
     // Check if request already in flight
     if (activeRequests.has(cacheKey)) {
@@ -147,7 +154,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
     }
 
     try {
-      const requestPromise = fetch(`/api/inventory?shopId=${identity.shopId}&t=${Date.now()}`)
+      const requestPromise = fetch(`/api/inventory?shopId=${currentIdentity.shopId}&t=${Date.now()}`)
         .then(res => {
           if (res.ok) {
             return res.json();
@@ -159,8 +166,8 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
           setInventory(items);
           
           // Update cache
-          if (identity) {
-            saveToCache(identity, items);
+          if (identityRef.current) {
+            saveToCache(identityRef.current, items);
           }
           return items;
         })
@@ -174,7 +181,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       console.warn('⚠️ Background inventory sync failed:', e.message);
       // Don't set error state for background sync failures
     }
-  }, [identity, saveToCache]);
+  }, [saveToCache]);
 
   // 🔄 FULL DATA REFRESH WITH REQUEST DEDUPLICATION
   const refreshData = useCallback(async (showLoader = false) => {
@@ -313,18 +320,33 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
   // 🚀 INITIAL LOAD WITH VISIBILITY-BASED SYNC
   useEffect(() => {
+    let isMounted = true;
+    
     // Try cache first for instant load
     const hasCachedData = loadFromCache();
     
     if (hasCachedData) {
       setLoading(false);
       // Still refresh in background
-      refreshData(false);
+      if (isMounted) {
+        refreshData(false);
+      }
     } else {
-      refreshData(true);
+      if (isMounted) {
+        refreshData(true);
+      }
     }
 
-    // 🎯 OPTIMIZED: Smart sync based on page visibility
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // 🎯 SEPARATE EFFECT: Smart sync based on page visibility
+  useEffect(() => {
+    if (!identity?.shopId) return; // Wait for identity to be loaded
+
     let currentInterval = SYNC_INTERVAL.ACTIVE;
     let syncIntervalId: NodeJS.Timeout;
 
@@ -363,7 +385,8 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [loadFromCache, refreshData, refreshInventory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity?.shopId]); // Only depend on shopId, not the whole identity object
 
   const value: MobileDataContextType = {
     identity,
