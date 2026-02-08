@@ -73,8 +73,8 @@ const CACHE_DURATION = {
 
 // 🚀 OPTIMIZED: Smart sync intervals based on visibility
 const SYNC_INTERVAL = {
-  ACTIVE: 2 * 60 * 1000,       // 2 minutes when tab active
-  BACKGROUND: 10 * 60 * 1000   // 10 minutes when tab hidden
+  ACTIVE: 120 * 1000,       //  minutes when tab active  
+  BACKGROUND: 600 * 1000   // 10 minutes when tab hidden
 };
 
 // Request deduplication cache
@@ -86,14 +86,23 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [currentShopId, setCurrentShopId] = useState<string | null>(null);
   const syncIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const previousShopIdRef = useRef<string | null>(null);
   const identityRef = useRef<MobileIdentity | null>(null);
+  const shopIdRef = useRef<string | null>(null);
 
-  // Keep ref in sync with state
+  // Keep refs in sync with state
   useEffect(() => {
     identityRef.current = identity;
-  }, [identity]);
+    const newShopId = identity?.shopId || null;
+    shopIdRef.current = newShopId;
+    
+    // Only update currentShopId state if the actual value changed
+    if (newShopId !== currentShopId) {
+      setCurrentShopId(newShopId);
+    }
+  }, [identity, currentShopId]);
 
   // 📦 OPTIMIZED: Load from cache with tiered TTL
   const loadFromCache = useCallback(() => {
@@ -345,7 +354,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
   // 🎯 SEPARATE EFFECT: Smart sync based on page visibility
   useEffect(() => {
-    if (!identity?.shopId) return; // Wait for identity to be loaded
+    if (!currentShopId) return; // Wait for shopId to be loaded
 
     let currentInterval = SYNC_INTERVAL.ACTIVE;
     let syncIntervalId: NodeJS.Timeout;
@@ -353,7 +362,9 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
     const startSync = () => {
       if (syncIntervalId) clearInterval(syncIntervalId);
       syncIntervalId = setInterval(() => {
-        refreshInventory();
+        if (identityRef.current?.shopId === currentShopId) {
+          refreshInventory();
+        }
       }, currentInterval);
     };
 
@@ -368,7 +379,9 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         console.log('📱 Tab active - increasing sync frequency');
         currentInterval = SYNC_INTERVAL.ACTIVE;
         // Immediate sync on resume
-        refreshInventory();
+        if (identityRef.current?.shopId === currentShopId) {
+          refreshInventory();
+        }
       }
       startSync();
     };
@@ -376,17 +389,20 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
     // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Start initial sync
-    startSync();
+    // Start initial sync after a short delay to avoid immediate re-fetch
+    const timeoutId = setTimeout(() => {
+      startSync();
+    }, 5000); // Wait 5 seconds before starting periodic sync
 
     return () => {
+      clearTimeout(timeoutId);
       if (syncIntervalId) {
         clearInterval(syncIntervalId);
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identity?.shopId]); // Only depend on shopId, not the whole identity object
+  }, [currentShopId]); // Only re-run when the shopId string value actually changes
 
   const value: MobileDataContextType = {
     identity,
