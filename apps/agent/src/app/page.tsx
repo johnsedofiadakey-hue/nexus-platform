@@ -14,7 +14,7 @@ export default function AgentHomePage() {
       router.push('/mobilepos')
     } else if (status === 'unauthenticated') {
       // Redirect unauthenticated users to login
-      router.push('/auth/login')
+      router.push('/auth/signin')
     }
   }, [status, router])
 
