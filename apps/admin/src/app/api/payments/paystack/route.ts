@@ -16,7 +16,14 @@ export async function POST(req: Request) {
             }
         }
 
-        const event = JSON.parse(rawBody);
+        // 🛡️ Safe JSON parsing
+        let event;
+        try {
+            event = JSON.parse(rawBody);
+        } catch (e) {
+            console.error('Failed to parse Paystack webhook:', e);
+            return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+        }
 
         // 2. Handle Events
         switch (event.event) {

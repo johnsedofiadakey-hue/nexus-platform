@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";import { calculateDistance } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
+import { calculateDistance } from "@/lib/utils";
+import { requireAuth } from "@/lib/auth-helpers";
+
 /**
  * 🛰️ GEOFENCE ENGINE - PRODUCTION GRADE
  * Calculates real-world distance between coordinates in meters.
@@ -11,7 +14,17 @@ const SAFETY_BUFFER = 30; // Add 30m buffer to geofence radius
 
 export async function POST(req: Request) {
   try {
+    // 🔐 Require authentication
+    const authenticatedUser = await requireAuth();
+    
     const { userId, lat, lng, accuracy } = await req.json();
+
+    // Verify the authenticated user matches the userId or has permission
+    if (authenticatedUser.id !== userId && authenticatedUser.role !== 'ADMIN' && authenticatedUser.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({
+        error: "Unauthorized: Cannot update location for different user"
+      }, { status: 403 });
+    }
 
     // 1. Authenticate Identity & Assigned Hub
     const agent = await prisma.user.findUnique({

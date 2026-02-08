@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
+    // 🔐 Require authentication
+    const user = await requireAuth();
+    
+    // 🏢 Build organization filter
+    const orgFilter = user.role === "SUPER_ADMIN" && !user.organizationId
+      ? {} // Super admin sees all
+      : { organizationId: user.organizationId };
+
     const data = await prisma.shop.findMany({
+      where: orgFilter,
       include: {
         sales: true,
         _count: { select: { users: true } }

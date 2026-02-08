@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
+    // 🔐 Require authentication
+    const user = await requireAuth();
+    
+    // 🏢 Build organization filter
+    const orgFilter = user.role === "SUPER_ADMIN" && !user.organizationId
+      ? {} : { organizationId: user.organizationId };
+
     // Aggregate sales by shop and category
     const sales = await prisma.sale.findMany({
+      where: {
+        shop: orgFilter
+      },
       include: {
         shop: { select: { name: true } },
       },
@@ -14,7 +25,15 @@ export async function GET() {
     // Process data for the chart (Grouped by Hub and Product Category)
     const analytics = sales.reduce((acc: any, sale: any) => {
       const shopName = sale.shop.name;
-      const items = JSON.parse(sale.items as string);
+      
+      // 🛡️ Safe JSON parsing
+      let items: any[] = [];
+      try {
+        items = JSON.parse(sale.items as string);
+      } catch (e) {
+        console.error('Failed to parse sale items:', e);
+        return acc;
+      }
       
       items.forEach((item: any) => {
         const key = `${shopName}-${item.category || 'General'}`;
