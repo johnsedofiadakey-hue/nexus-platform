@@ -90,19 +90,20 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
   const syncIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const previousShopIdRef = useRef<string | null>(null);
   const identityRef = useRef<MobileIdentity | null>(null);
-  const shopIdRef = useRef<string | null>(null);
+  const lastShopIdRef = useRef<string | null>(null);
 
-  // Keep refs in sync with state
+  // Keep refs in sync with state and update currentShopId only when value changes
   useEffect(() => {
     identityRef.current = identity;
     const newShopId = identity?.shopId || null;
-    shopIdRef.current = newShopId;
     
     // Only update currentShopId state if the actual value changed
-    if (newShopId !== currentShopId) {
+    // Use ref to track last value to avoid circular dependency
+    if (newShopId !== lastShopIdRef.current) {
+      lastShopIdRef.current = newShopId;
       setCurrentShopId(newShopId);
     }
-  }, [identity, currentShopId]);
+  }, [identity]); // Only depend on identity, not currentShopId
 
   // 📦 OPTIMIZED: Load from cache with tiered TTL
   const loadFromCache = useCallback(() => {
