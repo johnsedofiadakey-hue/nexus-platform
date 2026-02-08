@@ -23,3 +23,5 @@
 [00:04:29.886] Browser LOG     📴 Tab hidden - reducing sync frequency
 [00:04:31.026] Browser LOG     📱 Tab active - increasing sync frequency
 [00:04:33.881] Browser LOG     📴 Tab hidden - reducing sync frequency
+[02:13:00.885] Browser LOG     📱 Tab active - increasing sync frequency
+[02:13:11.418] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold

@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd ../.. && npx turbo run build --filter=agent",
+  "buildCommand": "cd ../.. && pnpm db:generate && npx turbo run build --filter=agent",
   "outputDirectory": ".next",
   "devCommand": "next dev --port 3002",
   "installCommand": "cd ../.. && pnpm install",
