@@ -157,12 +157,10 @@ export default function MemberPortal() {
           toast.error("Database schema needs update. Run: npx prisma db push");
         } else if (errorMsg.includes("not configured") || errorMsg.includes("ENV_MISSING")) {
           toast.error("Database not configured. Run: ./setup-nexus.sh");
-        } else {
-          toast.error(errorMsg.substring(0, 100));
-        }        } else if (errorMsg.includes("timeout") || errorMsg.includes("ECONNREFUSED")) {
+        } else if (errorMsg.includes("timeout") || errorMsg.includes("ECONNREFUSED")) {
           toast.error("Database connection timeout. Check network.");
         } else {
-          toast.error("Critical: Data link failed.");
+          toast.error(errorMsg.substring(0, 100));
         }
       }
     } finally {
