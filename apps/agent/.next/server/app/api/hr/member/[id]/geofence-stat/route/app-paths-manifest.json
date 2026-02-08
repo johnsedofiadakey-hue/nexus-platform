@@ -1,0 +1,3 @@
+{
+  "/api/hr/member/[id]/geofence-stat/route": "app/api/hr/member/[id]/geofence-stat/route.js"
+}

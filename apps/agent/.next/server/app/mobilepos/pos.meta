@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/mobilepos/layout,_N_T_/mobilepos/pos/layout,_N_T_/mobilepos/pos/page,_N_T_/mobilepos/pos"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/mobilepos/pos/__PAGE__",
+    "/mobilepos/pos",
+    "/mobilepos",
+    "/_index",
+    "/_head"
+  ]
+}

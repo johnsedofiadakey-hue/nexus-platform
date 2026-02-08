@@ -1,0 +1,3 @@
+{
+  "/api/mobile/messages/unread-count/route": "app/api/mobile/messages/unread-count/route.js"
+}

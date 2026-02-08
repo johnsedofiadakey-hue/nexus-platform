@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd ../.. && npx turbo run build --filter=admin",
+  "outputDirectory": ".next",
+  "devCommand": "next dev --port 3001",
+  "installCommand": "cd ../.. && pnpm install",
+  "framework": "nextjs",
+  "regions": ["iad1"]
+}

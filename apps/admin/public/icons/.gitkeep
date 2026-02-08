@@ -1,0 +1,34 @@
+ node -e "const fs = require('fs'); const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'); fs.writeFileSync('public/icons/icon-192x192.png', png); fs.writeFileSync('public/icons/icon-512x512.png', png); console.log('✅ Icons created');"
+ ls -lh public/icons/ && file public/icons/*.png
+ echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > public/icons/icon-192x192.png && echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > public/icons/icon-512x512.png && ls -lh public/icons/
+ node create-icons.js && ls -lh public/icons/icon-*.png
+ node create-icons.js 2>&1; echo "Exit code: $?"; ls -la public/icons/ 2>&1
+ npm run build 2>&1 | tail -60
+ git status --short
+ git add -A && git commit -m "fix: resolve client-side errors - undefined .toFixed() and missing icons
+
+- Add defensive null/undefined checks before all .toFixed() calls across components
+- Prevents 'Cannot read properties of undefined (reading toFixed)' errors
+- Fix calculations in AdminTargetWidget, PerformanceBoard, MobileTargetView, etc.
+- Remove icon references from manifest.json to prevent 404 errors
+- Ensure safe number formatting throughout the application" && echo "✅ Committed successfully"
+ git push origin main 2>&1
+ git add -A 2>&1; git commit -m "fix: resolve client-side errors - undefined .toFixed() and missing icons" 2>&1; git push origin main 2>&1; echo "🎯 Done!"
+ git log --oneline -3 && echo "---" && git status
+ git log -1 --oneline 2>&1
+ pwd && git branch -v && git status --short
+ git add -A && git commit -m "fix: resolve client-side errors - undefined .toFixed() and missing icons
+
+- Add defensive null/undefined checks before all .toFixed() calls across components
+- Prevents 'Cannot read properties of undefined (reading toFixed)' errors
+- Fix calculations in AdminTargetWidget, PerformanceBoard, MobileTargetView, TargetBoard
+- Fix conversionRate calculations in staff report and HR performance boards
+- Protected coordinate displays in GeofenceHistoryTable
+- Remove icon references from manifest.json to prevent 404 errors
+- Ensure safe number formatting throughout the application" && echo "✅ Committed"
+ git status && echo "---Now pushing---" && git push origin main
+ git log --oneline -1
+ git push origin main -v 2>&1 | tee /tmp/push-output.txt && cat /tmp/push-output.txt
+ rm public/icons/.gitkeep && git add -A
+ git commit -m "fix: resolve client-side errors - undefined .toFixed() and missing icons" && git push origin main
+ git remote -v > /workspaces/nexus-platform/git-status.txt && git log --oneline -1 >> /workspaces/nexus-platform/git-status.txt && git status >> /workspaces/nexus-platform/git-status.txt && cat /workspaces/nexus-platform/git-status.txt

@@ -1,0 +1,21 @@
+{
+  "node": {
+    "7c3dbfd863a6b657ad345b466cbe43860d89e4c224": {
+      "workers": {
+        "app/mobilepos/pos/page": {
+          "moduleId": 99913,
+          "async": false,
+          "exportedName": "processTransaction",
+          "filename": "apps/agent/src/lib/actions/transaction.ts"
+        }
+      },
+      "layer": {
+        "app/mobilepos/pos/page": "action-browser"
+      },
+      "filename": "apps/agent/src/lib/actions/transaction.ts",
+      "exportedName": "processTransaction"
+    }
+  },
+  "edge": {},
+  "encryptionKey": "zJA0DV+xkSpqiRK3e0n4y2gYN+po22gc8Qb+vWKnZ8k="
+}
