@@ -25,7 +25,20 @@ export default function NotificationBell() {
         const fetchAlerts = async () => {
             try {
                 const res = await fetch('/api/operations/pulse-feed?t=' + Date.now());
-                const data = await res.json();
+                
+                if (!res.ok) {
+                    console.warn("Pulse feed returned non-OK status:", res.status);
+                    return;
+                }
+                
+                // Parse text first to handle empty responses
+                const text = await res.text();
+                if (!text || text.trim() === '') {
+                    console.warn("Pulse feed returned empty response");
+                    return;
+                }
+                
+                const data = JSON.parse(text);
                 if (Array.isArray(data)) {
                     // Check if data changed to trigger "red dot"
                     if (JSON.stringify(data) !== JSON.stringify(alerts)) {
