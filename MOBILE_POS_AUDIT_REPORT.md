@@ -372,7 +372,7 @@ NEXTAUTH_URL="https://your-domain.vercel.app"
 
 ### Build Command
 ```bash
-npm install --legacy-peer-deps && npx prisma generate && npm run build
+pnpm i --frozen-lockfile && npx prisma generate && pnpm run build
 ```
 
 ### Post-Deployment Checks

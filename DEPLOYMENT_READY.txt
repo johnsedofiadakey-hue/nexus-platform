@@ -46,7 +46,7 @@ B. New Deploy via Dashboard:
    
    4. Configure Project:
       Framework Preset: Next.js
-      Build Command:    npm run build
+      Build Command:    pnpm run build
       Output Directory: .next
    
    5. Add Environment Variables:
@@ -74,7 +74,7 @@ B. New Deploy via Dashboard:
 
 C. Deploy via CLI:
    
-   $ npm i -g vercel
+   $ pnpm add -g vercel@latest
    $ vercel login
    $ vercel --prod
    
@@ -117,8 +117,8 @@ OPTION 3: RENDER
 4. Configure:
    Name: nexus-platform
    Environment: Node
-   Build Command: npm install && npm run build
-   Start Command: npm start
+   Build Command: pnpm i --frozen-lockfile && pnpm run build
+   Start Command: pnpm start
 
 5. Add Environment Variables (same as above)
 
@@ -135,7 +135,7 @@ If deploying to your own server:
    $ git pull origin main
 
 2. Install dependencies:
-   $ npm install
+   $ pnpm i --frozen-lockfile
 
 3. Set up environment variables:
    $ cp .env.example .env
@@ -143,11 +143,11 @@ If deploying to your own server:
    (Add your DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL)
 
 4. Build the app:
-   $ npm run build
+   $ pnpm run build
 
 5. Start with PM2:
-   $ npm install -g pm2
-   $ pm2 start npm --name "nexus-platform" -- start
+   $ pnpm add -g pm2
+   $ pm2 start pnpm --name "nexus-platform" -- start
    $ pm2 save
    $ pm2 startup
 

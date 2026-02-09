@@ -31,9 +31,9 @@
    ```
 
 4. **Restart dev server:**
-   ```bash
-   npm run dev
-   ```
+```bash
+pnpm run dev
+```
 
 ---
 
@@ -45,7 +45,7 @@ If your database is on Vercel, Railway, or another platform:
 2. **Run migration on the platform:**
    - **Vercel:** Go to your project → Settings → Functions → Add command: `npx prisma db push`
    - **Railway:** Open project shell and run: `npx prisma db push`
-   - **Render:** Add build command: `npx prisma db push && npm run build`
+   - **Render:** Add build command: `npx prisma db push && pnpm run build`
 
 ---
 
@@ -60,10 +60,10 @@ If you need to test immediately without database access:
 git stash
 
 # Reinstall with old schema
-npm install --legacy-peer-deps
+pnpm i --frozen-lockfile
 
 # Start dev server
-npm run dev
+pnpm run dev
 ```
 
 Then deploy later when database is accessible.
@@ -139,7 +139,7 @@ If starting fresh:
 cp .env.example .env  # Edit with your values
 
 # 2. Install dependencies
-npm install --legacy-peer-deps
+pnpm i --frozen-lockfile
 
 # 3. Apply database schema
 npx prisma db push
@@ -148,7 +148,7 @@ npx prisma db push
 npx prisma generate
 
 # 5. Start development
-npm run dev
+pnpm run dev
 ```
 
 ---

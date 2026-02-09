@@ -21,7 +21,7 @@ NEXTAUTH_URL="https://your-domain.vercel.app"
 ### 3. Build Configuration
 Vercel build command should be:
 ```bash
-npm install --legacy-peer-deps && npx prisma generate && npm run build
+pnpm i --frozen-lockfile && npx prisma generate && pnpm run build
 ```
 
 ## Post-Deployment Verification

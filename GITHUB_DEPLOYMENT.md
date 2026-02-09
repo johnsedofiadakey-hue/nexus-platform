@@ -42,7 +42,7 @@ If you want GitHub Actions to handle deployment:
 1. **Get Vercel tokens:**
    ```bash
    # Install Vercel CLI
-   npm i -g vercel
+   pnpm add -g vercel@latest
    
    # Login and get tokens
    vercel login
@@ -82,8 +82,8 @@ The workflow will automatically deploy on every push to `main`.
 - The app requires a PostgreSQL database
 - Make sure `DATABASE_URL` is set correctly
 - `NEXTAUTH_SECRET` should be a secure random string (generate with: `openssl rand -base64 32`)
-- Build command: `npm install --legacy-peer-deps && npm run build`
-- Install command is configured in `vercel.json` and `railway.json`
+- Build command: `pnpm i --frozen-lockfile && pnpm run build`
+- Install command is configured in `vercel.json` and `railway.json` (uses `pnpm`)
 
 ## 🔍 Deployment Status:
 

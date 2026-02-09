@@ -31,7 +31,7 @@
 
 ```bash
 # Install Vercel CLI if not already installed
-npm i -g vercel
+pnpm add -g vercel@latest
 
 # Deploy from project root
 vercel --prod

@@ -73,7 +73,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 ```bash
 # Install Vercel CLI if you haven't
-npm i -g vercel
+pnpm add -g vercel@latest
 
 # Login
 vercel login

@@ -201,12 +201,12 @@ This will:
 
 ### 2. **Install Dependencies** (If not already done)
 ```bash
-npm install --legacy-peer-deps
+pnpm i --frozen-lockfile
 ```
 
 ### 3. **Test the Application**
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 Then verify:
@@ -290,9 +290,9 @@ Monitor your hosting platform (Vercel/Railway/etc.)
 
 All code changes are complete and ready to deploy. Once you:
 1. Set up your DATABASE_URL environment variable
-2. Run `npm install --legacy-peer-deps`
+2. Run `pnpm i --frozen-lockfile`
 3. Run `npx prisma db push`
-4. Test locally with `npm run dev`
+4. Test locally with `pnpm run dev`
 
 You can deploy to production!
 

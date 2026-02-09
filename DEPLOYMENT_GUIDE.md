@@ -38,7 +38,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
 #### B. Deploy via CLI
 ```bash
 # Install Vercel CLI
-npm i -g vercel
+pnpm add -g vercel@latest
 
 # Login
 vercel login
@@ -52,8 +52,8 @@ vercel env add NEXTAUTH_SECRET
 vercel env add NEXTAUTH_URL
 ```
 
-**Note:** Vercel configuration is already set in `vercel.json`:
-- Install command: `npm install --legacy-peer-deps`
+- **Note:** Vercel configuration is already set in `vercel.json`:
+- Install command: `pnpm i --frozen-lockfile`
 - Build command: `next build`
 - Framework: Next.js
 
@@ -90,7 +90,7 @@ railway up
 
 **Note:** Railway configuration is already set in `railway.json`:
 - Builder: NIXPACKS
-- Build command: `npm install --legacy-peer-deps && npm run build`
+- Build command: `pnpm i --frozen-lockfile && pnpm run build`
 
 ---
 
@@ -98,13 +98,13 @@ railway up
 
 #### Build Commands:
 ```bash
-npm install --legacy-peer-deps
-npm run build
+pnpm i --frozen-lockfile
+pnpm run build
 ```
 
 #### Start Command:
 ```bash
-npm start
+pnpm start
 ```
 
 ---
