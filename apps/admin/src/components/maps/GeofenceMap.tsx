@@ -122,7 +122,7 @@ export default function GeofenceMap({ shopLat, shopLng, shopRadius, userLat, use
       iconSize: [25, 41],
       iconAnchor: [12, 41],
     });
-    const m = L.marker([userLat, userLng], { icon: userIcon }).addTo(map).bindPopup("<b>Agent Location</b>");
+    const m = L.marker([userLat, userLng], { icon: userIcon }).addTo(map).bindPopup("<b>Promoter Location</b>");
 
     const bounds = L.latLngBounds([[shopLat, shopLng], [userLat, userLng]]);
     map.fitBounds(bounds, { padding: [50, 50] });

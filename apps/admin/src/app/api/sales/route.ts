@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
+import { requireAuth } from "@/lib/auth-helpers";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +10,43 @@ export async function GET(req: Request) {
     const userId = searchParams.get("userId");
 
     if (!userId) {
-      return NextResponse.json([]); // Return empty array instead of crashing
+      return NextResponse.json([]);
+    }
+
+    // ✅ AUTHENTICATION CHECK
+    let user;
+    try {
+      user = await requireAuth();
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Unauthorized - Please sign in" },
+        { status: 401 }
+      );
+    }
+
+    // ✅ AUTHORIZATION CHECK
+    if (user.id !== userId && !['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(user.role)) {
+      return NextResponse.json(
+        { error: "Forbidden: Cannot view other user's sales" },
+        { status: 403 }
+      );
+    }
+
+    // ✅ TENANT ISOLATION
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { organizationId: true }
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (user.organizationId !== targetUser.organizationId && user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: "Forbidden: Different organization" },
+        { status: 403 }
+      );
     }
 
     // ⚡️ OPTIMIZED: Only fetch the last 50 sales with select for speed

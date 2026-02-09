@@ -113,7 +113,7 @@ export default function ProfileCard({ profile, shops = [], onSave }: ProfileCard
                 className="w-full text-xl font-black text-slate-900 border-b-2 border-blue-500 outline-none bg-transparent uppercase tracking-tight"
               />
             ) : (
-              <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{profile?.name || "Unverified Agent"}</h2>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{profile?.name || "Unverified Promoter"}</h2>
             )}
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nexus-ID:</span>
@@ -165,7 +165,7 @@ export default function ProfileCard({ profile, shops = [], onSave }: ProfileCard
               </div>
               {formData.bypassGeofence && (
                 <p className="text-[9px] text-blue-600 font-bold leading-tight">
-                  ⚠️ Remote Access Authorized. Agent can clock-in from anywhere.
+                  ⚠️ Remote Access Authorized. Promoter can clock-in from anywhere.
                 </p>
               )}
             </div>

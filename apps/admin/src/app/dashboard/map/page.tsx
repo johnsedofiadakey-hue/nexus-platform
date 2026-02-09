@@ -51,7 +51,7 @@ export default function SentinelMapPage() {
                </div>
                <div className="relative">
                   <Search className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
-                  <input type="text" placeholder="Locate Agent ID..." className="w-full bg-slate-50 rounded-xl pl-10 pr-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-100 transition-all" />
+                  <input type="text" placeholder="Locate Promoter ID..." className="w-full bg-slate-50 rounded-xl pl-10 pr-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-100 transition-all" />
                </div>
 
                {/* Quick Stats Row */}
@@ -78,7 +78,7 @@ export default function SentinelMapPage() {
                </div>
                <div className="overflow-y-auto p-2 space-y-2 flex-1 custom-scrollbar">
                   {units.length === 0 ? (
-                     <div className="p-8 text-center text-slate-400 text-xs">No active agents found.</div>
+                     <div className="p-8 text-center text-slate-400 text-xs">No active promoters found.</div>
                   ) : units.map((unit) => (
                      <div
                         key={unit.id}
@@ -91,7 +91,7 @@ export default function SentinelMapPage() {
                         <div className="flex justify-between items-start mb-2">
                            <div className="flex items-center gap-3">
                               <div className={`w-2 h-2 rounded-full ${unit.status === 'ONLINE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                              <span className="font-black text-sm">{unit.name || "Agent"}</span>
+                              <span className="font-black text-sm">{unit.name || "Promoter"}</span>
                            </div>
                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${selectedUnit === unit.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
                               }`}>ID: {unit.id.slice(-4)}</span>
@@ -148,7 +148,7 @@ export default function SentinelMapPage() {
                   <p className="text-xs font-mono text-emerald-400">
                      {stats.onlineAgents > 0
                         ? `${stats.onlineAgents} Units Transmitting GPS Data`
-                        : "Waiting for Agent Pulse..."}
+                        : "Waiting for Promoter Pulse..."}
                   </p>
                </div>
             </div>

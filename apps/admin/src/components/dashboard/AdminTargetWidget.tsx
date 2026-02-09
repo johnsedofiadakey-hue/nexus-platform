@@ -125,7 +125,7 @@ export default function AdminTargetWidget({ adminTarget, teamPerformance, onRefr
               <div className="bg-slate-50 border border-slate-200 p-3">
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <Users size={10} className="text-slate-500" />
-                  <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Active Agents</p>
+                  <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Active Promoters</p>
                 </div>
                 <p className="text-xl font-bold text-slate-900">{teamPerformance.activeAgents}</p>
               </div>

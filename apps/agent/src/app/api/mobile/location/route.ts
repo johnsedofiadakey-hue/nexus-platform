@@ -9,8 +9,20 @@ import { requireAuth } from "@/lib/auth-helpers";
  * Features GPS accuracy validation and safety buffers.
  */
 
-const GPS_ACCURACY_THRESHOLD = 50; // Only trust GPS with ≤50m accuracy
-const SAFETY_BUFFER = 30; // Add 30m buffer to geofence radius
+// ✅ TUNED GPS ACCURACY THRESHOLDS
+const GPS_ACCURACY_EXCELLENT = 10; // ≤10m - Highest accuracy (GPS with clear sky)
+const GPS_ACCURACY_GOOD = 30;      // ≤30m - Good accuracy (typical urban GPS)
+const GPS_ACCURACY_FAIR = 50;      // ≤50m - Fair accuracy (buildings/obstacles)
+const GPS_ACCURACY_POOR = 100;     // >100m - Poor accuracy (unreliable)
+
+// Only trust GPS readings with accuracy ≤50m
+const GPS_ACCURACY_THRESHOLD = GPS_ACCURACY_FAIR;
+
+// ✅ ENHANCED SAFETY BUFFER based on accuracy
+const SAFETY_BUFFER_EXCELLENT = 15;  // 15m for excellent accuracy
+const SAFETY_BUFFER_GOOD = 30;       // 30m for good accuracy
+const SAFETY_BUFFER_FAIR = 50;       // 50m for fair accuracy
+const SAFETY_BUFFER_POOR = 100;      // Reject if accuracy too poor
 
 export async function POST(req: Request) {
   try {
@@ -46,29 +58,71 @@ export async function POST(req: Request) {
       agent.shop.longitude
     );
 
-    // 🛡️ Apply safety buffer to account for GPS inaccuracy
-    const baseRadius = agent.shop.radius || 200;
-    const effectiveRadius = baseRadius + SAFETY_BUFFER;
-    const isInside = distance <= effectiveRadius || agent.bypassGeofence;
+    // 🛡️ Determine safety buffer based on GPS accuracy
+    let safetyBuffer = SAFETY_BUFFER_FAIR;
+    let isGpsReliable = true;
 
-    // 🚫 Only log breaches if GPS accuracy is reliable
-    const isGpsReliable = !accuracy || accuracy <= GPS_ACCURACY_THRESHOLD;
+    if (accuracy !== undefined) {
+      if (accuracy <= GPS_ACCURACY_EXCELLENT) {
+        safetyBuffer = SAFETY_BUFFER_EXCELLENT;
+      } else if (accuracy <= GPS_ACCURACY_GOOD) {
+        safetyBuffer = SAFETY_BUFFER_GOOD;
+      } else if (accuracy <= GPS_ACCURACY_FAIR) {
+        safetyBuffer = SAFETY_BUFFER_FAIR;
+      } else if (accuracy > GPS_ACCURACY_POOR) {
+        isGpsReliable = false;
+      }
+    }
+
+    // ✅ Calculate effective radius with dynamic safety buffer
+    const baseRadius = agent.shop.radius || 200;
+    const effectiveRadius = baseRadius + safetyBuffer;
+
+    // ✅ FIXED: Only bypass for SUPER_ADMIN with explicit authorization
+    const canBypassGeofence = agent.bypassGeofence && authenticatedUser.role === 'SUPER_ADMIN';
+    const isInside = distance <= effectiveRadius || canBypassGeofence;
 
     // 3. 🛡️ AUTOMATED COMPLIANCE LOGGER
     // Only log if:
-    // - GPS accuracy is good (prevents false positives)
-    // - Significantly outside zone (beyond safety buffer + threshold)
-    // - User doesn't have bypass permission
-    if (!isInside && isGpsReliable && !agent.bypassGeofence && distance > (effectiveRadius + 100)) {
+    // - GPS accuracy is reliable (prevents false positives)
+    // - User is outside zone and can't bypass
+    // - Distance is significantly beyond safety buffer
+    if (!isInside && isGpsReliable && !canBypassGeofence && distance > (effectiveRadius + 50)) {
+      // Determine severity based on distance
+      let severity = 'WARNING';
+      if (distance > (effectiveRadius + 500)) {
+        severity = 'CRITICAL';
+      } else if (distance > (effectiveRadius + 200)) {
+        severity = 'HIGH';
+      }
+
       await prisma.disciplinaryRecord.create({
         data: {
           userId: userId,
           type: 'GEOFENCE_BREACH',
-          severity: distance > (effectiveRadius + 500) ? 'CRITICAL' : 'WARNING',
-          description: `Geofence breach: Agent was ${Math.round(distance - baseRadius)}m outside perimeter (GPS accuracy: ${accuracy ? `±${Math.round(accuracy)}m` : 'unknown'}). GPS: ${lat}, ${lng}`,
+          severity: severity,
+          description: `Geofence breach: Agent ${Math.round(distance - baseRadius)}m outside perimeter. Zone: ${agent.shop.name}. GPS accuracy: ${accuracy ? `±${Math.round(accuracy)}m` : 'unknown'}. Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
           actionTaken: 'SYSTEM_AUTO_LOG'
         }
       });
+
+      // ✅ Log bypass usage by SUPER_ADMIN for audit
+      if (canBypassGeofence) {
+        await prisma.auditLog.create({
+          data: {
+            userId: authenticatedUser.id,
+            action: 'GEOFENCE_BYPASS_USED',
+            entity: 'User',
+            entityId: userId,
+            details: JSON.stringify({
+              actualDistance: Math.round(distance),
+              allowedDistance: effectiveRadius,
+              zone: agent.shop.name,
+              timestamp: new Date().toISOString()
+            })
+          }
+        });
+      }
     }
 
     // 4. Synchronize Live State for HQ Map

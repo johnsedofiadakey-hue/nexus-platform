@@ -206,10 +206,10 @@ function SignInForm() {
         </button>
 
         <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
-          {mode === 'AGENT' ? 'Agent Login' : 'HQ Access'}
+          {mode === 'AGENT' ? 'Promoter Login' : 'HQ Access'}
         </h2>
         <p className="text-sm font-medium text-slate-500">
-          {mode === 'AGENT' ? 'Enter your field credentials below.' : 'Secure administrative login.'}
+          {mode === 'AGENT' ? 'Enter your promoter credentials below.' : 'Secure administrative login.'}
         </p>
       </div>
 
@@ -221,7 +221,7 @@ function SignInForm() {
             <input
               required
               type="email"
-              placeholder={mode === 'AGENT' ? "agent@nexus.com" : "admin@nexus.com"}
+              placeholder={mode === 'AGENT' ? "promoter@nexus.com" : "admin@nexus.com"}
               className="w-full h-14 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-4 ring-blue-500/10 focus:border-blue-500 transition-all placeholder:text-slate-300"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -266,7 +266,7 @@ function SignInForm() {
           </>
         ) : (
           <>
-            {mode === 'AGENT' ? 'Launch Mobile OS' : 'Enter Dashboard'}
+            {mode === 'AGENT' ? 'Launch Promoter App' : 'Enter Dashboard'}
             <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
           </>
         )}

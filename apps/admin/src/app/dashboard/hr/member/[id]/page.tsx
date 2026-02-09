@@ -291,7 +291,7 @@ export default function MemberPortal() {
               )}
             </div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5">
-              {data?.role === 'PROMOTER' ? 'Field Agent' : data?.role} • {assignedShop?.name || "Pending Assignment"}
+              {data?.role === 'PROMOTER' ? 'Field Promoter' : data?.role} • {assignedShop?.name || "Pending Assignment"}
             </p>
           </div>
         </div>
@@ -723,7 +723,7 @@ export default function MemberPortal() {
                 <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                   <div>
                     <p className="text-xs font-black text-slate-900 uppercase">Remote GPS Access</p>
-                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">Allow agent to work from anywhere (Bypass Geofence)</p>
+                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">Allow promoter to work from anywhere (Bypass Geofence)</p>
                   </div>
                   <button
                     onClick={() => setFormState({ ...formState, bypassGeofence: !formState.bypassGeofence })}

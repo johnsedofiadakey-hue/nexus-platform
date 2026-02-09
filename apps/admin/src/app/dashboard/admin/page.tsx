@@ -62,7 +62,7 @@ export default function AdminActivityDashboard() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Search actions or agents..."
+                            placeholder="Search actions or promoters..."
                             className="h-12 pl-12 pr-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none w-72 focus:ring-4 ring-blue-500/5 focus:border-blue-500 transition-all shadow-sm"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
@@ -111,7 +111,7 @@ export default function AdminActivityDashboard() {
                             <thead className="bg-slate-50/50 border-b border-slate-100">
                                 <tr>
                                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Event Identity</th>
-                                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Agent / Role</th>
+                                    <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Promoter / Role</th>
                                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Action Details</th>
                                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Timestamp</th>
                                     <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Reference</th>

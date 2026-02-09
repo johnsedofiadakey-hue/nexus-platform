@@ -64,21 +64,21 @@ export default function TeamPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-8">
         <div className="space-y-2">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Personnel Command</h1>
-          <p className="text-slate-500 font-medium text-sm">Manage field agents, grant permissions, and monitor activity.</p>
+          <p className="text-slate-500 font-medium text-sm">Manage field promoters, grant permissions, and monitor activity.</p>
         </div>
 
         <Link
           href="/dashboard/hr/enrollment"
           className="h-11 px-6 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center gap-3 hover:bg-blue-600 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5"
         >
-          <UserPlus size={16} /> Recruit Agent
+          <UserPlus size={16} /> Recruit Promoter
         </Link>
       </div>
 
       {/* 📈 STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         <StatCard label="Total Force" value={stats.total} icon={Users} color="text-blue-600" bg="bg-blue-50" />
-        <StatCard label="Online Agents" value={stats.online} icon={Navigation} color="text-emerald-600" bg="bg-emerald-50" pulse />
+        <StatCard label="Online Promoters" value={stats.online} icon={Navigation} color="text-emerald-600" bg="bg-emerald-50" pulse />
         <StatCard label="Managers" value={stats.managers} icon={Shield} color="text-indigo-600" bg="bg-indigo-50" />
         <StatCard label="Active Status" value={`${Math.round((stats.active / (stats.total || 1)) * 100)}%`} icon={Activity} color="text-slate-600" bg="bg-slate-50" />
       </div>

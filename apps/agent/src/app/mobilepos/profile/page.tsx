@@ -108,7 +108,7 @@ export default function MobileProfilePage() {
               )}
             </div>
             <div>
-              <h2 className={`text-lg font-black ${themeClasses.text}`}>{session?.user?.name || "Agent"}</h2>
+              <h2 className={`text-lg font-black ${themeClasses.text}`}>{session?.user?.name || "Promoter"}</h2>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Sales Rep • {session?.user?.email}</p>
               <button
                 onClick={() => setMood(mood === "🚀 Productive" ? "😴 Need Coffee" : "🚀 Productive")}

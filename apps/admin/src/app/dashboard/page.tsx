@@ -197,7 +197,7 @@ export default function OperationsHub() {
 
         {/* KPI CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard label="Field Team" value={stats.total} sub="Registered Agents" icon={Users} />
+          <StatCard label="Field Team" value={stats.total} sub="Registered Promoters" icon={Users} />
           <StatCard label="Active Now" value={stats.active} sub="Online Signal" icon={Signal} active={true} />
           <StatCard label="Inventory Level" value={stats.inv.toLocaleString()} sub="Total Units" icon={Package} />
           <StatCard label="Security Alerts" value={stats.alertCount} sub="Req. Attention" icon={ShieldAlert} alert={stats.alertCount > 0} />

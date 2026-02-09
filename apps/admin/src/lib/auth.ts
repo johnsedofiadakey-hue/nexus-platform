@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
       name: `next-auth.session-token`,
       options: {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'strict', // ✅ CSRF protection (was 'lax')
         path: '/',
         secure: process.env.NODE_ENV === 'production'
       }
@@ -46,7 +46,7 @@ export const authOptions: NextAuthOptions = {
 
   session: { 
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 4 * 60 * 60, // ✅ 4 hours (was 30 days)
   },
 
   secret: process.env.NEXTAUTH_SECRET,
@@ -110,13 +110,8 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role;
         token.id = user.id;
         token.organizationId = (user as any).organizationId;
-        token.bankName = (user as any).bankName;
-        token.bankAccountNumber = (user as any).bankAccountNumber;
-        token.bankAccountName = (user as any).bankAccountName;
-        token.ssnitNumber = (user as any).ssnitNumber;
-        token.commencementDate = (user as any).commencementDate;
-        token.ghanaCard = (user as any).ghanaCard;
-        token.dob = (user as any).dob;
+        // ✅ Removed: bankName, bankAccountNumber, ssnitNumber, ghanaCard, dob
+        // Sensitive data should NEVER be in JWT tokens (visible to client)
       }
       return token;
     },
@@ -125,13 +120,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).role = token.role;
         (session.user as any).id = token.id;
         (session.user as any).organizationId = token.organizationId;
-        (session.user as any).bankName = token.bankName;
-        (session.user as any).bankAccountNumber = token.bankAccountNumber;
-        (session.user as any).bankAccountName = token.bankAccountName;
-        (session.user as any).ssnitNumber = token.ssnitNumber;
-        (session.user as any).commencementDate = token.commencementDate;
-        (session.user as any).ghanaCard = token.ghanaCard;
-        (session.user as any).dob = token.dob;
+        // ✅ Removed: Sensitive data - fetch server-side only when needed
       }
       return session;
     }

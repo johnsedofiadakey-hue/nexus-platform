@@ -51,7 +51,7 @@ export default function AgentsPage() {
                         <Search className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search agents..."
+                            placeholder="Search promoters..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             className="pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-100 transition-all w-64"

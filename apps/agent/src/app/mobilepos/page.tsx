@@ -257,7 +257,7 @@ export default function MobileGpsGate() {
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Welcome Back</p>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{contextIdentity?.agentName || "Agent"}</h1>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{contextIdentity?.agentName || "Promoter"}</h1>
           </div>
         </div>
 

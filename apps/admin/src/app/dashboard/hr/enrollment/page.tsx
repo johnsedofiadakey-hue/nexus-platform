@@ -130,7 +130,7 @@ export default function AddMemberWizard() {
         </div>
         <h2 className="text-2xl font-bold text-slate-900">Registration Successful</h2>
         <p className="text-slate-500 mt-2 max-w-sm mx-auto">
-          Agent {formData.name} has been enrolled and synced with the {assignedShopName} hub.
+          Promoter {formData.name} has been enrolled and synced with the {assignedShopName} hub.
         </p>
         <button
           onClick={() => router.push('/dashboard/hr')}
@@ -152,7 +152,7 @@ export default function AddMemberWizard() {
             <ArrowLeft className="w-3 h-3" /> Back to Directory
           </button>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Enroll New Personnel</h1>
-          <p className="text-slate-500 text-sm mt-1">Initialize secure agent credentials for hub deployment.</p>
+          <p className="text-slate-500 text-sm mt-1">Initialize secure promoter credentials for hub deployment.</p>
         </div>
 
         {/* STEP INDICATOR */}
@@ -225,7 +225,7 @@ export default function AddMemberWizard() {
                   <select required className="w-full h-11 px-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:ring-2 ring-slate-900/5 focus:border-slate-900 transition-all outline-none"
                     value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
                   >
-                    <option value="WORKER">Standard Agent (POS)</option>
+                    <option value="WORKER">Standard Promoter (POS)</option>
                     <option value="ADMIN">System Administrator</option>
                     <option value="SUPER_ADMIN">Executive HQ</option>
                   </select>
@@ -267,7 +267,7 @@ export default function AddMemberWizard() {
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
                 <h4 className="text-sm font-bold text-slate-900">Security Credentials</h4>
-                <p className="text-xs text-slate-500 mt-1">This key will be required for the agent's first terminal initialization.</p>
+                <p className="text-xs text-slate-500 mt-1">This key will be required for the promoter's first terminal initialization.</p>
                 <div className="mt-6">
                   <InputGroup label="Access Password" value={formData.password} onChange={v => setFormData({ ...formData, password: v })} type="text" />
                 </div>
