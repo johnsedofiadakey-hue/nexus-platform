@@ -157,7 +157,7 @@ export default function IntelBoard({ reports }: IntelBoardProps) {
                                     <div className="p-4 border border-slate-200 bg-slate-50 relative">
                                         <div className="flex items-center gap-2 mb-3">
                                             <div className="w-6 h-6 bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500"><MessageSquare size={12} /></div>
-                                            <h5 className=\"text-[10px] font-semibold text-slate-700 uppercase tracking-wider\">Promoter Commentary</h5>
+                                            <h5 className="text-[10px] font-semibold text-slate-700 uppercase tracking-wider">Promoter Commentary</h5>
                                         </div>
                                         <p className="text-xs font-medium text-slate-700 italic pl-3 border-l-2 border-slate-300">
                                             "{report.notes}"
