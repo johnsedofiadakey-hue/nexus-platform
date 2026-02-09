@@ -10,16 +10,9 @@ const nextConfig: NextConfig = {
 
     /**
      * 🚀 Production-ready output
+     * Standalone mode handles Prisma and dynamic imports better
      */
-    // output: "standalone",
-
-    /**
-     * Skip static page generation timeout to avoid Prisma initialization issues
-     */
-    experimental: {
-        // Disable static page generation timeout
-    },
-    skipPostBuildValidation: true,
+    output: "standalone",
 
     //@ts-ignore - Monorepo root for Turbopack
     turbopack: {
@@ -42,8 +35,11 @@ const nextConfig: NextConfig = {
      * 🧪 Experimental - Performance Optimizations
      */
     experimental: {
+        // ⚡️ OPTIMIZATION: Parallel route processing
+        ppr: false, // Keep false unless you need partial prerendering
+        
         serverActions: {
-            allowedOrigins: ["localhost:3002", "192.168.100.216", "*.vercel.app"],
+            allowedOrigins: ["localhost:3002", "192.168.100.216", "*.vercel.app", "*.railway.app"],
         },
 
         // ⚡️ OPTIMIZATION: Tree-shake large packages
@@ -53,9 +49,6 @@ const nextConfig: NextConfig = {
             "recharts",
             "date-fns",
         ],
-
-        // ⚡️ OPTIMIZATION: Parallel route processing
-        ppr: false, // Keep false unless you need partial prerendering
     },
 
     /**
