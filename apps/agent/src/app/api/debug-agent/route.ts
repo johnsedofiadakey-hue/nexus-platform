@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Force dynamic rendering for API routes that use database
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     // 1. Check if we can talk to the database

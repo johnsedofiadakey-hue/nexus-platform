@@ -8,7 +8,6 @@
   "/api/analytics/sales-mix/route": "/api/analytics/sales-mix",
   "/api/audit/route": "/api/audit",
   "/api/auth/[...nextauth]/route": "/api/auth/[...nextauth]",
-  "/api/culprit/route": "/api/culprit",
   "/api/dashboard/agents/route": "/api/dashboard/agents",
   "/api/dashboard/stats/route": "/api/dashboard/stats",
   "/api/debug-agent/route": "/api/debug-agent",

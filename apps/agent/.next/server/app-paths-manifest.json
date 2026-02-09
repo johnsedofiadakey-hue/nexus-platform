@@ -8,7 +8,6 @@
   "/api/analytics/sales-mix/route": "app/api/analytics/sales-mix/route.js",
   "/api/audit/route": "app/api/audit/route.js",
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/api/culprit/route": "app/api/culprit/route.js",
   "/api/dashboard/agents/route": "app/api/dashboard/agents/route.js",
   "/api/dashboard/stats/route": "app/api/dashboard/stats/route.js",
   "/api/debug-agent/route": "app/api/debug-agent/route.js",

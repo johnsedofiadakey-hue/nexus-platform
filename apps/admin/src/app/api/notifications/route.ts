@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// Force dynamic rendering for API routes that use database
+export const dynamic = 'force-dynamic';
+
 // GET: Fetch recent notifications for the organization
 export async function GET(req: Request) {
     const session = await getServerSession(authOptions);

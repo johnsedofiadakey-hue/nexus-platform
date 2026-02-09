@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///workspaces/nexus-platform/apps/agent/src/components/providers/SessionProvider.tsx"],"sourcesContent":["\"use client\";\n\nimport { SessionProvider as NextAuthProvider } from \"next-auth/react\";\n\n// This MUST be a named export to match the { SessionProvider } import\nexport function SessionProvider({ children }: { children: React.ReactNode }) {\n  return <NextAuthProvider>{children}</NextAuthProvider>;\n}"],"names":[],"mappings":";;;;;AAEA;AAFA;;;AAKO,SAAS,gBAAgB,EAAE,QAAQ,EAAiC;IACzE,qBAAO,6WAAC,+YAAgB;kBAAE;;;;;;AAC5B"}}]
-}

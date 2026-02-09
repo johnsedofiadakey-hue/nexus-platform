@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+
+// Force dynamic rendering for API routes that use database
+export const dynamic = 'force-dynamic';
 import crypto from "crypto";
 
 export async function POST(req: Request) {

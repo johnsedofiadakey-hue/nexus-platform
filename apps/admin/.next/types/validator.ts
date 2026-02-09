@@ -56,6 +56,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/auth/super-admin/signin/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/auth/super-admin/signin">> = Specific
+  const handler = {} as typeof import("../../src/app/auth/super-admin/signin/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/app/dashboard/activity-log/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/dashboard/activity-log">> = Specific
@@ -299,10 +308,10 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
-// Validate ../../src/app/api/culprit/route.ts
+// Validate ../../src/app/api/auth/super-admin/[...nextauth]/route.ts
 {
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/culprit">> = Specific
-  const handler = {} as typeof import("../../src/app/api/culprit/route.js")
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/auth/super-admin/[...nextauth]">> = Specific
+  const handler = {} as typeof import("../../src/app/api/auth/super-admin/[...nextauth]/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

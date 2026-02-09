@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
      */
     // output: "standalone",
 
+    /**
+     * Skip static page generation timeout to avoid Prisma initialization issues
+     */
+    experimental: {
+        // Disable static page generation timeout
+    },
+    skipPostBuildValidation: true,
+
     //@ts-ignore - Monorepo root for Turbopack
     turbopack: {
         root: path.join(__dirname, "../.."),

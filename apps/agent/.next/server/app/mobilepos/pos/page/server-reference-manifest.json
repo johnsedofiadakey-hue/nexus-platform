@@ -1,6 +1,6 @@
 {
   "node": {
-    "7c3dbfd863a6b657ad345b466cbe43860d89e4c224": {
+    "7c5b753571d8bc648bcbc861ca31a0ac52cee5111f": {
       "workers": {
         "app/mobilepos/pos/page": {
           "moduleId": 99913,

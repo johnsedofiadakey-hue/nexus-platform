@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth"; // ✅ FIXED: Pointing to the correct config file
 import { prisma } from "@/lib/prisma";
 
+// Force dynamic rendering for API routes that use database
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     // 1. SECURE SESSION CHECK
