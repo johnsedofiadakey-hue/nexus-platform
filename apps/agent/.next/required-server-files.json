@@ -97,6 +97,7 @@
     "compiler": {},
     "expireTime": 31536000,
     "staticPageGenerationTimeout": 60,
+    "output": "standalone",
     "modularizeImports": {
       "@mui/icons-material": {
         "transform": "@mui/icons-material/{{member}}"
@@ -218,7 +219,8 @@
         "allowedOrigins": [
           "localhost:3002",
           "192.168.100.216",
-          "*.vercel.app"
+          "*.vercel.app",
+          "*.railway.app"
         ]
       },
       "optimizePackageImports": [
@@ -305,7 +307,6 @@
     "htmlLimitedBots": "[\\w-]+-Google|Google-[\\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight",
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.ts",
-    "skipPostBuildValidation": true,
     "turbopack": {
       "root": "/workspaces/nexus-platform"
     },
