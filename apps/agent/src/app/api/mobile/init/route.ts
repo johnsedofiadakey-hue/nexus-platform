@@ -96,96 +96,12 @@ export async function GET() {
       );
     }
 
-    // 🔍 Find Manager (Admin assigned to this shop) - optimized query
-    const manager = await prisma.user.findFirst({
-      where: {
-        shopId: user.shop.id,
-        role: 'ADMIN'
-      },
-      select: {
-        name: true,
-        phone: true
-      }
-    });
+    // 🔍 Find Manager - Temporarily disabled for testing
+    const manager = null;
 
-    // 🔒 CHECK LOCKOUT (APPROVED LEAVE or SUSPENDED)
-    const today = new Date();
-    const activeLeave = await prisma.leaveRequest.findFirst({
-      where: {
-        userId: user.id,
-        status: 'APPROVED',
-        startDate: { lte: today },
-        endDate: { gte: today }
-      },
-      select: {
-        endDate: true
-      }
-    });
-
-    // 🎯 FETCH ACTIVE TARGET
-    const activeTarget = await prisma.target.findFirst({
-      where: {
-        userId: user.id,
-        status: 'ACTIVE',
-        startDate: { lte: today },
-        endDate: { gte: today }
-      },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        startDate: true,
-        endDate: true,
-        targetValue: true,
-        targetQuantity: true
-      }
-    });
-
-    // 📊 CALCULATE PROGRESS (If Target Exists) - optimized with aggregation
-    let targetProgress = null;
-    if (activeTarget) {
-      // Use aggregation instead of fetching all sales
-      const salesAgg = await prisma.sale.aggregate({
-        where: {
-          userId: user.id,
-          createdAt: { gte: activeTarget.startDate, lte: activeTarget.endDate }
-        },
-        _sum: {
-          totalAmount: true
-        }
-      });
-      
-      // Get quantity separately (cheaper than fetching all items)
-      const salesWithQty = await prisma.sale.findMany({
-        where: {
-          userId: user.id,
-          createdAt: { gte: activeTarget.startDate, lte: activeTarget.endDate }
-        },
-        select: {
-          items: {
-            select: {
-              quantity: true
-            }
-          }
-        }
-      });
-
-      const achievedValue = salesAgg._sum.totalAmount || 0;
-      const achievedQty = salesWithQty.reduce((sum, s) => 
-        sum + s.items.reduce((q, i) => q + i.quantity, 0), 0
-      );
-
-      targetProgress = {
-        targetValue: activeTarget.targetValue,
-        targetQuantity: activeTarget.targetQuantity,
-        achievedValue,
-        achievedQuantity: achievedQty
-      };
-    }
-
-    const lockout = activeLeave ? {
-      active: true,
-      reason: 'LEAVE',
-      endDate: activeLeave.endDate
-    } : null;
+    // 🔒 CHECK LOCKOUT (APPROVED LEAVE or SUSPENDED) - Temporarily disabled for testing
+    const lockout = null;
+    const targetProgress = null;
 
     if (user.status === 'SUSPENDED') {
       return NextResponse.json({ error: "ACCOUNT_SUSPENDED" }, { status: 403 });

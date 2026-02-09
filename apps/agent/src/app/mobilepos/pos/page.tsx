@@ -141,6 +141,68 @@ export default function MobilePOS() {
       toast.error("Terminal Out of Sync. Please refresh.");
       return;
     }
+
+    // 🔒 GPS VALIDATION (Only for non-admins)
+    if (!identity.bypassGeofence) {
+      // Check if shop has GPS configured
+      if (!identity.shopLat || !identity.shopLng) {
+        toast.error("Shop GPS not configured. Contact admin.", { duration: 5000 });
+        return;
+      }
+
+      // Get current GPS position
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { 
+              timeout: 10000,
+              maximumAge: 30000,
+              enableHighAccuracy: true
+            });
+          });
+
+          // Calculate distance from shop
+          const R = 6371e3; // Earth radius in meters
+          const toRad = (v: number) => (v * Math.PI) / 180;
+          const lat1 = position.coords.latitude;
+          const lng1 = position.coords.longitude;
+          const lat2 = identity.shopLat;
+          const lng2 = identity.shopLng;
+          
+          const a =
+            Math.sin(toRad(lat2 - lat1) / 2) ** 2 +
+            Math.cos(toRad(lat1)) *
+            Math.cos(toRad(lat2)) *
+            Math.sin(toRad(lng2 - lng1) / 2) ** 2;
+          const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+          
+          const radius = identity.radius || 100;
+          
+          if (distance > radius) {
+            toast.error(`❌ You must be within ${radius}m of the shop to make sales.\nCurrent distance: ${distance}m`, {
+              duration: 6000,
+              icon: '📍'
+            });
+            return;
+          }
+          
+          console.log(`✅ GPS Check Passed: ${distance}m from shop (limit: ${radius}m)`);
+        } catch (error) {
+          console.error('GPS Error:', error);
+          toast.error('Unable to verify your location. Enable GPS and try again.', {
+            duration: 5000,
+            icon: '📍'
+          });
+          return;
+        }
+      } else {
+        toast.error('GPS not available on this device.', { duration: 5000 });
+        return;
+      }
+    } else {
+      console.log('✅ Admin bypass active - skipping GPS check');
+    }
+
     setIsProcessing(true);
 
     try {

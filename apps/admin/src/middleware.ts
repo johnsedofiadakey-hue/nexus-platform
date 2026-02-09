@@ -24,6 +24,7 @@ const PUBLIC_ROUTES = [
   '/auth/signin',
   '/auth/error',
   '/_next',
+  '/api/auth', // NextAuth API routes MUST be public
   '/api/public',
 ];
 

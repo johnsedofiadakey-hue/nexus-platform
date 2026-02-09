@@ -50,7 +50,7 @@ export async function GET() {
       prisma.product.findMany({
         where: {
           stockLevel: { lte: 5 },
-          shop: orgFilter
+          ...(Object.keys(orgFilter).length > 0 && { shop: orgFilter })
         },
         select: {
           id: true,
@@ -64,7 +64,7 @@ export async function GET() {
       // 3. DETECT HIGH VALUE SALES - ⚡️ OPTIMIZED with select
       prisma.sale.findMany({
         where: {
-          shop: orgFilter,
+          ...(Object.keys(orgFilter).length > 0 && { shop: orgFilter }),
           createdAt: { gte: fourHoursAgo } // Only recent sales for performance
         },
         select: {
@@ -83,7 +83,7 @@ export async function GET() {
         where: {
           checkOut: null,
           checkIn: { gte: fourHoursAgo }, // Only recent check-ins
-          user: orgFilter
+          ...(Object.keys(orgFilter).length > 0 && { user: orgFilter })
         },
         select: {
           id: true,
@@ -102,7 +102,7 @@ export async function GET() {
       // 5. RECENT FIELD REPORTS - ⚡️ OPTIMIZED with select
       prisma.dailyReport.findMany({
         where: {
-          user: orgFilter,
+          ...(Object.keys(orgFilter).length > 0 && { user: orgFilter }),
           createdAt: { gte: fourHoursAgo } // Only recent reports
         },
         select: {

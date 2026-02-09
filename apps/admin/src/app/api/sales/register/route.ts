@@ -32,9 +32,12 @@ export async function GET(req: Request) {
             where.shopId = shopId;
         } else {
             // No shopId: filter by organization
-            if (user.role !== "SUPER_ADMIN" || user.organizationId) {
+            if (user.role !== "SUPER_ADMIN" && user.organizationId) {
+                where.shop = { organizationId: user.organizationId };
+            } else if (user.role === "SUPER_ADMIN" && user.organizationId) {
                 where.shop = { organizationId: user.organizationId };
             }
+            // SUPER_ADMIN without org sees all (no filter)
         }
 
         const sales = await prisma.sale.findMany({
