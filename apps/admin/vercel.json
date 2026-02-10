@@ -1,8 +1,4 @@
 {
-  "buildCommand": "cd ../.. && pnpm install && pnpm --filter @nexus/database run db:generate && cd apps/admin && pnpm run build",
-  "outputDirectory": ".next",
-  "devCommand": "next dev --port 3001",
-  "installCommand": "cd ../.. && pnpm install",
-  "framework": "nextjs",
-  "regions": ["iad1"]
+  "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && cd apps/admin && pnpm build",
+  "framework": "nextjs"
 }
