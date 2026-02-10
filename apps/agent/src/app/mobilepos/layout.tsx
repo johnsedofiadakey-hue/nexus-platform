@@ -22,7 +22,7 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { themeClasses } = useMobileTheme();
-  const [lockout, setLockout] = useState<{ active: boolean; returnDate?: string } | null>(null);
+  const [lockout, setLockout] = useState<{ active: boolean; returnDate?: string }>({ active: false });
   const [geoConfig, setGeoConfig] = useState<{ lat: number; lng: number; radius: number; bypass: boolean } | null>(null);
 
   useEffect(() => {
@@ -34,14 +34,8 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
     // We just need to setup geo config from the context
   }, []);
 
-  if (lockout === null) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-900">
-        <Loader2 className="animate-spin text-blue-500" />
-      </div>
-    );
-  }
-
+  // ✅ FIX: lockout is now initialized to {active: false} instead of null
+  // This prevents the infinite loading loop
   if (lockout.active) {
     return <LeaveLockout returnDate={lockout.returnDate!} />;
   }

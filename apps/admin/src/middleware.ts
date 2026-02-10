@@ -50,6 +50,14 @@ export async function middleware(request: NextRequest) {
 
   // 3. If no token, redirect to signin
   if (!token) {
+    // ✅ FIX: Return JSON for API routes, redirect for pages
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     // Store the requested URL for post-login redirect
     const callbackUrl = pathname;
     const loginUrl = new URL('/auth/signin', request.url);

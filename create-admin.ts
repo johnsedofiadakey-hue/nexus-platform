@@ -1,52 +1,59 @@
-import { PrismaClient } from "@prisma/client";
-import { hash, compare } from "bcryptjs";
+import { PrismaClient } from '@prisma/client';
+import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  console.log("🔍 Checking existing users...");
-  
-  const allUsers = await prisma.user.findMany();
-  console.log(`📊 Found ${allUsers.length} users:`);
-  allUsers.forEach(u => console.log(`   - ${u.email} (${u.role}, Status: ${u.status})`));
-  
-  console.log("\n🔧 Creating/updating admin user...");
+async function createAdminUser() {
+  console.log('🔧 Creating ADMIN user...\n');
 
-  const hashedPassword = await hash("password123", 10);
-  console.log("🔐 Generated password hash:", hashedPassword);
+  try {
+    // Get the organization
+    const org = await prisma.organization.findFirst();
 
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@nexus.com" },
-    update: {
-      password: hashedPassword,
-      role: "ADMIN",
-      status: "ACTIVE",
-    },
-    create: {
-      email: "admin@nexus.com",
-      name: "Super Admin",
-      password: hashedPassword,
-      role: "ADMIN",
-      status: "ACTIVE",
-    },
-  });
+    if (!org) {
+      console.error('❌ No organization found! Run seed script first.');
+      return;
+    }
 
-  console.log("\n✅ Admin user created/updated:");
-  console.log(`   Email: ${admin.email}`);
-  console.log(`   Password: password123`);
-  console.log(`   Role: ${admin.role}`);
-  console.log(`   Status: ${admin.status}`);
-  
-  // Test password
-  const isValid = await compare("password123", admin.password);
-  console.log(`\n🔐 Password test: ${isValid ? '✅ VALID' : '❌ INVALID'}`);
+    // Check if admin already exists
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: 'admin@nexus.com' }
+    });
+
+    if (existingAdmin) {
+      console.log('ℹ️  Admin user already exists');
+      console.log(`📧 Email: ${existingAdmin.email}`);
+      console.log(`🔑 Role: ${existingAdmin.role}`);
+      return;
+    }
+
+    // Create admin user
+    const hashedPassword = await hash('admin123', 10);
+
+    const admin = await prisma.user.create({
+      data: {
+        email: 'admin@nexus.com',
+        name: 'System Administrator',
+        role: 'ADMIN',
+        password: hashedPassword,
+        position: 'Administrator',
+        department: 'Management',
+        organizationId: org.id,
+        status: 'ACTIVE'
+      }
+    });
+
+    console.log('✅ Admin user created successfully!\n');
+    console.log(`📧 Email: ${admin.email}`);
+    console.log(`🔑 Password: admin123`);
+    console.log(`👤 Role: ${admin.role}`);
+    console.log(`🏢 Organization: ${org.name}`);
+
+  } catch (error) {
+    console.error('❌ Error:', error);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-main()
-  .catch((e) => {
-    console.error("❌ Error:", e.message);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+createAdminUser();

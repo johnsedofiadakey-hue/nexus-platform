@@ -39,6 +39,14 @@ export async function middleware(request: NextRequest) {
 
   // 3. Require authentication
   if (!token) {
+    // ✅ FIX: Return JSON for API routes, redirect for pages
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const loginUrl = new URL('/auth/signin', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
@@ -50,7 +58,7 @@ export async function middleware(request: NextRequest) {
   for (const route of AGENT_ONLY_ROUTES) {
     if (pathname.startsWith(route)) {
       const isAgentRole = ['WORKER', 'AGENT', 'ASSISTANT'].includes(userRole);
-      
+
       if (!isAgentRole) {
         return NextResponse.redirect(new URL('/auth/error?error=admin_cannot_use_agent_portal', request.url));
       }

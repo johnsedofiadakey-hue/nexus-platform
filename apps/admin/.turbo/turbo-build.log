@@ -1,76 +1,158 @@
 
-> admin@0.1.0 build /workspaces/nexus-platform/apps/admin
+
+> admin@0.1.0 build /Users/truth/DEVELOPMENT/nexus-platform/apps/admin
 > prisma generate --schema=../../packages/database/prisma/schema.prisma && next build
 
-Prisma schema loaded from ../../packages/database/prisma/schema.prisma
+[2mPrisma schema loaded from ../../packages/database/prisma/schema.prisma[22m
+
 
-✔ Generated Prisma Client (v6.19.2) to ./../../packages/database/node_modules/.prisma/client in 273ms
+✔ Generated [1mPrisma Client[22m (v6.19.2)[2m to ./../../node_modules/.pnpm/@prisma+client@6.19.2_prisma@6.19.2_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client[22m in 1.34s
 
 Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
 
-Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
 
-⚠ Invalid next.config.ts options detected: 
-⚠     Unrecognized key(s) in object: 'skipPostBuildValidation'
-⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
-▲ Next.js 16.1.6 (Turbopack)
+[1m[38;2;173;127;168m▲ Next.js 16.1.6[39m[22m (Turbopack)
 - Experiments (use with caution):
   · optimizePackageImports
   · serverActions
 
-⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
-  Creating an optimized production build ...
+[33m[1m⚠[22m[39m The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+[37m[1m [22m[39m Creating an optimized production build ...
+[32m[1m✓[22m[39m Compiled successfully in 90s
+[37m[1m [22m[39m Skipping validation of types
+[?25l[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+❌ CRITICAL: NEXTAUTH_SUPER_ADMIN_SECRET is not set!
+Generate unique secret: openssl rand -base64 32
+[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[?25h[37m[1m [22m[39m Collecting page data using 7 workers in 7.1s    [32m[1m✓[22m[39m Collecting page data using 7 workers in 7.1s 
+[?25l[37m[1m [22m[39m Generating static pages using 7 workers (0/24)  [36m[    ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[=   ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[==  ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[=== ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[ ===][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[  ==][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[   =][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[    ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[   =][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[  ==][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[ ===][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[====][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[=== ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[==  ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[=   ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/24)  [36m[    ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/24)  [36m[=   ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/24)  [36m[==  ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/24)  [36m[=== ][39m[2K[1G[1A[2K[1G[1A[2K[1G[?25h[32m[1m✓[22m[39m Generating static pages using 7 workers (24/24) in 3.7s
+[?25l[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[?25h[37m[1m [22m[39m Finalizing page optimization in 8.7s    [32m[1m✓[22m[39m Finalizing page optimization in 8.7s 
 
-> Build error occurred
-Error: Turbopack build failed with 2 errors:
-./apps/admin/src/components/dashboard/hr/IntelBoard.tsx:160:59
-Parsing ecmascript source code failed
-[0m [90m 158 |[39m                                         [33m<[39m[33mdiv[39m className[33m=[39m[32m"flex items-center gap-2 mb-3"[39m[33m>[39m
- [90m 159 |[39m                                             [33m<[39m[33mdiv[39m className[33m=[39m[32m"w-6 h-6 bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500"[39m[33m>[39m[33m<[39m[33mMessageSquare[39m size[33m=[39m{[35m12[39m} [33m/[39m[33m>[39m[33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
-[31m[1m>[22m[39m[90m 160 |[39m                                             [33m<[39m[33mh5[39m className[33m=[39m[37m[41m[1m\[22m[49m[39m[32m"text-[10px] font-semibold text-slate-700 uppercase tracking-wider\">Promoter Commentary</h5>[39m
- [90m     |[39m                                                           [31m[1m^[22m[39m
- [90m 161 |[39m                                         [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
- [90m 162 |[39m                                         [33m<[39m[33mp[39m className[33m=[39m[32m"text-xs font-medium text-slate-700 italic pl-3 border-l-2 border-slate-300"[39m[33m>[39m
- [90m 163 |[39m                                             [32m"{report.notes}"[39m[0m
+[4mRoute (app)[24m
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/activity-log
+├ ƒ /api/ai/performance-insight
+├ ƒ /api/analytics/dashboard
+├ ƒ /api/analytics/export
+├ ƒ /api/analytics/sales-mix
+├ ƒ /api/audit
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/auth/super-admin/[...nextauth]
+├ ƒ /api/dashboard/agents
+├ ƒ /api/dashboard/stats
+├ ƒ /api/debug-agent
+├ ƒ /api/env-check
+├ ƒ /api/hr/create
+├ ƒ /api/hr/disciplinary
+├ ƒ /api/hr/leave
+├ ƒ /api/hr/leave-authority
+├ ƒ /api/hr/leaves
+├ ƒ /api/hr/member/[id]
+├ ƒ /api/hr/member/[id]/export
+├ ƒ /api/hr/member/[id]/geofence-stat
+├ ƒ /api/hr/team
+├ ƒ /api/hr/team/list
+├ ƒ /api/inventory
+├ ƒ /api/inventory/shop-specific
+├ ƒ /api/inventory/update
+├ ƒ /api/messages
+├ ƒ /api/mobile/attendance
+├ ƒ /api/mobile/diagnostic
+├ ƒ /api/mobile/history
+├ ƒ /api/mobile/init
+├ ƒ /api/mobile/location
+├ ƒ /api/mobile/messages
+├ ƒ /api/mobile/messages/unread-count
+├ ƒ /api/mobile/profile/update
+├ ƒ /api/mobile/pulse
+├ ƒ /api/notifications
+├ ƒ /api/notifications/[id]
+├ ƒ /api/operations/map-data
+├ ƒ /api/operations/pulse-feed
+├ ƒ /api/operations/reports
+├ ƒ /api/payments/paystack
+├ ƒ /api/products/update-price
+├ ƒ /api/sales
+├ ƒ /api/sales/history
+├ ƒ /api/sales/register
+├ ƒ /api/settings
+├ ƒ /api/shops
+├ ƒ /api/shops/[id]
+├ ƒ /api/shops/[id]/inventory
+├ ƒ /api/shops/[id]/settings/categories
+├ ƒ /api/shops/list
+├ ƒ /api/stats/summary
+├ ƒ /api/super/tenants
+├ ƒ /api/targets
+├ ƒ /api/targets/sync
+├ ○ /auth/signin
+├ ○ /auth/super-admin/signin
+├ ○ /dashboard
+├ ○ /dashboard/activity-log
+├ ○ /dashboard/admin
+├ ○ /dashboard/agents
+├ ○ /dashboard/hr
+├ ○ /dashboard/hr/enrollment
+├ ƒ /dashboard/hr/member/[id]
+├ ○ /dashboard/inventory
+├ ○ /dashboard/map
+├ ○ /dashboard/messages
+├ ○ /dashboard/sales
+├ ○ /dashboard/settings
+├ ○ /dashboard/settings/audit
+├ ○ /dashboard/shops
+├ ƒ /dashboard/shops/[id]
+├ ○ /staff/chat
+├ ○ /staff/expenses
+├ ○ /staff/report
+└ ○ /super-user
 
-Expected unicode escape
 
-Import traces:
-  Client Component Browser:
-    ./apps/admin/src/components/dashboard/hr/IntelBoard.tsx [Client Component Browser]
-    ./apps/admin/src/app/dashboard/hr/member/[id]/page.tsx [Client Component Browser]
-    ./apps/admin/src/app/dashboard/hr/member/[id]/page.tsx [Server Component]
+ƒ Proxy (Middleware)
 
-  Client Component SSR:
-    ./apps/admin/src/components/dashboard/hr/IntelBoard.tsx [Client Component SSR]
-    ./apps/admin/src/app/dashboard/hr/member/[id]/page.tsx [Client Component SSR]
-    ./apps/admin/src/app/dashboard/hr/member/[id]/page.tsx [Server Component]
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
 
-
-./apps/admin/src/components/dashboard/hr/IntelBoard.tsx:160:60
-Parsing ecmascript source code failed
-[0m [90m 158 |[39m                                         [33m<[39m[33mdiv[39m className[33m=[39m[32m"flex items-center gap-2 mb-3"[39m[33m>[39m
- [90m 159 |[39m                                             [33m<[39m[33mdiv[39m className[33m=[39m[32m"w-6 h-6 bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500"[39m[33m>[39m[33m<[39m[33mMessageSquare[39m size[33m=[39m{[35m12[39m} [33m/[39m[33m>[39m[33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
-[31m[1m>[22m[39m[90m 160 |[39m                                             [33m<[39m[33mh5[39m className[33m=[39m[37m[41m[1m\[22m[49m[39m[32m"text-[10px] font-semibold text-slate-700 uppercase tracking-wider\">Promoter Commentary</h5>[39m
- [90m     |[39m                                                            [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
- [90m 161 |[39m                                         [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
- [90m 162 |[39m                                         [33m<[39m[33mp[39m className[33m=[39m[32m"text-xs font-medium text-slate-700 italic pl-3 border-l-2 border-slate-300"[39m[33m>[39m
- [90m 163 |[39m                                             [32m"{report.notes}"[39m[0m
-
-Unterminated string constant
-
-Import traces:
-  Client Component Browser:
-    ./apps/admin/src/components/dashboard/hr/IntelBoard.tsx [Client Component Browser]
-    ./apps/admin/src/app/dashboard/hr/member/[id]/page.tsx [Client Component Browser]
-    ./apps/admin/src/app/dashboard/hr/member/[id]/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./apps/admin/src/components/dashboard/hr/IntelBoard.tsx [Client Component SSR]
-    ./apps/admin/src/app/dashboard/hr/member/[id]/page.tsx [Client Component SSR]
-    ./apps/admin/src/app/dashboard/hr/member/[id]/page.tsx [Server Component]
-
-
-    at <unknown> (./apps/admin/src/components/dashboard/hr/IntelBoard.tsx:160:59)
-    at <unknown> (./apps/admin/src/components/dashboard/hr/IntelBoard.tsx:160:60)
- ELIFECYCLE  Command failed with exit code 1.
+[?25h

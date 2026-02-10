@@ -1,47 +1,102 @@
 
-> agent@0.1.0 build /workspaces/nexus-platform/apps/agent
+
+> agent@0.1.0 build /Users/truth/DEVELOPMENT/nexus-platform/apps/agent
 > prisma generate --schema=../../packages/database/prisma/schema.prisma && next build
 
-Prisma schema loaded from ../../packages/database/prisma/schema.prisma
+[2mPrisma schema loaded from ../../packages/database/prisma/schema.prisma[22m
+
 
-✔ Generated Prisma Client (v6.19.2) to ./../../packages/database/node_modules/.prisma/client in 557ms
+✔ Generated [1mPrisma Client[22m (v6.19.2)[2m to ./../../node_modules/.pnpm/@prisma+client@6.19.2_prisma@6.19.2_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client[22m in 1.70s
 
 Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
 
-Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
 
-⚠ Invalid next.config.ts options detected: 
-⚠     Unrecognized key(s) in object: 'skipPostBuildValidation'
-⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
-Attention: Next.js now collects completely anonymous telemetry regarding usage.
-This information is used to shape Next.js' roadmap and prioritize features.
-You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
-https://nextjs.org/telemetry
-
-▲ Next.js 16.1.6 (Turbopack)
+[1m[38;2;173;127;168m▲ Next.js 16.1.6[39m[22m (Turbopack)
 - Experiments (use with caution):
   · optimizePackageImports
   · serverActions
 
-⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
-  Creating an optimized production build ...
-✓ Compiled successfully in 27.0s
-  Skipping validation of types
-  Collecting page data using 1 worker ...
-Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
-    at <unknown> (.next/server/chunks/[root-of-the-server]__aa7a09b8._.js:1:1288)
-    at module evaluation (.next/server/chunks/[root-of-the-server]__aa7a09b8._.js:1:1516)
-    at instantiateModule (.next/server/chunks/[turbopack]_runtime.js:740:9)
-    at getOrInstantiateModuleFromParent (.next/server/chunks/[turbopack]_runtime.js:763:12)
-    at Context.esmImport [as i] (.next/server/chunks/[turbopack]_runtime.js:228:20)
-    at module evaluation (.next/server/chunks/[root-of-the-server]__966c01bd._.js:34:65200)
-    at instantiateModule (.next/server/chunks/[turbopack]_runtime.js:740:9)
-    at getOrInstantiateModuleFromParent (.next/server/chunks/[turbopack]_runtime.js:763:12)
-    at Context.esmImport [as i] (.next/server/chunks/[turbopack]_runtime.js:228:20)
+[33m[1m⚠[22m[39m The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+[37m[1m [22m[39m Creating an optimized production build ...
+[32m[1m✓[22m[39m Compiled successfully in 62s
+[37m[1m [22m[39m Skipping validation of types
+[?25l[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
+Generate one with: openssl rand -base64 32
+❌ CRITICAL: DATABASE_URL is not set!
+⚠️  WARNING: NEXTAUTH_URL is not set!
+This can cause refresh loops in production.
+Set it to your deployment URL: https://your-app.vercel.app
+[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[?25h[37m[1m [22m[39m Collecting page data using 7 workers in 9.7s    [32m[1m✓[22m[39m Collecting page data using 7 workers in 9.7s 
+[?25l[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[    ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[=   ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[==  ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[=== ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[ ===][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[  ==][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[   =][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[    ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[   =][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (0/13)  [36m[  ==][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/13)  [36m[ ===][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/13)  [36m[====][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/13)  [36m[=== ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/13)  [36m[==  ][39m[2K[1G[1A[2K[1G[1A[2K[1G[?25h[32m[1m✓[22m[39m Generating static pages using 7 workers (13/13) in 2.6s
+[?25l[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[?25h[37m[1m [22m[39m Finalizing page optimization in 8.1s    [32m[1m✓[22m[39m Finalizing page optimization in 8.1s 
 
-> Build error occurred
-Error: Failed to collect page data for /api/activity-log
-    at ignore-listed frames {
-  type: 'Error'
-}
- ELIFECYCLE  Command failed with exit code 1.
+[4mRoute (app)[24m
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/env-check
+├ ƒ /api/inventory
+├ ƒ /api/mobile/attendance
+├ ƒ /api/mobile/diagnostic
+├ ƒ /api/mobile/history
+├ ƒ /api/mobile/init
+├ ƒ /api/mobile/location
+├ ƒ /api/mobile/messages
+├ ƒ /api/mobile/messages/unread-count
+├ ƒ /api/mobile/profile/update
+├ ƒ /api/mobile/pulse
+├ ○ /auth/signin
+├ ○ /mobilepos
+├ ○ /mobilepos/history
+├ ○ /mobilepos/inventory
+├ ○ /mobilepos/messages
+├ ○ /mobilepos/pos
+├ ○ /mobilepos/profile
+├ ○ /mobilepos/report
+├ ○ /mobilepos/sales
+└ ○ /mobilepos/settings
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[?25h

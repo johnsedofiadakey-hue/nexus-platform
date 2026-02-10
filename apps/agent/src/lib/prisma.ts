@@ -21,19 +21,20 @@ function getPrismaClient() {
     const client = new PrismaClient({
       log: [],
     });
-    
+
     if (process.env.NODE_ENV !== "production") {
       globalForPrisma.prisma = client;
     }
-    
+
     return client;
   }
 
   // Runtime: create properly configured client
   const baseUrl = process.env.DATABASE_URL;
-  const connectionUrl = baseUrl.includes("?")
-    ? `${baseUrl}&pgbouncer=true&connection_limit=1`
-    : `${baseUrl}?pgbouncer=true&connection_limit=1`;
+
+  // ✅ SESSION MODE (Port 5432) - No pgbouncer parameter needed
+  // Transaction Mode (Port 6543) would need pgbouncer=true
+  const connectionUrl = baseUrl;
 
   const client = new PrismaClient({
     datasources: {
