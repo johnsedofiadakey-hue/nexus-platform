@@ -25,11 +25,29 @@ if (!process.env.NEXTAUTH_URL) {
 }
 
 export const authOptions: NextAuthOptions = {
-  debug: process.env.NODE_ENV === 'development',
+  debug: true, // Enable debug to see what's happening
 
   // 🔒 TRUST HOST for Vercel/production deployments
   // This prevents callback URL mismatches
   trustHost: true,
+
+  // 🍪 EXPLICIT COOKIE CONFIGURATION FOR PRODUCTION
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production'
+        ? '__Secure-next-auth.session-token'
+        : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production'
+          ? '.up.railway.app'
+          : undefined,
+      },
+    },
+  },
 
   session: {
     strategy: "jwt",
