@@ -137,6 +137,13 @@ function AdminLoginForm({ onBack }: { onBack: () => void }) {
         setIsSubmitting(false);
       } else if (res?.ok) {
         toast.success("Authentication successful!");
+        // Force redirect immediately after successful login
+        const callbackUrl = searchParams.get("callbackUrl");
+        if (callbackUrl && !callbackUrl.includes("/auth/signin") && !callbackUrl.includes("/auth/error")) {
+          window.location.href = callbackUrl;
+        } else {
+          window.location.href = "/dashboard";
+        }
       } else {
         toast.error("Authentication failed. Please try again.");
         setIsSubmitting(false);
@@ -286,6 +293,9 @@ function PromoterLoginForm({ onBack }: { onBack: () => void }) {
         setIsSubmitting(false);
       } else if (res?.ok) {
         toast.success("Welcome back! 🎉");
+        // Force redirect immediately after successful login
+        const callbackUrl = searchParams.get("callbackUrl") || "/staff";
+        window.location.href = callbackUrl;
       } else {
         toast.error("Login failed. Please try again.");
         setIsSubmitting(false);
