@@ -1,0 +1,17 @@
+# Nixpacks configuration for Railway - Admin App
+[phases.setup]
+nixPkgs = ["nodejs_20", "pnpm"]
+
+[phases.install]
+cmds = [
+  "pnpm install --frozen-lockfile"
+]
+
+[phases.build]
+cmds = [
+  "pnpm run db:generate",
+  "cd apps/admin && pnpm build"
+]
+
+[start]
+cmd = "cd apps/admin && pnpm start"
