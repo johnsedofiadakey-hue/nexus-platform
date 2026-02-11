@@ -37,14 +37,14 @@ export const authOptions: NextAuthOptions = {
       name: `next-auth.session-token`,
       options: {
         httpOnly: true,
-        sameSite: 'strict', // ✅ CSRF protection (was 'lax')
+        sameSite: 'lax', // ✅ Required for NextAuth redirects to work
         path: '/',
         secure: process.env.NODE_ENV === 'production'
       }
     }
   },
 
-  session: { 
+  session: {
     strategy: "jwt",
     maxAge: 4 * 60 * 60, // ✅ 4 hours (was 30 days)
   },
@@ -81,7 +81,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           console.log("✅ User authenticated:", user.email);
-          
+
           return {
             id: user.id,
             email: user.email,
