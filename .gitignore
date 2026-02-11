@@ -40,3 +40,4 @@ apps/*/.turbo
 **/.turbo
 **/node_modules
 
+.nixpacks
