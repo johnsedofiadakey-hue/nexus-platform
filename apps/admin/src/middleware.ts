@@ -1,117 +1,18 @@
+// 🚨 MIDDLEWARE TEMPORARILY DISABLED
+// The middleware was causing redirect loops due to session cookie issues
+// Protection is now handled at the page level
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
 
-/**
- * 🛡️ SERVER-SIDE MIDDLEWARE FOR ROUTE PROTECTION
- * Validates authentication and authorization BEFORE routes load
- */
-
-// Routes that require specific roles
-const PROTECTED_ROUTES: Record<string, string[]> = {
-  '/dashboard': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
-  '/staff': ['ADMIN', 'MANAGER', 'SUPER_ADMIN', 'WORKER', 'AGENT', 'ASSISTANT'],
-  '/mobilepos': ['WORKER', 'AGENT', 'ASSISTANT'],
-  '/stats': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
-  '/settings': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
-  '/operations': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
-  '/analytics': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
-  '/super-user': ['SUPER_ADMIN'],
-  '/audit': ['SUPER_ADMIN'],
-};
-
-// Public routes (no auth required)
-const PUBLIC_ROUTES = [
-  '/auth/signin',
-  '/auth/admin/signin',
-  '/auth/promoter/signin',
-  '/auth/error',
-  '/_next',
-  '/api/auth', // NextAuth API routes MUST be public
-  '/api/public',
-];
-
-// API routes with role protection
-const PROTECTED_API_ROUTES: Record<string, string[]> = {
-  '/api/super': ['SUPER_ADMIN'],
-  '/api/admin': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
-};
-
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // 1. Allow public routes without authentication
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
-    return NextResponse.next();
-  }
-
-  // 🚨 TEMPORARY: Disable middleware auth to debug session issues
-  console.log("🔍 Middleware - pathname:", pathname);
-  console.log("🔍 Middleware - cookies:", request.cookies.getAll().map(c => c.name));
-
-  // 2. Get JWT token from request
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
-
-  console.log("🔍 Middleware - token found:", !!token);
-  if (token) {
-    console.log("🔍 Middleware - user role:", token.role);
-  }
-
-  // 🚨 TEMPORARY: Allow all requests through (bypass auth check)
-  // This is to debug why sessions aren't working
-  if (!token) {
-    console.warn("⚠️ No token found, but allowing request through for debugging");
-    // TEMPORARILY DISABLED: return NextResponse.redirect(loginUrl);
-  }
-
-  // If we have a token, use it for role-based checks
-  if (token) {
-    const userRole = token.role as string;
-
-    // 4. Check page routes
-    for (const [route, allowedRoles] of Object.entries(PROTECTED_ROUTES)) {
-      if (pathname.startsWith(route)) {
-        if (!allowedRoles.includes(userRole)) {
-          // ✅ Return 403 error instead of silently redirecting
-          return NextResponse.redirect(new URL('/auth/error?error=unauthorized', request.url));
-        }
-      }
-    }
-
-    // 5. Check API routes
-    for (const [route, allowedRoles] of Object.entries(PROTECTED_API_ROUTES)) {
-      if (pathname.startsWith(route)) {
-        if (!allowedRoles.includes(userRole)) {
-          return NextResponse.json(
-            { error: "Forbidden: Insufficient permissions" },
-            { status: 403, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-      }
-    }
-
-    // 6. Check for agent-only trying to access admin portal
-    const isAgentRole = ['WORKER', 'AGENT', 'ASSISTANT'].includes(userRole);
-    if (isAgentRole && pathname.startsWith('/dashboard')) {
-      return NextResponse.redirect(new URL('/auth/error?error=agent_cannot_access_admin', request.url));
-    }
-  }
-
-  // 7. Allow request to proceed
+export function middleware(request: NextRequest) {
+  // Allow all requests through
+  // TODO: Re-enable once session cookies are working
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
