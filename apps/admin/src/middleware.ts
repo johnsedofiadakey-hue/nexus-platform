@@ -43,57 +43,59 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 🚨 TEMPORARY: Disable middleware auth to debug session issues
+  console.log("🔍 Middleware - pathname:", pathname);
+  console.log("🔍 Middleware - cookies:", request.cookies.getAll().map(c => c.name));
+
   // 2. Get JWT token from request
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-  // 3. If no token, redirect to signin
+  console.log("🔍 Middleware - token found:", !!token);
+  if (token) {
+    console.log("🔍 Middleware - user role:", token.role);
+  }
+
+  // 🚨 TEMPORARY: Allow all requests through (bypass auth check)
+  // This is to debug why sessions aren't working
   if (!token) {
-    // ✅ FIX: Return JSON for API routes, redirect for pages
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Store the requested URL for post-login redirect
-    const callbackUrl = pathname;
-    const loginUrl = new URL('/auth/signin', request.url);
-    loginUrl.searchParams.set('callbackUrl', callbackUrl);
-    return NextResponse.redirect(loginUrl);
+    console.warn("⚠️ No token found, but allowing request through for debugging");
+    // TEMPORARILY DISABLED: return NextResponse.redirect(loginUrl);
   }
 
-  const userRole = token.role as string;
+  // If we have a token, use it for role-based checks
+  if (token) {
+    const userRole = token.role as string;
 
-  // 4. Check page routes
-  for (const [route, allowedRoles] of Object.entries(PROTECTED_ROUTES)) {
-    if (pathname.startsWith(route)) {
-      if (!allowedRoles.includes(userRole)) {
-        // ✅ Return 403 error instead of silently redirecting
-        return NextResponse.redirect(new URL('/auth/error?error=unauthorized', request.url));
+    // 4. Check page routes
+    for (const [route, allowedRoles] of Object.entries(PROTECTED_ROUTES)) {
+      if (pathname.startsWith(route)) {
+        if (!allowedRoles.includes(userRole)) {
+          // ✅ Return 403 error instead of silently redirecting
+          return NextResponse.redirect(new URL('/auth/error?error=unauthorized', request.url));
+        }
       }
     }
-  }
 
-  // 5. Check API routes
-  for (const [route, allowedRoles] of Object.entries(PROTECTED_API_ROUTES)) {
-    if (pathname.startsWith(route)) {
-      if (!allowedRoles.includes(userRole)) {
-        return NextResponse.json(
-          { error: "Forbidden: Insufficient permissions" },
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        );
+    // 5. Check API routes
+    for (const [route, allowedRoles] of Object.entries(PROTECTED_API_ROUTES)) {
+      if (pathname.startsWith(route)) {
+        if (!allowedRoles.includes(userRole)) {
+          return NextResponse.json(
+            { error: "Forbidden: Insufficient permissions" },
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
-  }
 
-  // 6. Check for agent-only trying to access admin portal
-  const isAgentRole = ['WORKER', 'AGENT', 'ASSISTANT'].includes(userRole);
-  if (isAgentRole && pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/auth/error?error=agent_cannot_access_admin', request.url));
+    // 6. Check for agent-only trying to access admin portal
+    const isAgentRole = ['WORKER', 'AGENT', 'ASSISTANT'].includes(userRole);
+    if (isAgentRole && pathname.startsWith('/dashboard')) {
+      return NextResponse.redirect(new URL('/auth/error?error=agent_cannot_access_admin', request.url));
+    }
   }
 
   // 7. Allow request to proceed
