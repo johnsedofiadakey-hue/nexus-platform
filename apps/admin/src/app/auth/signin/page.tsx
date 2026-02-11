@@ -271,7 +271,7 @@ function PromoterLoginForm({ onBack }: { onBack: () => void }) {
         return;
       }
 
-      const callbackUrl = searchParams.get("callbackUrl") || "/staff";
+      const callbackUrl = searchParams.get("callbackUrl") || "/mobilepos";
       window.location.href = callbackUrl;
     }
   }, [status, session, searchParams, mounted]);
@@ -294,7 +294,7 @@ function PromoterLoginForm({ onBack }: { onBack: () => void }) {
       } else if (res?.ok) {
         toast.success("Welcome back! 🎉");
         // Force redirect immediately after successful login
-        const callbackUrl = searchParams.get("callbackUrl") || "/staff";
+        const callbackUrl = searchParams.get("callbackUrl") || "/mobilepos";
         window.location.href = callbackUrl;
       } else {
         toast.error("Login failed. Please try again.");
