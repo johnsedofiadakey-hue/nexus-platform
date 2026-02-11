@@ -129,13 +129,17 @@ function AdminLoginForm({ onBack }: { onBack: () => void }) {
       const result = await signIn("credentials", {
         email: email.toLowerCase().trim(),
         password: password,
-        callbackUrl: "/dashboard",
-        redirect: true, // Let NextAuth handle the redirect
+        redirect: false,
       });
 
-      // If we reach here, there was an error (redirect: true would have redirected)
       if (result?.error) {
         toast.error("Invalid Credentials. Please check your inputs.");
+        setIsSubmitting(false);
+      } else if (result?.ok) {
+        // Success! Redirect to dashboard
+        window.location.href = "/dashboard";
+      } else {
+        toast.error("Authentication failed. Please try again.");
         setIsSubmitting(false);
       }
     } catch (error) {
@@ -275,13 +279,17 @@ function PromoterLoginForm({ onBack }: { onBack: () => void }) {
       const result = await signIn("credentials", {
         email: email.toLowerCase().trim(),
         password: password,
-        callbackUrl: "/mobilepos",
-        redirect: true, // Let NextAuth handle the redirect
+        redirect: false,
       });
 
-      // If we reach here, there was an error (redirect: true would have redirected)
       if (result?.error) {
         toast.error("Invalid credentials. Double-check your info!");
+        setIsSubmitting(false);
+      } else if (result?.ok) {
+        // Success! Redirect to mobilepos
+        window.location.href = "/mobilepos";
+      } else {
+        toast.error("Login failed. Please try again.");
         setIsSubmitting(false);
       }
     } catch (error) {

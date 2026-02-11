@@ -130,7 +130,4 @@ export const authOptions: NextAuthOptions = {
     signIn: '/auth/signin',
     error: '/auth/signin', // Redirect errors back to login
   },
-
-  // Add useSecureCookies for production
-  useSecureCookies: process.env.NODE_ENV === 'production',
 };
