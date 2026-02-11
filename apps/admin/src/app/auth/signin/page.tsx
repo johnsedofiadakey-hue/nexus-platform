@@ -264,7 +264,7 @@ function PromoterLoginForm({ onBack }: { onBack: () => void }) {
         return;
       }
 
-      const callbackUrl = searchParams.get("callbackUrl") || "/mobilepos";
+      const callbackUrl = searchParams.get("callbackUrl") || "/staff";
       window.location.href = callbackUrl;
     }
   }, [status, session, searchParams, mounted]);

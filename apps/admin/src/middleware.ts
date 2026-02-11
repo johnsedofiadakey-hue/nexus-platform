@@ -10,7 +10,7 @@ import { getToken } from "next-auth/jwt";
 // Routes that require specific roles
 const PROTECTED_ROUTES: Record<string, string[]> = {
   '/dashboard': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
-  '/staff': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
+  '/staff': ['ADMIN', 'MANAGER', 'SUPER_ADMIN', 'WORKER', 'AGENT', 'ASSISTANT'],
   '/stats': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
   '/settings': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],
   '/operations': ['ADMIN', 'MANAGER', 'SUPER_ADMIN'],

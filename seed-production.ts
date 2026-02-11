@@ -31,7 +31,9 @@ async function main() {
             role: 'ADMIN',
             position: 'Administrator',
             department: 'Management',
-            organizationId: org.id,
+            organization: {
+                connect: { id: org.id }
+            },
         },
     });
     console.log('✅ Admin user created:', admin.email);
@@ -39,20 +41,20 @@ async function main() {
     // Create shop
     const shop = await prisma.shop.upsert({
         where: {
-            organizationId_name: {
-                organizationId: org.id,
-                name: 'Nexus Retail - HQ'
-            }
+            id: 'nexus-hq-shop' // Use a deterministic ID
         },
         update: {},
         create: {
+            id: 'nexus-hq-shop',
             name: 'Nexus Retail - HQ',
             location: 'Accra Central',
             latitude: 5.6037,
             longitude: -0.1870,
             radius: 200,
             status: 'ACTIVE',
-            organizationId: org.id,
+            organization: {
+                connect: { id: org.id }
+            },
         },
     });
     console.log('✅ Shop created:', shop.name);
@@ -69,8 +71,12 @@ async function main() {
             role: 'AGENT',
             position: 'Field Operative',
             department: 'Retail',
-            organizationId: org.id,
-            assignedShopId: shop.id,
+            organization: {
+                connect: { id: org.id }
+            },
+            shop: {
+                connect: { id: shop.id }
+            },
         },
     });
     console.log('✅ Agent user created:', agent.email);
