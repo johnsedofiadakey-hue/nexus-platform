@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npx prisma generate && npx turbo run build --filter=admin",
+  "buildCommand": "pnpm prisma generate && pnpm turbo run build --filter=admin",
   "outputDirectory": "apps/admin/.next",
-  "installCommand": "npm install",
+  "installCommand": "pnpm install --frozen-lockfile",
   "framework": null
 }
