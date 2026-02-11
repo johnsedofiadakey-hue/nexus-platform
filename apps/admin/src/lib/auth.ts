@@ -31,22 +31,9 @@ export const authOptions: NextAuthOptions = {
   // This prevents callback URL mismatches
   trustHost: true,
 
-  // 🍪 FORCE COOKIES TO STICK (Critical for localhost)
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax', // ✅ Required for NextAuth redirects to work
-        path: '/',
-        secure: process.env.NODE_ENV === 'production'
-      }
-    }
-  },
-
   session: {
     strategy: "jwt",
-    maxAge: 4 * 60 * 60, // ✅ 4 hours (was 30 days)
+    maxAge: 4 * 60 * 60, // ✅ 4 hours
   },
 
   secret: process.env.NEXTAUTH_SECRET,
