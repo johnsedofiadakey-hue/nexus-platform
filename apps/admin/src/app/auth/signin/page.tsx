@@ -126,26 +126,16 @@ function AdminLoginForm({ onBack }: { onBack: () => void }) {
     setIsSubmitting(true);
 
     try {
-      const res = await signIn("credentials", {
+      const result = await signIn("credentials", {
         email: email.toLowerCase().trim(),
         password: password,
-        redirect: false,
+        callbackUrl: "/dashboard",
+        redirect: true, // Let NextAuth handle the redirect
       });
 
-      if (res?.error) {
+      // If we reach here, there was an error (redirect: true would have redirected)
+      if (result?.error) {
         toast.error("Invalid Credentials. Please check your inputs.");
-        setIsSubmitting(false);
-      } else if (res?.ok) {
-        toast.success("Authentication successful!");
-        // Force redirect immediately after successful login
-        const callbackUrl = searchParams.get("callbackUrl");
-        if (callbackUrl && !callbackUrl.includes("/auth/signin") && !callbackUrl.includes("/auth/error")) {
-          window.location.href = callbackUrl;
-        } else {
-          window.location.href = "/dashboard";
-        }
-      } else {
-        toast.error("Authentication failed. Please try again.");
         setIsSubmitting(false);
       }
     } catch (error) {
@@ -282,22 +272,16 @@ function PromoterLoginForm({ onBack }: { onBack: () => void }) {
     setIsSubmitting(true);
 
     try {
-      const res = await signIn("credentials", {
+      const result = await signIn("credentials", {
         email: email.toLowerCase().trim(),
         password: password,
-        redirect: false,
+        callbackUrl: "/mobilepos",
+        redirect: true, // Let NextAuth handle the redirect
       });
 
-      if (res?.error) {
+      // If we reach here, there was an error (redirect: true would have redirected)
+      if (result?.error) {
         toast.error("Invalid credentials. Double-check your info!");
-        setIsSubmitting(false);
-      } else if (res?.ok) {
-        toast.success("Welcome back! 🎉");
-        // Force redirect immediately after successful login
-        const callbackUrl = searchParams.get("callbackUrl") || "/mobilepos";
-        window.location.href = callbackUrl;
-      } else {
-        toast.error("Login failed. Please try again.");
         setIsSubmitting(false);
       }
     } catch (error) {

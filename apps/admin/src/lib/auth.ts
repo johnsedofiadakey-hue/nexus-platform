@@ -105,6 +105,18 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
+    async signIn({ user }) {
+      // Allow all authenticated users to sign in
+      return true;
+    },
+    async redirect({ url, baseUrl }) {
+      // If redirecting to signin or error page, allow it
+      if (url.includes('/auth/signin') || url.includes('/auth/error')) {
+        return url;
+      }
+      // Otherwise return the URL as-is
+      return url.startsWith(baseUrl) ? url : baseUrl;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.role = (user as any).role;
