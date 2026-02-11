@@ -23,6 +23,8 @@ const PROTECTED_ROUTES: Record<string, string[]> = {
 // Public routes (no auth required)
 const PUBLIC_ROUTES = [
   '/auth/signin',
+  '/auth/admin/signin',
+  '/auth/promoter/signin',
   '/auth/error',
   '/_next',
   '/api/auth', // NextAuth API routes MUST be public
