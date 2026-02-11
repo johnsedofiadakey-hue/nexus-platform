@@ -17,6 +17,7 @@
     "lint": "turbo run lint",
     "db:generate": "turbo run db:generate",
     "db:push": "turbo run db:push",
+    "seed:prod": "npx tsx seed-production.ts",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {
