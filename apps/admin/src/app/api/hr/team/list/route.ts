@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, dbRetry } from "@/lib/prisma";
 
 // Force dynamic rendering for API routes that use database
 export const dynamic = 'force-dynamic';
@@ -7,7 +7,7 @@ import { requireAuth, handleApiError } from "@/lib/auth-helpers";
 
 /**
  * 🛰️ NEXUS TEAM REGISTRY API
- * Optimized for high-speed synchronization and geofence tracking.
+ * Hardened with retry logic for Supabase connection resilience.
  * 🔒 SECURED: Enforces authentication and multi-tenancy isolation
  */
 export async function GET() {
@@ -20,46 +20,51 @@ export async function GET() {
       ? {} // Super admin without org sees all
       : { organizationId: user.organizationId };
 
-    const staff = await prisma.user.findMany({
-      where: orgFilter,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        role: true,
-        email: true,
-        phone: true,
-        status: true,
-        lastLat: true,
-        lastLng: true,
-        lastSeen: true,
-        shopId: true,
-        isInsideZone: true,
-        image: true,
-        shop: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
-            latitude: true,
-            longitude: true,
-            radius: true
+    // 🛡️ dbRetry: auto-retries on transient connection failures
+    const staff = await dbRetry(() =>
+      prisma.user.findMany({
+        where: orgFilter,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          email: true,
+          phone: true,
+          status: true,
+          lastLat: true,
+          lastLng: true,
+          lastSeen: true,
+          shopId: true,
+          isInsideZone: true,
+          image: true,
+          shop: {
+            select: {
+              id: true,
+              name: true,
+              location: true,
+              latitude: true,
+              longitude: true,
+              radius: true
+            }
+          },
+          attendance: {
+            take: 1,
+            orderBy: { date: 'desc' },
+            select: { checkIn: true }
           }
         },
-        attendance: {
-          take: 1,
-          orderBy: { date: 'desc' },
-          select: { checkIn: true }
-        }
-      },
-    });
+      })
+    );
 
     const formattedTeam = staff.map((user) => ({
       id: user.id,
       name: user.name || "Unknown Agent",
       role: user.role,
+      email: user.email,
+      phone: user.phone,
       status: user.status === "ACTIVE" ? "Active" : "Offline",
-      shop: user.shop?.name || "Unassigned",
+      shop: user.shop ? { id: user.shop.id, name: user.shop.name } : null,
       shopId: user.shopId,
       image: user.image,
 
@@ -76,9 +81,17 @@ export async function GET() {
       isInsideZone: user.isInsideZone || false
     }));
 
-    return NextResponse.json({
+    // Set cache headers to prevent stale reads from edge cache
+    return new NextResponse(JSON.stringify({
       data: formattedTeam,
       meta: { total: staff.length }
+    }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+      },
     });
 
   } catch (error: any) {
@@ -87,14 +100,6 @@ export async function GET() {
     // Check for auth errors first
     if (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN" || error.message === "NO_ORGANIZATION") {
       return handleApiError(error);
-    }
-
-    // Specific guard for the Prepared Statement crash
-    if (error.message.includes("prepared statement")) {
-      return NextResponse.json(
-        { error: "Database Cache Desync. Please retry in 5s.", code: "POOL_RESET" },
-        { status: 503 }
-      );
     }
 
     return NextResponse.json({ data: [], error: "Internal System Error" }, { status: 500 });

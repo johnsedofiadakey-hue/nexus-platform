@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, dbRetry } from "@/lib/prisma";
 
 // Force dynamic rendering for API routes that use database
 export const dynamic = 'force-dynamic';
@@ -104,8 +104,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. ATOMIC PERSISTENCE: Save Operative to Database
-    const newUser = await prisma.user.create({
+    // 5. ATOMIC PERSISTENCE: Save Operative to Database (with retry)
+    const newUser = await dbRetry(() => prisma.user.create({
       data: {
         organization: { connect: { id: targetOrgId } }, // 🔐 TENANT LINK
         name: name.trim(),
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
           select: { name: true }
         }
       }
-    });
+    }));
 
     console.log(`✅ Uplink Established: ${newUser.name} assigned to hub ${newUser.shop?.name || 'Mobile'}`);
 

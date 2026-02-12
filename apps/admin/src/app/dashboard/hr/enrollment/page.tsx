@@ -25,7 +25,7 @@ export default function AddMemberWizard() {
     phone: "",
     role: "WORKER",
     shopId: "",
-    password: "nexus_password_2026",
+    password: "",
     ghanaCard: "",
     dob: "",
     image: "",
@@ -65,13 +65,48 @@ export default function AddMemberWizard() {
     }
   };
 
-  const handleFinalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateStep = (s: number): boolean => {
+    if (s === 1) {
+      if (!formData.name.trim()) { toast.error("Full name is required"); return false; }
+      if (!formData.email.trim()) { toast.error("Email is required"); return false; }
+      if (!formData.phone.trim()) { toast.error("Phone number is required"); return false; }
+      return true;
+    }
+    if (s === 2) {
+      if (!formData.shopId) { toast.error("Hub assignment is required"); return false; }
+      return true;
+    }
+    // Step 3 (banking) is optional — always valid
+    if (s === 3) return true;
+    if (s === 4) {
+      if (!formData.password || formData.password.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        return false;
+      }
+      return true;
+    }
+    return true;
+  };
 
-    // 🛡️ AUDIT FIX: PRE-FLIGHT VALIDATION
+  const advanceStep = () => {
+    if (!validateStep(step)) return;
+    if (step < 4) setStep(step + 1);
+  };
+
+  const handleFinalSubmit = async () => {
+    // 🛡️ Final validation of ALL steps before submit
+    if (!formData.name.trim() || !formData.email.trim()) {
+      toast.error("Identity data incomplete");
+      setStep(1);
+      return;
+    }
     if (!formData.shopId) {
       toast.error("Sector Assignment Required");
       setStep(2);
+      return;
+    }
+    if (!formData.password || formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
@@ -170,7 +205,7 @@ export default function AddMemberWizard() {
         </div>
       </div>
 
-      <form onSubmit={handleFinalSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
         <div className="lg:col-span-8 space-y-10">
 
@@ -267,9 +302,25 @@ export default function AddMemberWizard() {
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="bg-slate-50 p-6 rounded-lg border border-slate-200">
                 <h4 className="text-sm font-bold text-slate-900">Security Credentials</h4>
-                <p className="text-xs text-slate-500 mt-1">This key will be required for the promoter's first terminal initialization.</p>
+                <p className="text-xs text-slate-500 mt-1">Set the access password for this promoter. They will use this to sign in.</p>
                 <div className="mt-6">
-                  <InputGroup label="Access Password" value={formData.password} onChange={v => setFormData({ ...formData, password: v })} type="text" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Access Password</label>
+                    <input
+                      type="text"
+                      placeholder="Enter a secure password (min 6 characters)"
+                      className="w-full h-11 px-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:ring-2 ring-slate-900/5 focus:border-slate-900 transition-all outline-none placeholder:text-slate-300 shadow-sm"
+                      value={formData.password}
+                      onChange={e => setFormData({ ...formData, password: e.target.value })}
+                      autoFocus
+                    />
+                    {formData.password.length > 0 && formData.password.length < 6 && (
+                      <p className="text-[10px] font-bold text-rose-500 mt-1">Password must be at least 6 characters</p>
+                    )}
+                    {formData.password.length >= 6 && (
+                      <p className="text-[10px] font-bold text-emerald-500 mt-1 flex items-center gap-1">✓ Password strength OK</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -284,15 +335,24 @@ export default function AddMemberWizard() {
               Go Back
             </button>
 
-            <button
-              type={step === 4 ? "submit" : "button"}
-              onClick={() => step < 4 && setStep(step + 1)}
-              disabled={isSubmitting}
-              className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
-            >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : step === 4 ? "Confirm Enrollment" : "Continue"}
-              {step < 4 && <ChevronRight className="w-4 h-4" />}
-            </button>
+            {step < 4 ? (
+              <button
+                type="button"
+                onClick={advanceStep}
+                className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition-all"
+              >
+                Continue <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFinalSubmit}
+                disabled={isSubmitting || !formData.password || formData.password.length < 6}
+                className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm Enrollment"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -324,8 +384,8 @@ export default function AddMemberWizard() {
             </div>
           </div>
         </div>
-      </form >
-    </div >
+      </div>
+    </div>
   );
 }
 
@@ -334,7 +394,6 @@ function InputGroup({ label, value, onChange, placeholder = "", type = "text" }:
     <div className="space-y-2">
       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{label}</label>
       <input
-        required
         type={type}
         placeholder={placeholder}
         className="w-full h-11 px-4 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-900 focus:ring-2 ring-slate-900/5 focus:border-slate-900 transition-all outline-none placeholder:text-slate-300 shadow-sm"

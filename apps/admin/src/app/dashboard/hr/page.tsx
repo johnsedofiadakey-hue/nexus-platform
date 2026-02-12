@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Users, UserPlus, Mail, ChevronRight, Loader2, Navigation, Search,
-  Shield, Activity, UserCircle
+  Shield, Activity, UserCircle, RefreshCcw, MapPin
 } from "lucide-react";
 import Link from "next/link";
 
@@ -12,9 +12,26 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchStaff = async () => {
+  const [fetchError, setFetchError] = useState(false);
+
+  const fetchStaff = async (retryCount = 0) => {
     try {
-      const res = await fetch(`/api/hr/team/list?t=${Date.now()}`);
+      setFetchError(false);
+      const res = await fetch(`/api/hr/team/list?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+
+      if (!res.ok) {
+        // Server returned error — retry if transient (503 = pool desync)
+        if ((res.status === 503 || res.status >= 500) && retryCount < 2) {
+          console.warn(`Team fetch failed (${res.status}), retrying in ${(retryCount + 1) * 800}ms...`);
+          await new Promise(r => setTimeout(r, (retryCount + 1) * 800));
+          return fetchStaff(retryCount + 1);
+        }
+        throw new Error(`Server error ${res.status}`);
+      }
+
       const data = await res.json();
       const staffList = Array.isArray(data) ? data : (data.data || []);
 
@@ -24,7 +41,8 @@ export default function TeamPage() {
 
       setStaff(agentsOnly);
     } catch (e) {
-      console.error("System Error: Team data unavailable.");
+      console.error("System Error: Team data unavailable.", e);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -84,6 +102,22 @@ export default function TeamPage() {
           </Link>
         </div>
       </div>
+
+      {/* ERROR RETRY BANNER */}
+      {fetchError && (
+        <div className="mb-8 bg-rose-50 border border-rose-200 rounded-2xl p-6 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-rose-900">Connection Issue</h3>
+            <p className="text-xs text-rose-600 mt-1">Could not load team data. This is usually temporary.</p>
+          </div>
+          <button
+            onClick={() => { setLoading(true); fetchStaff(); }}
+            className="h-10 px-5 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center gap-2"
+          >
+            <RefreshCcw size={14} /> Retry Now
+          </button>
+        </div>
+      )}
 
       {/* ============================================= */}
       {/* PERSONNEL ROSTER                                */}
@@ -150,9 +184,11 @@ export default function TeamPage() {
                           <Mail size={12} className="text-slate-400" />
                           <span className="truncate">{person.email}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-600">
-                          <Navigation size={12} className="text-slate-400" />
-                          <span className="truncate font-medium">{person.shop?.name || "Unassigned"}</span>
+                        <div className="flex items-center gap-3 text-xs">
+                          <Navigation size={12} className={person.shop?.name ? "text-blue-500" : "text-slate-400"} />
+                          <span className={`truncate font-bold ${person.shop?.name ? 'text-blue-600' : 'text-slate-400'}`}>
+                            {person.shop?.name || "Unassigned"}
+                          </span>
                         </div>
                       </div>
                     </div>
