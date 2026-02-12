@@ -11,7 +11,13 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const userShopId = (session.user as any).shopId;
+    // Resolve user from DB to get shopId (not available in JWT token)
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! },
+      select: { shopId: true }
+    });
+
+    const userShopId = user?.shopId;
 
     if (!userShopId) {
       return NextResponse.json([]); // Return empty if no shop assigned

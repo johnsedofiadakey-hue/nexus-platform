@@ -38,6 +38,7 @@ interface MobileIdentity {
 interface InventoryItem {
   id: string;
   productName: string;
+  name?: string;
   sku?: string;
   quantity: number;
   priceGHS: number;

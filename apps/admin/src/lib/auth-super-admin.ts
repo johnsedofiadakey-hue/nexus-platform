@@ -19,7 +19,6 @@ if (!process.env.NEXTAUTH_SUPER_ADMIN_SECRET && process.env.NODE_ENV === 'produc
 
 export const superAdminAuthOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
-  trustHost: true,
 
   // ✅ SUPER_ADMIN SPECIFIC SESSION CONFIG
   cookies: {

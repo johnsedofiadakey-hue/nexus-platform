@@ -39,8 +39,9 @@ export const authOptions: NextAuthOptions = {
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
+        // Dynamic cookie domain: support Vercel, Railway, or custom domains
         domain: process.env.NODE_ENV === 'production'
-          ? '.up.railway.app'
+          ? (process.env.COOKIE_DOMAIN || undefined)
           : undefined,
       },
     },

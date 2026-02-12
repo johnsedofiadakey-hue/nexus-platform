@@ -23,12 +23,23 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Target User ID required" }, { status: 400 });
     }
 
-    // ⚡️ OPTIMIZED: Fetch messages with select + add limit to prevent huge queries
+    // Find all admin/manager users in this organization for "shared inbox" behavior
+    const orgAdmins = await prisma.user.findMany({
+      where: {
+        organizationId: session.user.organizationId,
+        role: { in: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }
+      },
+      select: { id: true }
+    });
+    const adminIds = orgAdmins.map(a => a.id);
+
+    // Show ALL messages between the target agent and ANY admin in the org
+    // This ensures messages don't "disappear" when routed to a different admin
     const messages = await prisma.message.findMany({
       where: {
         OR: [
-          { senderId: session.user.id, receiverId: targetUserId },
-          { senderId: targetUserId, receiverId: session.user.id }
+          { senderId: targetUserId, receiverId: { in: adminIds } },
+          { senderId: { in: adminIds }, receiverId: targetUserId }
         ]
       },
       orderBy: { createdAt: 'asc' },
@@ -47,7 +58,17 @@ export async function GET(req: Request) {
           } 
         }
       },
-      take: 100 // Limit to last 100 messages for performance
+      take: 100
+    });
+
+    // Mark unread messages from this agent as read 
+    await prisma.message.updateMany({
+      where: {
+        senderId: targetUserId,
+        receiverId: { in: adminIds },
+        isRead: false
+      },
+      data: { isRead: true }
     });
 
     return NextResponse.json(messages);

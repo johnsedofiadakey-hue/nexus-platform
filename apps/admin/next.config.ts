@@ -10,9 +10,9 @@ const nextConfig: NextConfig = {
 
     /**
      * 🚀 Production-ready output
-     * Standalone mode handles Prisma and dynamic imports better
+     * Use standalone for Docker/Railway, omit for Vercel
      */
-    output: "standalone",
+    output: process.env.VERCEL ? undefined : "standalone",
 
     //@ts-ignore - Monorepo root for Turbopack
     turbopack: {

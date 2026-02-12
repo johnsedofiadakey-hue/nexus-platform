@@ -96,9 +96,9 @@ export async function DELETE(req: Request) {
     if (body.isSub) {
       const subCategory = await prisma.inventorySubCategory.findUnique({
         where: { id: body.id },
-        include: { parent: { include: { shop: true } } }
+        include: { category: { include: { shop: true } } }
       });
-      if (!subCategory || subCategory.parent.shop.organizationId !== session.user.organizationId) {
+      if (!subCategory || subCategory.category.shop.organizationId !== session.user.organizationId) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       await prisma.inventorySubCategory.delete({ where: { id: body.id } });

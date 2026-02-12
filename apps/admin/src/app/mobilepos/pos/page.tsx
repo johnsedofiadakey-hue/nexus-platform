@@ -19,7 +19,6 @@ import { toast } from "react-hot-toast";
 import { processTransaction } from "@/lib/actions/transaction";
 import { useMobileData } from "@/context/MobileDataContext";
 import { useDebounce } from "@/hooks/useDebounce";
-import ProductCard from "@/components/mobile/ProductCard";
 
 export default function MobilePOS() {
 
@@ -49,7 +48,7 @@ export default function MobilePOS() {
         // Shop changed - clear cart for safety
         setCart([]);
         setView('BROWSE');
-        toast.info(`📦 Cart cleared - Now serving: ${identity.shopName}`, {
+        toast(`📦 Cart cleared - Now serving: ${identity.shopName}`, {
           duration: 4000
         });
       }
@@ -426,7 +425,7 @@ export default function MobilePOS() {
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={fetchData} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors active:scale-90">
+            <button onClick={refreshInventory} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors active:scale-90">
               <RefreshCw className="w-4 h-4" />
             </button>
             <Link href="/mobilepos/history" className="p-2 bg-slate-50 text-slate-500 rounded-full hover:bg-slate-100 transition-colors active:scale-90" title="Sales History">

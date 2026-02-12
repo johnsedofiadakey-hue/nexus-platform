@@ -31,19 +31,34 @@ export async function POST(req: Request) {
             const sales = await prisma.sale.aggregate({
                 where: {
                     userId: target.userId,
-                    saleDate: {
+                    createdAt: {
                         gte: target.startDate,
                         lte: target.endDate
                     }
                 },
                 _sum: {
-                    totalPrice: true,
+                    totalAmount: true,
+                }
+            });
+
+            // Also count total items sold
+            const itemCount = await prisma.saleItem.aggregate({
+                where: {
+                    sale: {
+                        userId: target.userId,
+                        createdAt: {
+                            gte: target.startDate,
+                            lte: target.endDate
+                        }
+                    }
+                },
+                _sum: {
                     quantity: true
                 }
             });
 
-            const achievedValue = sales._sum.totalPrice || 0;
-            const achievedQuantity = sales._sum.quantity || 0;
+            const achievedValue = sales._sum.totalAmount || 0;
+            const achievedQuantity = itemCount._sum.quantity || 0;
 
             // Update target with actual data
             const updated = await prisma.target.update({

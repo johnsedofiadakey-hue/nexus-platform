@@ -39,6 +39,7 @@ export default function GeofenceMap({ shopLat, shopLng, shopRadius, userLat, use
         L = leafletModule.default;
         
         // Import CSS
+        // @ts-ignore - dynamic CSS import
         await import('leaflet/dist/leaflet.css');
         
         // Fix icons
