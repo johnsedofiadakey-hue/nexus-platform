@@ -28,11 +28,17 @@ export async function POST(req: Request) {
     const inquiriesNum = Number(inquiries) || 0;
     const buyersNum = Number(conversions ?? buyers ?? 0) || 0;
 
+    // � Look up user's shopId from DB (session/JWT doesn't carry it)
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { shopId: true, shop: { select: { id: true, name: true } } }
+    });
+
     // 🛡️ PGBOUNCER-SAFE WRITE — now linked to shop
     const report = await prisma.dailyReport.create({
       data: {
         userId: user.id,
-        shopId: (user as any).shopId || null,
+        shopId: dbUser?.shopId || null,
         walkIns: walkInsNum,
         inquiries: inquiriesNum,
         buyers: buyersNum,
@@ -61,8 +67,8 @@ export async function POST(req: Request) {
       metadata: { walkIns: walkInsNum, inquiries: inquiriesNum, buyers: buyersNum, hasIntel: !!marketIntel },
       ipAddress: getClientIp(req),
       userAgent: getUserAgent(req),
-      shopId: (user as any).shopId,
-      shopName: (user as any).shop?.name,
+      shopId: dbUser?.shopId || undefined,
+      shopName: dbUser?.shop?.name || undefined,
     });
 
     return NextResponse.json({
