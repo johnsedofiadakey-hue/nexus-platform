@@ -9,11 +9,13 @@
  */
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   MapPin, Plus, Package, Edit2, X,
   Loader2, PackagePlus, AlertTriangle, Trash2,
   Navigation, ArrowRight, ShieldCheck, RefreshCw, Building2, Search,
-  Settings, FolderTree, ChevronRight, FileText, LayoutList, Map as MapIcon
+  Settings, FolderTree, ChevronRight, FileText, LayoutList, Map as MapIcon,
+  Eye
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import dynamic from "next/dynamic";
@@ -441,6 +443,9 @@ export default function AdminShopsPage() {
                     Inventory <ArrowRight size={12} />
                   </button>
                 </div>
+                <Link href={`/dashboard/shops/${shop.id}`} className="mt-2 w-full py-2.5 px-3 bg-blue-600 text-white rounded-lg text-xs font-bold uppercase tracking-wide hover:bg-blue-700 flex items-center justify-center gap-2 transition-all">
+                  <Eye size={14} /> View Hub — Reports &amp; Sales
+                </Link>
               </div>
             ))}
           </div>
