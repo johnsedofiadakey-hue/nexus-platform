@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm prisma generate && pnpm turbo run build --filter=admin",
+  "buildCommand": "pnpm build:admin",
   "outputDirectory": "apps/admin/.next",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": null

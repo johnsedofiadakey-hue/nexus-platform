@@ -5,69 +5,59 @@
 
 [2mPrisma schema loaded from ../../packages/database/prisma/schema.prisma[22m
 
+[90m[90m┌─[39m[90m[90m────────────────────────────────────────────────────────┐[39m[90m
+[90m│[39m[90m  [0m[34mUpdate available[39m[90m 6.19.2 -> 7.4.0[0m                       [90m│[39m[90m
+[90m│[39m[90m  [0m[0m                                                       [90m│[39m[90m
+[90m│[39m[90m  [0mThis is a major update - please follow the guide at[0m    [90m│[39m[90m
+[90m│[39m[90m  [0mhttps://pris.ly/d/major-version-upgrade[0m                [90m│[39m[90m
+[90m│[39m[90m  [0m[0m                                                       [90m│[39m[90m
+[90m│[39m[90m  [0mRun the following to update[0m                            [90m│[39m[90m
+[90m│[39m[90m  [0m  [1mnpm i --save-dev prisma@latest[22m[0m                       [90m│[39m[90m
+[90m│[39m[90m  [0m  [1mnpm i @prisma/client@latest[22m[0m                          [90m│[39m[90m
+└─────────────────────────────────────────────────────────┘[39m
 
-✔ Generated [1mPrisma Client[22m (v6.19.2)[2m to ./../../node_modules/.pnpm/@prisma+client@6.19.2_prisma@6.19.2_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client[22m in 1.34s
+✔ Generated [1mPrisma Client[22m (v6.19.2)[2m to ./../../packages/database/client[22m in 1.07s
 
 Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
 
 Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
 
 [1m[38;2;173;127;168m▲ Next.js 16.1.6[39m[22m (Turbopack)
+- Environments: .env.local
 - Experiments (use with caution):
   · optimizePackageImports
   · serverActions
 
 [33m[1m⚠[22m[39m The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
 [37m[1m [22m[39m Creating an optimized production build ...
-[32m[1m✓[22m[39m Compiled successfully in 90s
+[32m[1m✓[22m[39m Compiled successfully in 35.3s
 [37m[1m [22m[39m Skipping validation of types
-[?25l[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
-Generate one with: openssl rand -base64 32
-❌ CRITICAL: DATABASE_URL is not set!
-⚠️  WARNING: NEXTAUTH_URL is not set!
-This can cause refresh loops in production.
-Set it to your deployment URL: https://your-app.vercel.app
-❌ CRITICAL: NEXTAUTH_SECRET is not set!
-Generate one with: openssl rand -base64 32
-❌ CRITICAL: DATABASE_URL is not set!
-⚠️  WARNING: NEXTAUTH_URL is not set!
-This can cause refresh loops in production.
-Set it to your deployment URL: https://your-app.vercel.app
-[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
-Generate one with: openssl rand -base64 32
-❌ CRITICAL: DATABASE_URL is not set!
-⚠️  WARNING: NEXTAUTH_URL is not set!
-This can cause refresh loops in production.
-Set it to your deployment URL: https://your-app.vercel.app
-❌ CRITICAL: NEXTAUTH_SECRET is not set!
-Generate one with: openssl rand -base64 32
-❌ CRITICAL: DATABASE_URL is not set!
-⚠️  WARNING: NEXTAUTH_URL is not set!
-This can cause refresh loops in production.
-Set it to your deployment URL: https://your-app.vercel.app
-[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
-Generate one with: openssl rand -base64 32
-❌ CRITICAL: DATABASE_URL is not set!
-⚠️  WARNING: NEXTAUTH_URL is not set!
-This can cause refresh loops in production.
-Set it to your deployment URL: https://your-app.vercel.app
-❌ CRITICAL: NEXTAUTH_SECRET is not set!
-Generate one with: openssl rand -base64 32
-❌ CRITICAL: DATABASE_URL is not set!
-⚠️  WARNING: NEXTAUTH_URL is not set!
-This can cause refresh loops in production.
-Set it to your deployment URL: https://your-app.vercel.app
+[?25l[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!
+Current value: http://localhost:3001
+This WILL cause refresh loops. Update to your actual domain!
+🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!
+Current value: http://localhost:3001
+This WILL cause refresh loops. Update to your actual domain!
 ❌ CRITICAL: NEXTAUTH_SUPER_ADMIN_SECRET is not set!
 Generate unique secret: openssl rand -base64 32
-[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m❌ CRITICAL: NEXTAUTH_SECRET is not set!
-Generate one with: openssl rand -base64 32
-❌ CRITICAL: DATABASE_URL is not set!
-⚠️  WARNING: NEXTAUTH_URL is not set!
-This can cause refresh loops in production.
-Set it to your deployment URL: https://your-app.vercel.app
-[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[1A[2K[1G[?25h[37m[1m [22m[39m Collecting page data using 7 workers in 7.1s    [32m[1m✓[22m[39m Collecting page data using 7 workers in 7.1s 
-[?25l[37m[1m [22m[39m Generating static pages using 7 workers (0/24)  [36m[    ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[=   ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[==  ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[=== ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[ ===][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/24)  [36m[  ==][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[   =][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[    ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[   =][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[  ==][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[ ===][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[====][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[=== ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[==  ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/24)  [36m[=   ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/24)  [36m[    ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/24)  [36m[=   ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/24)  [36m[==  ][39m[2K[1G[1A[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/24)  [36m[=== ][39m[2K[1G[1A[2K[1G[1A[2K[1G[?25h[32m[1m✓[22m[39m Generating static pages using 7 workers (24/24) in 3.7s
-[?25l[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[1A[2K[1G[?25h[37m[1m [22m[39m Finalizing page optimization in 8.7s    [32m[1m✓[22m[39m Finalizing page optimization in 8.7s 
+🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!
+Current value: http://localhost:3001
+This WILL cause refresh loops. Update to your actual domain!
+🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!
+Current value: http://localhost:3001
+This WILL cause refresh loops. Update to your actual domain!
+[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!
+Current value: http://localhost:3001
+This WILL cause refresh loops. Update to your actual domain!
+🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!
+Current value: http://localhost:3001
+This WILL cause refresh loops. Update to your actual domain!
+[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!
+Current value: http://localhost:3001
+This WILL cause refresh loops. Update to your actual domain!
+[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 7 workers  [36m.[39m[2K[1G[?25h[37m[1m [22m[39m Collecting page data using 7 workers in 7.1s    [32m[1m✓[22m[39m Collecting page data using 7 workers in 7.1s 
+[?25l[37m[1m [22m[39m Generating static pages using 7 workers (0/35)  [36m[    ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/35)  [36m[=   ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/35)  [36m[==  ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/35)  [36m[=== ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (2/35)  [36m[ ===][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/35)  [36m[  ==][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/35)  [36m[   =][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (8/35)  [36m[    ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/35)  [36m[   =][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (16/35)  [36m[  ==][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (24/35)  [36m[ ===][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (26/35)  [36m[====][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 7 workers (34/35)  [36m[=== ][39m[2K[1G[1A[2K[1G[?25h[32m[1m✓[22m[39m Generating static pages using 7 workers (35/35) in 2.5s
+[?25l[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m..[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m...[39m[2K[1G[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[?25h[37m[1m [22m[39m Finalizing page optimization in 8.6s    [32m[1m✓[22m[39m Finalizing page optimization in 8.6s 
 
 [4mRoute (app)[24m
 ┌ ○ /
@@ -127,6 +117,8 @@ Set it to your deployment URL: https://your-app.vercel.app
 ├ ƒ /api/super/tenants
 ├ ƒ /api/targets
 ├ ƒ /api/targets/sync
+├ ○ /auth/admin/signin
+├ ○ /auth/promoter/signin
 ├ ○ /auth/signin
 ├ ○ /auth/super-admin/signin
 ├ ○ /dashboard
@@ -144,6 +136,15 @@ Set it to your deployment URL: https://your-app.vercel.app
 ├ ○ /dashboard/settings/audit
 ├ ○ /dashboard/shops
 ├ ƒ /dashboard/shops/[id]
+├ ○ /mobilepos
+├ ○ /mobilepos/history
+├ ○ /mobilepos/inventory
+├ ○ /mobilepos/messages
+├ ○ /mobilepos/pos
+├ ○ /mobilepos/profile
+├ ○ /mobilepos/report
+├ ○ /mobilepos/sales
+├ ○ /mobilepos/settings
 ├ ○ /staff/chat
 ├ ○ /staff/expenses
 ├ ○ /staff/report
