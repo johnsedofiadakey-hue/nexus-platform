@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
     /**
      * 🛡️ Prevent Leaflet from being bundled incorrectly
      */
-    serverExternalPackages: ["leaflet"],
+    serverExternalPackages: ["leaflet", "@prisma/client", "@nexus/database"],
 
     /**
      * ⚠️ Build tolerances (your choice, preserved)
