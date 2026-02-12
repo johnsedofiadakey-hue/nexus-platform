@@ -93,12 +93,21 @@ export async function GET(req: Request) {
       ? {} // Super admin sees all
       : { organizationId: user.organizationId };
 
+    // Check for promoterOnly filter
+    const { searchParams } = new URL(req.url);
+    const promoterOnly = searchParams.get('promoterOnly') === 'true';
+
+    const userFilter: any = { ...orgFilter };
+    if (promoterOnly) {
+      userFilter.role = 'PROMOTER';
+    }
+
     const reports = await prisma.dailyReport.findMany({
       where: {
-        user: orgFilter // Filter by organization
+        user: userFilter
       },
       include: {
-        user: { select: { name: true, image: true, shop: { select: { name: true } } } }
+        user: { select: { name: true, image: true, role: true, shop: { select: { id: true, name: true } } } }
       },
       orderBy: { createdAt: 'desc' },
       take: 100

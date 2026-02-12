@@ -18,10 +18,9 @@ const navItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
   { icon: Building2, label: "Stores", path: "/dashboard/shops" },
   { icon: Users, label: "Team", path: "/dashboard/hr" },
-  { icon: FileText, label: "Field Reports", path: "/dashboard/hr/field-reports" }, // 🆕 ADDED
   { icon: ShoppingBag, label: "Inventory", path: "/dashboard/inventory" },
   { icon: FileText, label: "Sales Register", path: "/dashboard/sales" },
-  { icon: ShieldCheck, label: "Master Activity Log", path: "/dashboard/admin" }, // 🆕 RENAMED
+  { icon: ShieldCheck, label: "Master Activity Log", path: "/dashboard/admin" },
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
 ];
 
