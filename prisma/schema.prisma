@@ -2,6 +2,8 @@ generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
 
 datasource db {
   provider  = "postgresql"
@@ -104,7 +106,8 @@ model Shop {
   sales       Sale[]
   expenses    Expense[]
   customers   Customer[]
-  categories  InventoryCategory[] 
+  categories  InventoryCategory[]
+  dailyReports DailyReport[] 
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -326,10 +329,14 @@ model DailyReport {
   notes      String?
   userId     String
   user       User     @relation(fields: [userId], references: [id])
+  shopId     String?
+  shop       Shop?    @relation(fields: [shopId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([userId])
+  @@index([shopId])
+  @@index([createdAt])
 }
 
 model Target {

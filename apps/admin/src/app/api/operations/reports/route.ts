@@ -28,10 +28,11 @@ export async function POST(req: Request) {
     const inquiriesNum = Number(inquiries) || 0;
     const buyersNum = Number(conversions ?? buyers ?? 0) || 0;
 
-    // 🛡️ PGBOUNCER-SAFE WRITE (NO EXTRA FIELDS)
+    // 🛡️ PGBOUNCER-SAFE WRITE — now linked to shop
     const report = await prisma.dailyReport.create({
       data: {
         userId: user.id,
+        shopId: (user as any).shopId || null,
         walkIns: walkInsNum,
         inquiries: inquiriesNum,
         buyers: buyersNum,
@@ -93,21 +94,26 @@ export async function GET(req: Request) {
       ? {} // Super admin sees all
       : { organizationId: user.organizationId };
 
-    // Check for promoterOnly filter
+    // Check for filters
     const { searchParams } = new URL(req.url);
     const promoterOnly = searchParams.get('promoterOnly') === 'true';
+    const shopIdFilter = searchParams.get('shopId');
 
     const userFilter: any = { ...orgFilter };
     if (promoterOnly) {
       userFilter.role = 'PROMOTER';
     }
 
+    const whereClause: any = { user: userFilter };
+    if (shopIdFilter) {
+      whereClause.shopId = shopIdFilter;
+    }
+
     const reports = await prisma.dailyReport.findMany({
-      where: {
-        user: userFilter
-      },
+      where: whereClause,
       include: {
-        user: { select: { name: true, image: true, role: true, shop: { select: { id: true, name: true } } } }
+        user: { select: { name: true, image: true, role: true, shop: { select: { id: true, name: true } } } },
+        shop: { select: { id: true, name: true } }
       },
       orderBy: { createdAt: 'desc' },
       take: 100
