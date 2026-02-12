@@ -14,29 +14,26 @@ if (!process.env.DATABASE_URL) {
 }
 
 // 🚨 CRITICAL: Check NEXTAUTH_URL for deployment
-if (!process.env.NEXTAUTH_URL) {
-  console.error("⚠️  WARNING: NEXTAUTH_URL is not set!");
-  console.error("This can cause refresh loops in production.");
-  console.error("Set it to your deployment URL: https://your-app.vercel.app");
-} else if (process.env.NEXTAUTH_URL.includes('localhost') && process.env.NODE_ENV === 'production') {
-  console.error("🔴 CRITICAL ERROR: NEXTAUTH_URL is set to localhost in production!");
-  console.error("Current value:", process.env.NEXTAUTH_URL);
-  console.error("This WILL cause refresh loops. Update to your actual domain!");
+// Only warn if explicitly in production and not just building
+if (!process.env.NEXTAUTH_URL && process.env.NODE_ENV === 'production') {
+  console.warn("⚠️  WARNING: NEXTAUTH_URL is not set!");
+  console.warn("Set it to your deployment URL: https://your-app.vercel.app");
+} else if (process.env.NEXTAUTH_URL?.includes('localhost') && process.env.NODE_ENV === 'production') {
+  // During build, Next.js might default this. We only care if it's the final runtime env.
+  console.log("ℹ️  Note: NEXTAUTH_URL is localhost. ensure this is correct for your environment.");
 }
 
 export const authOptions: NextAuthOptions = {
   debug: true, // Enable debug to see what's happening
 
-  // 🔒 TRUST HOST for Vercel/production deployments
-  // This prevents callback URL mismatches
-  trustHost: true,
+  // 🔒 NextAuth configuration
 
   // 🍪 EXPLICIT COOKIE CONFIGURATION FOR PRODUCTION
   cookies: {
     sessionToken: {
       name: process.env.NODE_ENV === 'production'
-        ? '__Secure-next-auth.session-token'
-        : 'next-auth.session-token',
+        ? '__Secure-nexus-admin-session-token'
+        : 'nexus-admin-session-token',
       options: {
         httpOnly: true,
         sameSite: 'lax',
@@ -119,7 +116,9 @@ export const authOptions: NextAuthOptions = {
       if (url.includes('/auth/signin') || url.includes('/auth/error')) {
         return url;
       }
-      // Otherwise return the URL as-is
+
+      // Default behavior: return to the dashboard if no other URL specified
+      if (url === baseUrl) return baseUrl + '/dashboard';
       return url.startsWith(baseUrl) ? url : baseUrl;
     },
     async jwt({ token, user }) {

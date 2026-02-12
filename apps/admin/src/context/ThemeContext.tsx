@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 interface ThemeSettings {
     primaryColor: string;
@@ -28,6 +29,7 @@ const ThemeContext = createContext<{
 });
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+    const { status } = useSession();
     const [theme, setTheme] = useState<ThemeSettings>(defaultTheme);
 
     const refreshTheme = async () => {
@@ -67,8 +69,10 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     useEffect(() => {
-        refreshTheme();
-    }, []);
+        if (status === 'authenticated') {
+            refreshTheme();
+        }
+    }, [status]);
 
     return (
         <ThemeContext.Provider value={{ theme, updateTheme, refreshTheme }}>

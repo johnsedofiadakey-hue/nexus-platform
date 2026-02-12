@@ -11,13 +11,18 @@ export default function Home() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      // Redirect authenticated admins to dashboard
-      router.replace('/dashboard');
+      const userRole = (session?.user as any)?.role;
+      const isPromoter = ['WORKER', 'AGENT', 'ASSISTANT'].includes(userRole);
+
+      if (isPromoter) {
+        router.replace('/mobilepos');
+      } else {
+        router.replace('/dashboard');
+      }
     } else if (status === 'unauthenticated') {
-      // Redirect unauthenticated users to login
       router.replace('/auth/signin');
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">

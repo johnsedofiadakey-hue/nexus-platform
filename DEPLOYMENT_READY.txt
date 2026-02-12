@@ -174,7 +174,7 @@ ALL platforms need these 3 variables:
 
 1. DATABASE_URL
    Copy from your .env file:
-   postgresql://postgres.lqkpyqcokdeaefmisgbs:Sedofia1010.@aws-1-eu-west-1.pooler.supabase.com:5432/postgres
+   postgresql://postgres.lqkpyqcokdeaefmisgbs:[REDACTED_PASSWORD]@aws-1-eu-west-1.pooler.supabase.com:5432/postgres
 
 2. NEXTAUTH_SECRET
    SJkGuwDQCjUf0yYmGEIq+1as58oSJ7M9kjjdeUdpbUk=

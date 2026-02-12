@@ -213,7 +213,7 @@ export default function MobileProfilePage() {
             </div>
           </div>
 
-          <button onClick={() => signOut({ callbackUrl: "/auth/login" })} className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 mb-8">
+          <button onClick={() => signOut({ callbackUrl: "/auth/signin" })} className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 mb-8">
             <LogOut className="w-4 h-4" /> Log Out
           </button>
         </div>

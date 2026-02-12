@@ -14,8 +14,7 @@ import { compare } from "bcryptjs";
 
 // ✅ Check for required environment variables
 if (!process.env.NEXTAUTH_SUPER_ADMIN_SECRET && process.env.NODE_ENV === 'production') {
-  console.error("❌ CRITICAL: NEXTAUTH_SUPER_ADMIN_SECRET is not set!");
-  console.error("Generate unique secret: openssl rand -base64 32");
+  console.warn("⚠️  NEXTAUTH_SUPER_ADMIN_SECRET is not set. Falling back to NEXTAUTH_SECRET.");
 }
 
 export const superAdminAuthOptions: NextAuthOptions = {
@@ -67,7 +66,7 @@ export const superAdminAuthOptions: NextAuthOptions = {
           // ✅ VERIFY SUPER_ADMIN ROLE (Critical check)
           if (user.role !== 'SUPER_ADMIN') {
             console.warn(`Non-SUPER_ADMIN login attempt for SUPER_ADMIN portal: ${credentials.email} (role: ${user.role})`);
-            
+
             // ✅ Log failed privilege escalation attempt
             await prisma.auditLog.create({
               data: {
@@ -84,7 +83,7 @@ export const superAdminAuthOptions: NextAuthOptions = {
                 })
               }
             });
-            
+
             return null;
           }
 
@@ -98,7 +97,7 @@ export const superAdminAuthOptions: NextAuthOptions = {
           const isValid = await compare(credentials.password, user.password);
           if (!isValid) {
             console.warn(`Invalid password for SUPER_ADMIN: ${credentials.email}`);
-            
+
             // ✅ Log failed login attempt
             await prisma.auditLog.create({
               data: {
@@ -113,7 +112,7 @@ export const superAdminAuthOptions: NextAuthOptions = {
                 })
               }
             });
-            
+
             return null;
           }
 

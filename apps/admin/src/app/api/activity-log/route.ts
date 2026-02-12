@@ -21,27 +21,49 @@ export async function GET(req: Request) {
         const userId = searchParams.get("userId");
         const action = searchParams.get("action");
         const entity = searchParams.get("entity");
-        const shopId = searchParams.get("shopId");
-        const limit = parseInt(searchParams.get("limit") || "100");
-        const offset = parseInt(searchParams.get("offset") || "0");
+        const requestedShopId = searchParams.get("shopId");
 
-        // Build filter conditions
+        // 🔢 SAFE PARSING: Prevent NaN crashes
+        const limitStr = searchParams.get("limit");
+        const offsetStr = searchParams.get("offset");
+        const limit = limitStr ? Math.min(parseInt(limitStr) || 100, 500) : 100;
+        const offset = offsetStr ? Math.max(parseInt(offsetStr) || 0, 0) : 0;
+
+        // 🏗️ Build filter conditions
         const where: any = {};
         if (userId) where.userId = userId;
         if (action) where.action = action;
         if (entity) where.entity = entity;
-        if (shopId) where.shopId = shopId;
 
-        // For non-SUPER_ADMIN, only show logs from their organization
-        if (session.user.role !== 'SUPER_ADMIN' && session.user.organizationId) {
-            // We need to filter by organization - but ActivityLog doesn't have organizationId
-            // So we filter by shopId if the user is not a SUPER_ADMIN
+        // 🛡️ MULTI-TENANCY: Enforce organization isolation
+        const userRole = (session.user as any).role;
+        const orgId = (session.user as any).organizationId;
+
+        if (userRole !== 'SUPER_ADMIN') {
+            if (!orgId) {
+                return NextResponse.json({ error: "Organization context missing" }, { status: 400 });
+            }
+
+            // Fetch shops belonging to this organization
             const userShops = await prisma.shop.findMany({
-                where: { organizationId: session.user.organizationId },
+                where: { organizationId: orgId },
                 select: { id: true }
             });
             const shopIds = userShops.map(s => s.id);
-            where.shopId = { in: shopIds };
+
+            if (requestedShopId) {
+                // If specific shop requested, verify it belongs to user's org
+                if (!shopIds.includes(requestedShopId)) {
+                    return NextResponse.json({ error: "Access denied to requested hub" }, { status: 403 });
+                }
+                where.shopId = requestedShopId;
+            } else {
+                // Otherwise, restrict to all org shops
+                where.shopId = { in: shopIds };
+            }
+        } else if (requestedShopId) {
+            // SUPER_ADMIN can see any requested shop
+            where.shopId = requestedShopId;
         }
 
         const [logs, total] = await Promise.all([
@@ -62,7 +84,10 @@ export async function GET(req: Request) {
             offset,
         });
     } catch (error: any) {
-        console.error("❌ Activity Log Fetch Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("❌ ACTIVITY_LOG_SERVER_ERROR:", error);
+        return NextResponse.json({
+            error: "Failed to load activity stream",
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        }, { status: 500 });
     }
 }

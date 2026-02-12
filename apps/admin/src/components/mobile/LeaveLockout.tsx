@@ -37,7 +37,7 @@ export default function LeaveLockout({ returnDate }: { returnDate: string }) {
                     <PhoneCall className="w-4 h-4" /> Contact Supervisor
                 </button>
                 <button
-                    onClick={() => signOut()}
+                    onClick={() => signOut({ callbackUrl: '/auth/signin' })}
                     className="w-full py-4 bg-white/5 text-slate-400 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 border border-white/10"
                 >
                     <LogOut className="w-4 h-4" /> Sign Out

@@ -19,7 +19,7 @@ export async function GET() {
         const agents = await prisma.user.findMany({
             where: {
                 organizationId: session.user.organizationId,
-                role: { in: ['WORKER', 'MANAGER'] },
+                role: { in: ['PROMOTER', 'AGENT', 'WORKER', 'ASSISTANT'] },
                 status: 'ACTIVE'
             },
             select: {
@@ -27,10 +27,10 @@ export async function GET() {
                 name: true,
                 role: true,
                 lastSeen: true,
-                shop: { 
-                    select: { 
-                        name: true 
-                    } 
+                shop: {
+                    select: {
+                        name: true
+                    }
                 },
                 attendance: {
                     where: { date: { gte: today } },

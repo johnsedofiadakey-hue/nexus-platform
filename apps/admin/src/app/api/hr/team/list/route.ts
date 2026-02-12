@@ -30,6 +30,9 @@ export async function GET() {
         email: true,
         phone: true,
         status: true,
+        lastLat: true,
+        lastLng: true,
+        lastSeen: true,
         shopId: true,
         isInsideZone: true,
         image: true,
@@ -60,13 +63,16 @@ export async function GET() {
       shopId: user.shopId,
       image: user.image,
 
+      lastSeen: user.lastSeen,
+      lastLat: user.lastLat,
+      lastLng: user.lastLng,
       // Geofence context
       location: user.shop ? {
         lat: user.shop.latitude || 5.6037,
         lng: user.shop.longitude || -0.1870
       } : { lat: 5.6037, lng: -0.1870 },
 
-      lastActive: user.attendance?.[0]?.checkIn || new Date(),
+      lastActive: user.lastSeen || user.attendance?.[0]?.checkIn || new Date(),
       isInsideZone: user.isInsideZone || false
     }));
 

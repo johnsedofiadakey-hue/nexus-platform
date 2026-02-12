@@ -305,7 +305,7 @@ export default function MobileSettings() {
           </div>
         </div>
 
-        <button onClick={() => signOut()} className="w-full py-5 bg-red-500/10 text-red-500 font-black text-xs uppercase tracking-[0.2em] border border-red-500/20 rounded-2xl flex items-center justify-center gap-2">
+        <button onClick={() => signOut({ callbackUrl: '/auth/signin' })} className="w-full py-5 bg-red-500/10 text-red-500 font-black text-xs uppercase tracking-[0.2em] border border-red-500/20 rounded-2xl flex items-center justify-center gap-2">
           <LogOut size={16} /> Exit Terminal
         </button>
       </div>

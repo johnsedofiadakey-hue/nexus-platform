@@ -63,7 +63,7 @@ pnpm build:agent
 
 4. **Environment Variables**:
    ```
-   DATABASE_URL=postgresql://postgres.lqkpyqcokdeaefmisgbs:Sedofia1010.@aws-1-eu-west-1.pooler.supabase.com:6543/postgres
+   DATABASE_URL=postgresql://postgres.lqkpyqcokdeaefmisgbs:[REDACTED_PASSWORD]@aws-1-eu-west-1.pooler.supabase.com:6543/postgres
    NEXTAUTH_URL=https://admin-your-project.vercel.app
    NEXTAUTH_SECRET=SJkGuwDQCjUf0yYmGEIq+1as58oSJ7M9kjjdeUdpbUk=
    ```
@@ -90,7 +90,7 @@ pnpm build:agent
 
 4. **Environment Variables**:
    ```
-   DATABASE_URL=postgresql://postgres.lqkpyqcokdeaefmisgbs:Sedofia1010.@aws-1-eu-west-1.pooler.supabase.com:6543/postgres
+   DATABASE_URL=postgresql://postgres.lqkpyqcokdeaefmisgbs:[REDACTED_PASSWORD]@aws-1-eu-west-1.pooler.supabase.com:6543/postgres
    NEXTAUTH_URL=https://agent-your-project.vercel.app
    NEXTAUTH_SECRET=SJkGuwDQCjUf0yYmGEIq+1as58oSJ7M9kjjdeUdpbUk=
    ```

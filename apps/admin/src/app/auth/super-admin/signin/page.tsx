@@ -54,7 +54,7 @@ function SuperAdminLoginForm() {
 
       if (role !== 'SUPER_ADMIN') {
         toast.error("Access Denied: SUPER_ADMIN role required");
-        import("next-auth/react").then(({ signOut }) => signOut({ redirect: false }));
+        import("next-auth/react").then(({ signOut }) => signOut({ callbackUrl: '/auth/signin' }));
         return;
       }
 

@@ -38,7 +38,7 @@
 
 ### STEP 1: Change Your Database Password (5 minutes)
 
-**Why?** The password `Sedofia1010.` was exposed in git history.
+**Why?** A database password was previously exposed in git history.
 
 **How:**
 1. Go to https://supabase.com/dashboard

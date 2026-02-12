@@ -104,15 +104,15 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         if (age < CACHE_DURATION.INVENTORY) {
           const parsedIdentity = JSON.parse(cachedIdentity);
           const parsedInventory = JSON.parse(cachedInventory);
-          
+
           setIdentity(parsedIdentity);
           setInventory(parsedInventory);
           setLastSync(syncTime);
-          
-          console.log(`✅ Cache loaded (age: ${Math.round(age/1000)}s)`);
+
+          console.log(`✅ Cache loaded (age: ${Math.round(age / 1000)}s)`);
           return true;
         } else {
-          console.log(`⏰ Cache expired (age: ${Math.round(age/1000)}s, max: ${CACHE_DURATION.INVENTORY/1000}s)`);
+          console.log(`⏰ Cache expired (age: ${Math.round(age / 1000)}s, max: ${CACHE_DURATION.INVENTORY / 1000}s)`);
         }
       }
     } catch (e) {
@@ -139,7 +139,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
     if (!identity?.shopId) return;
 
     const cacheKey = `inventory-${identity.shopId}`;
-    
+
     // Check if request already in flight
     if (activeRequests.has(cacheKey)) {
       console.log('⏩ Deduplicating inventory request');
@@ -157,7 +157,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         .then(data => {
           const items = Array.isArray(data) ? data : (data.data || []);
           setInventory(items);
-          
+
           // Update cache
           if (identity) {
             saveToCache(identity, items);
@@ -167,7 +167,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         .finally(() => {
           activeRequests.delete(cacheKey);
         });
-      
+
       activeRequests.set(cacheKey, requestPromise);
       await requestPromise;
     } catch (e: any) {
@@ -182,7 +182,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
     setError(null);
 
     const cacheKey = 'mobile-init';
-    
+
     // Check if request already in flight
     if (activeRequests.has(cacheKey)) {
       console.log('⏩ Deduplicating init request');
@@ -192,10 +192,10 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
     try {
       // Parallel fetch for speed
       console.log('📡 Mobile Init: Fetching assignment data...');
-      
+
       const requestPromise = (async () => {
         const initRes = await fetch(`/api/mobile/init?t=${Date.now()}`, { credentials: 'include' });
-        
+
         if (!initRes.ok) {
           if (initRes.status === 401) {
             console.error('❌ Mobile Init: Authentication failed');
@@ -259,11 +259,11 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         // Fetch inventory
         console.log(`📦 Fetching inventory for shop: ${initData.shopId}`);
         const invRes = await fetch(`/api/inventory?shopId=${initData.shopId}&t=${Date.now()}`);
-        
+
         if (invRes.ok) {
           const invData = await invRes.json();
           const items = Array.isArray(invData) ? invData : (invData.data || []);
-          
+
           console.log(`✅ Inventory loaded: ${items.length} items`);
           setInventory(items);
           saveToCache(identityData, items);
@@ -283,7 +283,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
     } catch (e: any) {
       console.error('❌ Mobile Data Sync Error:', e);
-      
+
       // Better error messaging
       let errorMessage = 'Connection error';
       if (e.message === 'AUTH_FAILED') {
@@ -298,7 +298,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       } else {
         toast.error('Sync failed. Pull to refresh.', { duration: 3000 });
       }
-      
+
       setError(errorMessage);
       setLoading(false);
     }
@@ -306,23 +306,28 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
   // 🎯 OPTIMISTIC UPDATE
   const updateInventoryItem = useCallback((id: string, updates: Partial<InventoryItem>) => {
-    setInventory(prev => prev.map(item => 
+    setInventory(prev => prev.map(item =>
       item.id === id ? { ...item, ...updates } : item
     ));
   }, []);
 
-  // 🚀 INITIAL LOAD WITH VISIBILITY-BASED SYNC
+  // 🚀 PHASE 1: INITIAL HYDRATION (Runs once on mount)
   useEffect(() => {
     // Try cache first for instant load
     const hasCachedData = loadFromCache();
-    
+
     if (hasCachedData) {
       setLoading(false);
-      // Still refresh in background
+      // Still refresh in background (silent)
       refreshData(false);
     } else {
       refreshData(true);
     }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 🚀 PHASE 2: BACKGROUND SYNC & VISIBILITY (Managed Loop)
+  useEffect(() => {
+    if (!identity?.shopId) return;
 
     // 🎯 OPTIMIZED: Smart sync based on page visibility
     let currentInterval = SYNC_INTERVAL.ACTIVE;
@@ -353,17 +358,15 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
     // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Start initial sync
+
+    // Start initial sync loop
     startSync();
 
     return () => {
-      if (syncIntervalId) {
-        clearInterval(syncIntervalId);
-      }
+      if (syncIntervalId) clearInterval(syncIntervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [loadFromCache, refreshData, refreshInventory]);
+  }, [identity?.shopId, refreshInventory]);
 
   const value: MobileDataContextType = {
     identity,

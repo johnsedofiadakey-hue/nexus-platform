@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, AlertTriangle, Zap, Ghost, X, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSession } from 'next-auth/react';
 
 type Alert = {
     id: string;
@@ -15,6 +16,7 @@ type Alert = {
 };
 
 export default function NotificationBell() {
+    const { status } = useSession();
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [hasNew, setHasNew] = useState(false);
@@ -22,22 +24,24 @@ export default function NotificationBell() {
 
     // Poll for alerts every 30s
     useEffect(() => {
+        if (status !== 'authenticated') return;
+
         const fetchAlerts = async () => {
             try {
                 const res = await fetch('/api/operations/pulse-feed?t=' + Date.now());
-                
+
                 if (!res.ok) {
                     console.warn("Pulse feed returned non-OK status:", res.status);
                     return;
                 }
-                
+
                 // Parse text first to handle empty responses
                 const text = await res.text();
                 if (!text || text.trim() === '') {
                     console.warn("Pulse feed returned empty response");
                     return;
                 }
-                
+
                 const data = JSON.parse(text);
                 if (Array.isArray(data)) {
                     // Check if data changed to trigger "red dot"
@@ -54,7 +58,7 @@ export default function NotificationBell() {
         fetchAlerts();
         const interval = setInterval(fetchAlerts, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [status]);
 
     // Close when clicking outside
     useEffect(() => {
@@ -111,7 +115,7 @@ export default function NotificationBell() {
                                 alerts.map((alert) => (
                                     <div key={alert.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors flex gap-3">
                                         <div className={`mt-1 p-2 rounded-lg h-fit ${alert.severity === 'HIGH' ? 'bg-red-50' :
-                                                alert.severity === 'POSITIVE' ? 'bg-blue-50' : 'bg-amber-50'
+                                            alert.severity === 'POSITIVE' ? 'bg-blue-50' : 'bg-amber-50'
                                             }`}>
                                             {getIcon(alert.type)}
                                         </div>

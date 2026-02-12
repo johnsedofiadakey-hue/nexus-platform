@@ -9,14 +9,20 @@ echo "===================================="
 echo ""
 
 # Environment Variables
-NEXTAUTH_SECRET="17hOqPIYhW7U08WAXcNQoo++MLxDypdJIKT1gg/qcLU="
-DATABASE_URL="postgresql://postgres.lqkpyqcokdeaefmisgbs:Sedofia1010.@aws-1-eu-west-1.pooler.supabase.com:5432/postgres"
+# 🚨 SECURE MODE: Do NOT hardcode secrets here.
+# These should be set in your terminal session or .env file
+NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-}"
+DATABASE_URL="${DATABASE_URL:-}"
+
+if [ -z "$NEXTAUTH_SECRET" ] || [ -z "$DATABASE_URL" ]; then
+    echo "❌ ERROR: NEXTAUTH_SECRET and DATABASE_URL must be set as environment variables."
+    echo "   Example: export DATABASE_URL='your_url' && export NEXTAUTH_SECRET='your_secret'"
+    exit 1
+fi
 
 echo "⚠️  IMPORTANT SECURITY NOTICE:"
-echo "   The database password 'Sedofia1010.' was exposed in git history."
-echo "   You MUST change it in Supabase IMMEDIATELY after deployment."
-echo ""
-read -p "Press ENTER to continue with deployment..."
+echo "   Hardcoded secrets have been REMOVED from this script for your security."
+echo "   Ensure you have configured secrets in Vercel/GitHub dashboard."
 echo ""
 
 # Check if logged in to Vercel
@@ -114,7 +120,7 @@ echo "   Agent Portal: $AGENT_DEPLOYMENT_URL"
 echo ""
 echo "⚠️  CRITICAL SECURITY TASKS:"
 echo "   1. Go to Supabase dashboard"
-echo "   2. Change database password from 'Sedofia1010.'"
+echo "   2. Change database password from '[REDACTED_PASSWORD]'"
 echo "   3. Update DATABASE_URL in Vercel with new password:"
 echo "      vercel env add DATABASE_URL production"
 echo "   4. Redeploy both portals after password change"

@@ -16,7 +16,7 @@ Your code has been successfully pushed to GitHub:
 
 ### ⚠️ ROTATE DATABASE PASSWORD IMMEDIATELY
 
-The database password `Sedofia1010.` was exposed in git history and MUST be changed before deploying:
+The database password `[REDACTED_PASSWORD]` was exposed in git history and MUST be changed before deploying:
 
 ### Steps to Rotate Password:
 
@@ -176,7 +176,7 @@ npx prisma db push
 
 ### Immediate Actions:
 - [ ] **Verify** new database password is working
-- [ ] **Confirm** old password (`Sedofia1010.`) is no longer in DATABASE_URL
+- [ ] **Confirm** old password (`[REDACTED_PASSWORD]`) is no longer in DATABASE_URL
 - [ ] **Test** authentication on both portals
 - [ ] **Review** Vercel function logs for errors
 

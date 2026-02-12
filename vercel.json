@@ -1,6 +1,0 @@
-{
-  "buildCommand": "pnpm build:admin",
-  "outputDirectory": "apps/admin/.next",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "framework": null
-}

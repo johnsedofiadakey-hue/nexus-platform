@@ -9,10 +9,8 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:admin": "turbo run dev --filter=admin",
-    "dev:agent": "turbo run dev --filter=agent",
     "build": "pnpm db:generate && turbo run build",
     "build:admin": "pnpm db:generate && turbo run build --filter=admin",
-    "build:agent": "pnpm db:generate && turbo run build --filter=agent",
     "start": "turbo run start",
     "lint": "turbo run lint",
     "db:generate": "turbo run db:generate",

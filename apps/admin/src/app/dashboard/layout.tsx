@@ -18,6 +18,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/dashboard" },
   { icon: Building2, label: "Stores", path: "/dashboard/shops" },
   { icon: Users, label: "Team", path: "/dashboard/hr" },
+  { icon: FileText, label: "Field Reports", path: "/dashboard/hr/field-reports" }, // 🆕 ADDED
   { icon: ShoppingBag, label: "Inventory", path: "/dashboard/inventory" },
   { icon: FileText, label: "Sales Register", path: "/dashboard/sales" },
   { icon: ShieldCheck, label: "Master Activity Log", path: "/dashboard/admin" }, // 🆕 RENAMED
@@ -130,7 +131,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           {/* EXIT STRATEGY */}
           <div className="p-4 border-t border-slate-100">
             <button
-              onClick={() => signOut()}
+              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />

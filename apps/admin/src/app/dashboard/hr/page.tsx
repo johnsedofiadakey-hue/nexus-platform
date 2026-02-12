@@ -18,10 +18,9 @@ export default function TeamPage() {
       const data = await res.json();
       const staffList = Array.isArray(data) ? data : (data.data || []);
 
-      // 🛡️ LOGIC FIX: Strictly show field personnel (PROMOTERS & AGENTS)
-      // Administrative staff should not appear in this roster.
+      // 🛡️ LOGIC FIX: Strictly show field personnel (PROMOTERS, AGENTS, etc.)
       const agentsOnly = staffList.filter((user: any) =>
-        user.role === 'PROMOTER' || user.role === 'AGENT' || user.role === 'WORKER'
+        ['PROMOTER', 'AGENT', 'WORKER', 'ASSISTANT'].includes(user.role)
       );
 
       setStaff(agentsOnly);
@@ -34,18 +33,29 @@ export default function TeamPage() {
 
   useEffect(() => { fetchStaff(); }, []);
 
+  const now = Date.now();
+  const fiveMinutesAgo = now - 5 * 60 * 1000;
+
+  // Enhance staff with real-time status
+  const enhancedStaff = staff.map(person => ({
+    ...person,
+    isOnline: person.lastSeen ? new Date(person.lastSeen).getTime() > fiveMinutesAgo : false
+  }));
+
   // Filter Logic for Search Bar
-  const filteredStaff = staff.filter(person =>
+  const filteredStaff = enhancedStaff.filter(person =>
     person.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     person.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Stats Calculation
+  // Stats Calculation (Strictly for the Promoter Force)
   const stats = {
-    total: staff.length,
-    online: staff.filter(s => s.lastLat && s.lastLng).length,
-    managers: staff.filter(s => s.role === 'MANAGER').length,
-    active: staff.filter(s => s.status === 'ACTIVE').length
+    total: enhancedStaff.length,
+    online: enhancedStaff.filter(s => s.isOnline).length,
+    offline: enhancedStaff.filter(s => !s.isOnline).length,
+    activePercent: enhancedStaff.length > 0
+      ? Math.round((enhancedStaff.filter(s => s.isOnline).length / enhancedStaff.length) * 100)
+      : 0
   };
 
   if (loading) return (
@@ -75,12 +85,11 @@ export default function TeamPage() {
         </Link>
       </div>
 
-      {/* 📈 STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         <StatCard label="Total Force" value={stats.total} icon={Users} color="text-blue-600" bg="bg-blue-50" />
-        <StatCard label="Online Promoters" value={stats.online} icon={Navigation} color="text-emerald-600" bg="bg-emerald-50" pulse />
-        <StatCard label="Managers" value={stats.managers} icon={Shield} color="text-indigo-600" bg="bg-indigo-50" />
-        <StatCard label="Active Status" value={`${Math.round((stats.active / (stats.total || 1)) * 100)}%`} icon={Activity} color="text-slate-600" bg="bg-slate-50" />
+        <StatCard label="Online Now" value={stats.online} icon={Navigation} color="text-emerald-600" bg="bg-emerald-50" pulse />
+        <StatCard label="Offline Units" value={stats.offline} icon={Shield} color="text-slate-400" bg="bg-slate-50" />
+        <StatCard label="Field Health" value={`${stats.activePercent}%`} icon={Activity} color="text-indigo-600" bg="bg-indigo-50" />
       </div>
 
       {/* 🔍 FILTER & SEARCH */}
@@ -108,7 +117,7 @@ export default function TeamPage() {
           </div>
         ) : (
           filteredStaff.map((person) => {
-            const isOnline = person.lastLat && person.lastLng;
+            const isOnline = person.isOnline;
 
             return (
               <div

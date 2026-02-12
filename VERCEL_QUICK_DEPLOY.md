@@ -27,7 +27,7 @@ The script will:
 ### Both Portals Receive:
 
 ```bash
-DATABASE_URL="postgresql://postgres.lqkpyqcokdeaefmisgbs:Sedofia1010.@aws-1-eu-west-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL="postgresql://postgres.lqkpyqcokdeaefmisgbs:[YOUR_PASSWORD]@aws-1-eu-west-1.pooler.supabase.com:5432/postgres"
 
 NEXTAUTH_SECRET="17hOqPIYhW7U08WAXcNQoo++MLxDypdJIKT1gg/qcLU="
 
@@ -38,9 +38,9 @@ NEXTAUTH_URL="<portal-specific-url>"
 
 ## 🚨 CRITICAL SECURITY TASKS
 
-### ⚠️  URGENT: Database Password Exposed
+### ⚠️  URGENT: Database Password Previously Exposed
 
-The password **"Sedofia1010."** was committed to git history and is **publicly visible**.
+The previous password was committed to git history and is publicly visible.
 
 **You MUST change it immediately:**
 

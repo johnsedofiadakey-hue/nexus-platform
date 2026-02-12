@@ -9,20 +9,22 @@ import { authOptions } from "@/lib/auth";
 export async function GET() {
     try {
         const session = await getServerSession(authOptions);
-        if (!session) {
+        if (!session || !session.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const orgFilter = (session.user.role === "SUPER_ADMIN" && !session.user.organizationId)
+            ? {}
+            : { organizationId: session.user.organizationId };
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 1. Fetch Active Agents (Seen in last 5 mins) - OPTIMIZED with select
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-
-        // ⚡️ OPTIMIZED: Only select needed fields
-        const activeAgents = await prisma.user.findMany({
+        // 1. Fetch Agents for detailed breakdown (PROMOTERS ONLY) - Multi-tenant
+        const allPromoters = await prisma.user.findMany({
             where: {
-                role: "WORKER",
+                ...orgFilter,
+                role: { in: ['PROMOTER', 'AGENT', 'WORKER', 'ASSISTANT'] },
                 status: "ACTIVE"
             },
             select: {
@@ -38,28 +40,74 @@ export async function GET() {
             }
         });
 
-        // 2. Calculate Stats
-        const onlineCount = activeAgents.filter(a => a.lastSeen && a.lastSeen > fiveMinutesAgo).length;
+        // 2. Calculate Detailed Stats
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const onlineCount = allPromoters.filter(a => a.lastSeen && a.lastSeen > fiveMinutesAgo).length;
+        const offlineCount = allPromoters.length - onlineCount;
 
-        // 3. Today's Sales - ⚡️ OPTIMIZED: Use aggregate instead of fetching all
-        const salesAggregate = await prisma.sale.aggregate({
+        // 3. Today's Sales Analytics - Multi-tenant
+        const salesStats = await prisma.sale.aggregate({
             where: {
-                createdAt: { gte: today }
+                createdAt: { gte: today },
+                shop: orgFilter // Filter sales via shop organization
             },
             _sum: {
                 totalAmount: true
             },
-            _count: true
+            _count: {
+                id: true
+            }
         });
-        const totalSales = salesAggregate._sum.totalAmount || 0;
 
-        // 4. Shop Count - ⚡️ OPTIMIZED: Use count instead of findMany
+        // 4. Top Performers (Leaderboard) - Multi-tenant
+        const topPerformersData = await prisma.sale.groupBy({
+            by: ['userId'],
+            where: {
+                createdAt: { gte: today },
+                shop: orgFilter
+            },
+            _sum: {
+                totalAmount: true
+            },
+            _count: {
+                id: true
+            },
+            orderBy: {
+                _sum: {
+                    totalAmount: 'desc'
+                }
+            },
+            take: 5
+        });
+
+        // Fetch names for top performers
+        const performerIds = topPerformersData.map(p => p.userId);
+        const performers = await prisma.user.findMany({
+            where: { id: { in: performerIds } },
+            select: { id: true, name: true, image: true }
+        });
+
+        const topPerformers = topPerformersData.map(p => {
+            const user = performers.find(u => u.id === p.userId);
+            return {
+                id: p.userId,
+                name: user?.name || "Unknown",
+                image: user?.image,
+                totalSales: p._sum.totalAmount || 0,
+                transactionCount: p._count.id
+            };
+        });
+
+        // 5. Shop Count (Strict Multi-Tenancy)
         const shopCount = await prisma.shop.count({
-            where: { status: "ACTIVE" }
+            where: {
+                ...orgFilter,
+                status: "ACTIVE"
+            }
         });
 
         return NextResponse.json({
-            agents: activeAgents.map(a => ({
+            agents: allPromoters.map(a => ({
                 id: a.id,
                 name: a.name,
                 location: a.shop?.name || "Roaming",
@@ -70,8 +118,12 @@ export async function GET() {
             })),
             stats: {
                 onlineAgents: onlineCount,
-                totalSales,
-                activeShops: shopCount
+                offlineAgents: offlineCount,
+                totalPromoters: allPromoters.length,
+                totalSales: salesStats._sum.totalAmount || 0,
+                totalTransactions: salesStats._count.id,
+                activeShops: shopCount,
+                topPerformers
             }
         });
 

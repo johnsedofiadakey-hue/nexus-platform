@@ -21,23 +21,19 @@ export default function ActivityLogWidget() {
     const fetchLogs = async () => {
       try {
         const response = await fetch("/api/activity-log?limit=10");
+        const data = await response.json();
+
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          throw new Error(data.error || `HTTP ${response.status}`);
         }
-        const text = await response.text();
-        if (!text) {
-          console.warn("Empty response from activity log API");
-          setActivities([]);
-          return;
-        }
-        const data = JSON.parse(text);
+
         if (data.success && Array.isArray(data.data)) {
           setActivities(data.data);
         } else {
           setActivities([]);
         }
-      } catch (error) {
-        console.error("Failed to fetch activity log:", error);
+      } catch (error: any) {
+        console.error("❌ Failed to fetch activity log:", error.message);
         setActivities([]);
       } finally {
         setLoading(false);
@@ -68,59 +64,61 @@ export default function ActivityLogWidget() {
   };
 
   return (
-    <div className="bg-white border border-slate-200 h-full flex flex-col">
-      <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-        <div className="flex items-center gap-2">
-          <Activity size={14} className="text-slate-600" />
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+    <div className="bg-white border border-slate-200 h-full flex flex-col rounded-[2.5rem] overflow-hidden shadow-sm">
+      <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100">
+            <Activity size={16} className="text-slate-600" />
+          </div>
+          <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">
             Recent Activity
           </h3>
         </div>
-        <Link 
+        <Link
           href="/dashboard/activity-log"
-          className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+          className="text-[10px] text-blue-600 hover:text-blue-700 font-black uppercase tracking-widest flex items-center gap-1 transition-colors"
         >
-          View All <ChevronRight size={12} />
+          View All <ChevronRight size={14} />
         </Link>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full mx-auto mb-2"></div>
-            <p className="text-xs text-slate-400">Loading...</p>
+          <div className="p-12 text-center">
+            <div className="animate-spin w-8 h-8 border-2 border-slate-200 border-t-blue-600 rounded-full mx-auto mb-4"></div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acquiring Stream...</p>
           </div>
         ) : activities.length > 0 ? (
           <div className="divide-y divide-slate-100">
             {activities.map((activity) => (
               <div
                 key={activity.id}
-                className="px-4 py-3 hover:bg-slate-50 transition-colors"
+                className="px-6 py-4 hover:bg-slate-50/80 transition-all group"
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-4">
                   <div className="pt-0.5">
-                    <div className="w-7 h-7 rounded bg-slate-100 flex items-center justify-center">
-                      <User size={14} className="text-slate-500" />
+                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center border border-white shadow-sm group-hover:bg-white group-hover:scale-110 transition-all duration-300">
+                      <User size={18} className="text-slate-400" />
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-xs font-semibold text-slate-900 truncate">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-black text-slate-900 truncate">
                         {activity.userName}
                       </p>
                       <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${getActionColor(
+                        className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${getActionColor(
                           activity.action
                         )}`}
                       >
                         {activity.action.replace(/_/g, " ")}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 leading-snug line-clamp-2">
+                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-2 font-medium">
                       {activity.description}
                     </p>
-                    <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-400">
-                      <Clock size={10} />
+                    <div className="flex items-center gap-1.5 mt-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                      <Clock size={12} />
                       {formatTime(activity.createdAt)}
                     </div>
                   </div>
@@ -129,9 +127,11 @@ export default function ActivityLogWidget() {
             ))}
           </div>
         ) : (
-          <div className="p-8 text-center">
-            <Activity size={32} className="text-slate-200 mx-auto mb-2" />
-            <p className="text-xs text-slate-400">No recent activity</p>
+          <div className="p-12 text-center flex flex-col items-center justify-center h-full">
+            <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mb-4 border border-slate-100">
+              <Activity size={32} className="text-slate-200" />
+            </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Activity Recorded</p>
           </div>
         )}
       </div>
