@@ -41,3 +41,4 @@ apps/*/.turbo
 **/node_modules
 
 .nixpacks
+packages/database/client
