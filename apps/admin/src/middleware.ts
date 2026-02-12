@@ -12,7 +12,6 @@ const PUBLIC_ROUTES = [
   '/_next',
   '/api/auth',
   '/api/public',
-  '/api/debug-auth',
 ];
 
 export async function middleware(request: NextRequest) {
