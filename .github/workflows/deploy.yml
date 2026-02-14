@@ -93,8 +93,8 @@ jobs:
 
       - name: Admin Vercel Secrets Missing (Deploy Skipped)
         if: github.event_name == 'push' && env.VERCEL_PROJECT_ID_ADMIN == ''
-        run: echo "Admin deploy skipped. Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_ADMIN."
+        run: 'echo "Admin deploy skipped. Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_ADMIN."'
 
       - name: Control Vercel Secrets Missing (Deploy Skipped)
         if: github.event_name == 'push' && env.VERCEL_PROJECT_ID_CONTROL == ''
-        run: echo "Control deploy skipped. Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_CONTROL."
+        run: 'echo "Control deploy skipped. Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_CONTROL."'
