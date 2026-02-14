@@ -46,7 +46,7 @@ jobs:
         run: pnpm test
 
       - name: Install Vercel CLI
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && (env.VERCEL_PROJECT_ID_ADMIN != '' || env.VERCEL_PROJECT_ID_CONTROL != '')
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != ''
         run: pnpm add -g vercel@latest
 
       - name: Pull Admin Vercel Environment
@@ -92,9 +92,9 @@ jobs:
           VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID_CONTROL }}
 
       - name: Admin Vercel Secrets Missing (Deploy Skipped)
-        if: github.event_name == 'push' && (env.VERCEL_TOKEN == '' || env.VERCEL_ORG_ID == '' || env.VERCEL_PROJECT_ID_ADMIN == '')
+        if: github.event_name == 'push' && env.VERCEL_PROJECT_ID_ADMIN == ''
         run: echo "Admin deploy skipped. Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_ADMIN."
 
       - name: Control Vercel Secrets Missing (Deploy Skipped)
-        if: github.event_name == 'push' && (env.VERCEL_TOKEN == '' || env.VERCEL_ORG_ID == '' || env.VERCEL_PROJECT_ID_CONTROL == '')
+        if: github.event_name == 'push' && env.VERCEL_PROJECT_ID_CONTROL == ''
         run: echo "Control deploy skipped. Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_CONTROL."
