@@ -8,6 +8,12 @@ import { requireAuth } from "@/lib/auth-helpers";
 export async function PATCH(req: Request) {
     try {
         const user = await requireAuth();
+
+        // Role gate: only managers and above can update prices
+        if (!['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role || '')) {
+            return NextResponse.json({ error: "Forbidden: Insufficient permissions." }, { status: 403 });
+        }
+
         const body = await req.json();
         const { productId, newPrice, reason } = body;
 

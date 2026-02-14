@@ -93,8 +93,10 @@ export default function ShopDetailPortal() {
       if (!shopRes.ok) throw new Error("Fetch failed");
       const shopData = await shopRes.json();
       const invData = await invRes.json();
-      setShop(shopData);
-      setInventory(Array.isArray(invData) ? invData : []);
+      const shopInner = shopData?.data ?? shopData;
+      const invInner = invData?.data ?? invData;
+      setShop(shopInner);
+      setInventory(Array.isArray(invInner) ? invInner : (invInner?.items ?? []));
     } catch (e) {
       toast.error("Sync failed");
     } finally {
@@ -107,7 +109,7 @@ export default function ShopDetailPortal() {
     try {
       const res = await fetch(`/api/operations/reports?shopId=${shopId}&t=${Date.now()}`);
       const data = await res.json();
-      if (data.success) setReports(data.data || []);
+      if (data.success) setReports(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       console.error("Failed to fetch reports:", error);
     } finally {
@@ -120,8 +122,9 @@ export default function ShopDetailPortal() {
     setSalesLoading(true);
     try {
       const res = await fetch(`/api/sales/register?shopId=${shopId}&limit=100&t=${Date.now()}`);
-      const data = await res.json();
-      setSales(Array.isArray(data) ? data : (data.data || []));
+      const payload = await res.json();
+      const rows = payload?.data ?? payload;
+      setSales(Array.isArray(rows) ? rows : []);
     } catch (error) {
       console.error("Failed to fetch sales:", error);
     } finally {

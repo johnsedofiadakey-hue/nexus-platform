@@ -1,160 +1,151 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
+import { parseJsonBody, parseQuery } from "@/lib/platform/validation";
+import { enqueueJob } from "@/lib/platform/queue";
+import { bootstrapPlatformQueue } from "@/lib/platform/bootstrap";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json([], { status: 401 });
-    }
+const querySchema = z
+  .object({
+    userId: z.string().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(100),
+  })
+  .strip();
 
-    const { searchParams } = new URL(req.url);
-    const targetUserId = searchParams.get("userId");
+const sendSchema = z
+  .object({
+    content: z.string().min(1).max(3000),
+    receiverId: z.string().optional(),
+  })
+  .strip();
 
-    // ✅ Resolve current user safely
-    const me = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, role: true, organizationId: true },
-    });
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/mobile/messages",
+    roles: ["WORKER", "AGENT", "ASSISTANT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "user-mobile-messages-read", max: 90, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const query = parseQuery(new URL(req.url), querySchema);
 
-    if (!me) {
-      return NextResponse.json([], { status: 401 });
-    }
+    const privileged = ["MANAGER", "ADMIN", "SUPER_ADMIN"].includes(ctx.sessionUser.role);
+    const viewUserId = query.userId && privileged ? query.userId : ctx.sessionUser.id;
 
-    // Determine whose messages we are looking at
-    let viewUserId = me.id;
-    if (targetUserId && (me.role === 'ADMIN' || me.role === 'SUPER_ADMIN' || me.role === 'MANAGER')) {
-      // Check tenant isolation for the target user if not super admin
-      if (me.role !== 'SUPER_ADMIN') {
-        const targetUser = await prisma.user.findUnique({
-          where: { id: targetUserId },
-          select: { organizationId: true }
-        });
-        if (targetUser?.organizationId !== me.organizationId) {
-          return NextResponse.json({ error: "Access Denied" }, { status: 403 });
-        }
-      }
-      viewUserId = targetUserId;
-    }
+    const skip = (query.page - 1) * query.limit;
 
-    const messages = await prisma.message.findMany({
-      where: {
-        OR: [{ senderId: viewUserId }, { receiverId: viewUserId }],
-      },
-      orderBy: { createdAt: "asc" },
-      take: 100,
-      include: {
-        sender: { select: { name: true, role: true, image: true } },
-        receiver: { select: { name: true, role: true, image: true } },
-      },
-    });
+    const [total, messages] = await Promise.all([
+      ctx.scopedPrisma.message.count({
+        where: {
+          OR: [{ senderId: viewUserId }, { receiverId: viewUserId }],
+        },
+      }),
+      ctx.scopedPrisma.message.findMany({
+        where: {
+          OR: [{ senderId: viewUserId }, { receiverId: viewUserId }],
+        },
+        orderBy: { createdAt: "asc" },
+        take: query.limit,
+        skip,
+        include: {
+          sender: { select: { name: true, role: true, image: true } },
+          receiver: { select: { name: true, role: true, image: true } },
+        },
+      }),
+    ]);
 
-    return NextResponse.json(
-      messages.map((m) => ({
+    return ok({
+      items: messages.map((m) => ({
         id: m.id,
         content: m.content,
         isRead: m.isRead,
         createdAt: m.createdAt,
         senderId: m.senderId,
         receiverId: m.receiverId,
-        senderName: (m as any).sender?.name || 'Unknown',
-        receiverName: (m as any).receiver?.name || 'Unknown',
+        senderName: m.sender?.name || "Unknown",
+        receiverName: m.receiver?.name || "Unknown",
         direction: m.senderId === viewUserId ? "OUTGOING" : "INCOMING",
-      }))
-    );
-  } catch (error) {
-    console.error("MOBILE_MESSAGES_ERROR:", error);
-    return NextResponse.json([], { status: 500 });
+      })),
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit),
+      },
+    });
   }
+);
+
+const protectedPost = withTenantProtection(
+  {
+    route: "/api/mobile/messages",
+    roles: ["WORKER", "AGENT", "ASSISTANT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "user-mobile-messages-write", max: 30, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    bootstrapPlatformQueue();
+    const body = await parseJsonBody(req, sendSchema);
+
+    let receiverId = body.receiverId;
+
+    if (!receiverId) {
+      const manager = ctx.sessionUser.shopId
+        ? await ctx.scopedPrisma.user.findFirst({
+            where: { shopId: ctx.sessionUser.shopId, role: "MANAGER", status: "ACTIVE" },
+            select: { id: true },
+          })
+        : null;
+
+      if (manager?.id) {
+        receiverId = manager.id;
+      }
+    }
+
+    if (!receiverId) {
+      const admin = await ctx.scopedPrisma.user.findFirst({
+        where: { role: { in: ["ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
+        select: { id: true },
+      });
+      receiverId = admin?.id;
+    }
+
+    if (!receiverId) {
+      return fail("NO_RECEIVER", "No support recipient available", 503);
+    }
+
+    const message = await ctx.scopedPrisma.message.create({
+      data: {
+        content: body.content,
+        senderId: ctx.sessionUser.id,
+        receiverId,
+        isRead: false,
+      },
+      select: { id: true, content: true, senderId: true, receiverId: true, createdAt: true, isRead: true },
+    });
+
+    if (ctx.orgId) {
+      enqueueJob("notification", {
+        organizationId: ctx.orgId,
+        type: "MESSAGE",
+        title: "New Field Message",
+        message: `${ctx.sessionUser.email}: ${body.content.slice(0, 40)}${body.content.length > 40 ? "..." : ""}`,
+        link: "/dashboard/messages",
+      });
+    }
+
+    return ok(message, 201);
+  }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/mobile/messages", requestId, () => protectedGet(req));
 }
 
 export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { content, receiverId } = await req.json();
-    let finalReceiverId = receiverId;
-
-    const sender = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, shopId: true, name: true, organizationId: true, role: true }
-    });
-
-    if (!sender) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-    // 🧠 INTELLIGENT ROUTING - Find the best recipient
-    if (!finalReceiverId) {
-      // 1. Try to find the Shop Manager
-      if (sender.shopId) {
-        const manager = await prisma.user.findFirst({
-          where: { shopId: sender.shopId, role: 'MANAGER' }
-        });
-        finalReceiverId = manager?.id;
-      }
-
-      // 2. Fallback to any ADMIN in the same organization
-      if (!finalReceiverId && sender.organizationId) {
-        const admin = await prisma.user.findFirst({
-          where: {
-            organizationId: sender.organizationId,
-            role: { in: ['ADMIN', 'SUPER_ADMIN'] },
-            status: 'ACTIVE'
-          }
-        });
-        finalReceiverId = admin?.id;
-      }
-
-      // 3. Last resort: any SUPER_ADMIN in the system
-      if (!finalReceiverId) {
-        const superAdmin = await prisma.user.findFirst({
-          where: { role: 'SUPER_ADMIN', status: 'ACTIVE' }
-        });
-        finalReceiverId = superAdmin?.id;
-      }
-    }
-
-    if (!finalReceiverId) {
-      return NextResponse.json({ error: "No support agent available. Please contact your administrator." }, { status: 503 });
-    }
-
-    const message = await prisma.message.create({
-      data: {
-        content,
-        senderId: sender.id,
-        receiverId: finalReceiverId,
-        isRead: false
-      }
-    });
-
-    // 🔔 NOTIFICATION TRIGGER
-    const senderOrg = sender.organizationId || (session.user as any).organizationId;
-    if (senderOrg) {
-      try {
-        await prisma.notification.create({
-          data: {
-            organizationId: senderOrg,
-            type: 'MESSAGE',
-            title: 'New Field Message',
-            message: `${sender.name || 'Agent'}: ${content.substring(0, 40)}${content.length > 40 ? '...' : ''}`,
-            link: `/dashboard/messages`
-          }
-        });
-      } catch (notifErr) {
-        console.warn('Notification creation failed (non-blocking):', notifErr);
-      }
-    }
-
-    return NextResponse.json(message);
-  } catch (error) {
-    console.error("MESSAGE_SEND_ERROR:", error);
-    return NextResponse.json({ error: "Failed to send" }, { status: 500 });
-  }
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/mobile/messages", requestId, () => protectedPost(req));
 }

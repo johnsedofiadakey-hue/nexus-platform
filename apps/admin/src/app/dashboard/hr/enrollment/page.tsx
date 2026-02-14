@@ -40,8 +40,9 @@ export default function AddMemberWizard() {
     async function loadShops() {
       try {
         const res = await fetch('/api/shops/list');
-        const data = await res.json();
-        setShops(Array.isArray(data) ? data : (data.data || []));
+        const payload = await res.json();
+        const rows = payload?.data ?? payload;
+        setShops(Array.isArray(rows) ? rows : []);
       } catch (e) {
         setShops([]);
       }

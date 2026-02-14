@@ -9,13 +9,19 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:admin": "turbo run dev --filter=admin",
+    "dev:control": "turbo run dev --filter=control",
     "build": "pnpm db:generate && turbo run build",
     "build:admin": "pnpm db:generate && turbo run build --filter=admin",
+    "build:control": "pnpm db:generate && turbo run build --filter=control",
     "start": "turbo run start",
     "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "db:generate": "turbo run db:generate",
     "db:push": "turbo run db:push",
     "seed:prod": "npx tsx seed-production.ts",
+    "seed:control-owner": "npx tsx scripts/seed-control-owner.ts",
+    "reset:local-credentials": "npx tsx scripts/reset-local-credentials.ts",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {

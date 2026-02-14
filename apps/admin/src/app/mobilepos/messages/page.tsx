@@ -35,8 +35,10 @@ export default function StaffChat() {
     try {
       const res = await fetch("/api/mobile/messages");
       if (res.ok) {
-        const data = await res.json();
-        setMessages(data);
+        const payload = await res.json();
+        const inner = payload?.data ?? payload;
+        const rows = inner?.items ?? inner;
+        setMessages(Array.isArray(rows) ? rows : []);
       }
     } catch (e) {
       console.error("Chat Sync Error");

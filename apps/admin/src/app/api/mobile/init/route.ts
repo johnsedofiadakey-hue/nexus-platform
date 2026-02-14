@@ -1,55 +1,28 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-
-    // 🔐 HARD AUTH GUARD
-    if (!session?.user) {
-      console.log("❌ Init Rejected: No Session", { session });
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    /**
-     * ✅ CRITICAL FIX
-     * JWT sessions may NOT contain user.id reliably.
-     * We must resolve the user using email (guaranteed).
-     */
-    if (!session.user.email) {
-      return NextResponse.json(
-        { error: "Invalid session" },
-        { status: 401 }
-      );
-    }
-
-    // 🧠 Resolve user safely
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { shop: true }
-    }) as any; // Cast for bypassGeofence logic
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/mobile/init",
+    roles: ["WORKER", "ASSISTANT", "AGENT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "mobile-init-read", max: 120, windowMs: 60_000 },
+  },
+  async (_req, ctx) => {
+    const user = await ctx.scopedPrisma.user.findUnique({
+      where: { id: ctx.sessionUser.id },
+      include: { shop: true },
+    }) as any;
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Agent not found" },
-        { status: 404 }
-      );
+      return fail("NOT_FOUND", "Agent not found", 404);
     }
 
-    // 🚫 UNASSIGNED AGENT Handling
-    // Instead of failing with 409, provide a "Roaming" mode for admins
     if (!user.shop) {
-      // If Admin/Manager, allow access with default coordinates (e.g. Accra)
-      if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'MANAGER') {
-        return NextResponse.json({
+      if (user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.role === "MANAGER") {
+        return ok({
           id: user.id,
           agentName: user.name,
           agentImage: user.image,
@@ -60,110 +33,85 @@ export async function GET() {
           radius: 5000,
           managerName: "Self",
           managerPhone: user.phone || "",
-          bypassGeofence: true
-        }, { status: 200 });
+          bypassGeofence: true,
+        });
       }
 
-      // Regular workers strictly need a shop
-      console.log(`❌ User ${user.email} has no shop assignment`);
-      return NextResponse.json(
-        {
-          error: "UNASSIGNED",
-          agentName: user.name,
-          message: "No shop assigned. Contact your administrator."
-        },
-        { status: 409 }
-      );
+      return fail("UNASSIGNED", "No shop assigned. Contact your administrator.", 409);
     }
 
-    // 🔍 Find Manager (Admin assigned to this shop)
-    const manager = await prisma.user.findFirst({
-      where: {
-        shopId: user.shop.id,
-        role: 'ADMIN'
-      }
+    const manager = await ctx.scopedPrisma.user.findFirst({
+      where: { shopId: user.shop.id, role: "ADMIN" },
     });
 
-    // 🔒 CHECK LOCKOUT (APPROVED LEAVE or SUSPENDED)
     const today = new Date();
-    const activeLeave = await prisma.leaveRequest.findFirst({
+    const activeLeave = await ctx.scopedPrisma.leaveRequest.findFirst({
       where: {
         userId: user.id,
-        status: 'APPROVED',
+        status: "APPROVED",
         startDate: { lte: today },
-        endDate: { gte: today }
-      }
-    });
-
-    // 🎯 FETCH ACTIVE TARGET
-    const activeTarget = await prisma.target.findFirst({
-      where: {
-        userId: user.id,
-        status: 'ACTIVE',
-        startDate: { lte: today },
-        endDate: { gte: today }
+        endDate: { gte: today },
       },
-      orderBy: { createdAt: 'desc' }
     });
 
-    // 📊 CALCULATE PROGRESS (If Target Exists)
+    const activeTarget = await ctx.scopedPrisma.target.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        startDate: { lte: today },
+        endDate: { gte: today },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
     let targetProgress = null;
     if (activeTarget) {
-      const sales = await prisma.sale.findMany({
+      const sales = await ctx.scopedPrisma.sale.findMany({
         where: {
           userId: user.id,
-          createdAt: { gte: activeTarget.startDate, lte: activeTarget.endDate }
+          createdAt: { gte: activeTarget.startDate, lte: activeTarget.endDate },
         },
-        include: { items: true }
+        include: { items: true },
       });
 
-      const achievedValue = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-      const achievedQty = sales.reduce((sum, s) => sum + s.items.reduce((q, i) => q + i.quantity, 0), 0);
+      const achievedValue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+      const achievedQty = sales.reduce((sum, sale) => sum + sale.items.reduce((qty, item) => qty + item.quantity, 0), 0);
 
       targetProgress = {
         targetValue: activeTarget.targetValue,
         targetQuantity: activeTarget.targetQuantity,
         achievedValue,
-        achievedQuantity: achievedQty
+        achievedQuantity: achievedQty,
       };
     }
 
-    const lockout = activeLeave ? {
-      active: true,
-      reason: 'LEAVE',
-      endDate: activeLeave.endDate
-    } : null;
+    const lockout = activeLeave
+      ? { active: true, reason: "LEAVE", endDate: activeLeave.endDate }
+      : null;
 
-    if (user.status === 'SUSPENDED') {
-      return NextResponse.json({ error: "ACCOUNT_SUSPENDED" }, { status: 403 });
+    if (user.status === "SUSPENDED") {
+      return fail("FORBIDDEN", "ACCOUNT_SUSPENDED", 403);
     }
 
-    // ✅ SUCCESS (MOBILE SAFE CONTRACT)
-    return NextResponse.json(
-      {
-        id: user.id, // 👈 KEY AUTH FIELD
-        agentName: user.name,
-        agentImage: user.image, // 📸 Added Profile Image
-        shopId: user.shop.id,
-        shopName: user.shop.name,
-        shopLat: Number(user.shop.latitude),
-        shopLng: Number(user.shop.longitude),
-        radius: Number(user.shop.radius ?? 100),
-        // 🏪 Prioritize Shop Settings, then fallback to Admin User
-        managerName: user.shop.managerName || manager?.name || "HQ Admin",
-        managerPhone: user.shop.managerContact || manager?.phone || "N/A",
-        lockout,
-        targetProgress, // 🎯 Added Target Data
-        bypassGeofence: user.bypassGeofence // 🔓 Added Bypass Flag
-      },
-      { status: 200 }
-    );
-
-  } catch (error) {
-    console.error("MOBILE INIT ERROR:", error);
-    return NextResponse.json(
-      { error: "SYSTEM_FAILURE" },
-      { status: 500 }
-    );
+    return ok({
+      id: user.id,
+      agentName: user.name,
+      agentImage: user.image,
+      shopId: user.shop.id,
+      shopName: user.shop.name,
+      shopLat: Number(user.shop.latitude),
+      shopLng: Number(user.shop.longitude),
+      radius: Number(user.shop.radius ?? 100),
+      managerName: user.shop.managerName || manager?.name || "HQ Admin",
+      managerPhone: user.shop.managerContact || manager?.phone || "N/A",
+      lockout,
+      targetProgress,
+      bypassGeofence: user.bypassGeofence,
+    });
   }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/mobile/init", requestId, () => protectedGet(req));
 }

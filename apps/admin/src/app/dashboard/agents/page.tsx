@@ -21,7 +21,9 @@ export default function AgentsPage() {
         try {
             const res = await fetch('/api/dashboard/agents');
             if (res.ok) {
-                setAgents(await res.json());
+                const payload = await res.json();
+                const list = payload?.data ?? payload;
+                setAgents(Array.isArray(list) ? list : []);
             }
         } finally {
             setLoading(false);
@@ -29,8 +31,8 @@ export default function AgentsPage() {
     };
 
     const filtered = agents.filter(a =>
-        a.name.toLowerCase().includes(search.toLowerCase()) ||
-        a.shopName.toLowerCase().includes(search.toLowerCase())
+        (a.name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (a.shopName || '').toLowerCase().includes(search.toLowerCase())
     );
 
     return (

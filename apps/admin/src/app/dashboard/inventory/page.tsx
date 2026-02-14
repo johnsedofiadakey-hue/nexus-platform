@@ -42,10 +42,11 @@ export default function AdminInventoryPage() {
     setLoading(true);
     try {
       // Fetches National Inventory with Hub Tags
-      const res = await fetch(`/api/inventory?page=1&limit=1000&t=${Date.now()}`); // Fetching 1000 for now to keep "Global" feel
+      const res = await fetch(`/api/inventory?page=1&limit=100&t=${Date.now()}`);
       if (res.ok) {
         const payload = await res.json();
-        setInventory(payload.data || []);
+        const inner = payload?.data ?? payload;
+        setInventory(inner?.items ?? (Array.isArray(inner) ? inner : []));
       }
     } catch (error) {
       console.error("Failed to load inventory");
@@ -66,21 +67,20 @@ export default function AdminInventoryPage() {
   const totalValue = hubFilteredData.reduce((acc, item) => acc + ((item.price || 0) * (item.stock || 0)), 0);
   const lowStockItems = hubFilteredData.filter(item => item.status === 'Low Stock');
 
-  // C. Velocity Logic (80/20 Rule)
-  // Sort by sales velocity (Highest to Lowest)
-  const sortedBySales = [...hubFilteredData].sort((a, b) => (b.salesVelocity || 0) - (a.salesVelocity || 0));
-  const topMovers = sortedBySales.slice(0, 5); // Top 5 best sellers
-  // Dead Stock: Items with stock but 0 sales
-  const slowMovers = hubFilteredData.filter(i => (i.salesVelocity === 0 || !i.salesVelocity) && i.stock > 0);
+  // C. Stock Intelligence (sorted by stock level, highest first)
+  const sortedByStock = [...hubFilteredData].sort((a, b) => (b.stock || 0) - (a.stock || 0));
+  const topMovers = sortedByStock.slice(0, 5); // Top 5 highest stock items
+  // Low/no stock items
+  const slowMovers = hubFilteredData.filter(i => i.status === 'Low Stock');
 
   // D. Final Table Data (Apply Search & Type Filter)
-  const finalTableData = sortedBySales.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const finalTableData = sortedByStock.filter(item => {
+    const matchesSearch = (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.sku || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     let matchesType = true;
-    if (filterType === "FAST") matchesType = item.salesVelocity > 0;
-    if (filterType === "SLOW") matchesType = item.salesVelocity === 0;
+    if (filterType === "FAST") matchesType = (item.stock || 0) > (item.minStock || 5) * 2; // Well-stocked
+    if (filterType === "SLOW") matchesType = item.status === 'Low Stock' || (item.stock || 0) === 0; // Low/no stock
     if (filterType === "LOW_STOCK") matchesType = item.status === "Low Stock";
 
     return matchesSearch && matchesType;
@@ -254,14 +254,14 @@ export default function AdminInventoryPage() {
               <Zap className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Top Performer</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Top Stocked</p>
               <h3 className="text-sm font-black text-slate-900 truncate w-32" title={topMovers[0]?.name}>
                 {topMovers[0]?.name || "No Data"}
               </h3>
             </div>
           </div>
           <div className="text-[10px] font-bold text-amber-600 flex items-center gap-1 uppercase tracking-wide bg-amber-50/50 w-fit px-2 py-1 rounded-lg">
-            <ArrowUpRight className="w-3 h-3" /> Highest Velocity
+            <ArrowUpRight className="w-3 h-3" /> Highest Stock
           </div>
         </div>
 
@@ -329,8 +329,8 @@ export default function AdminInventoryPage() {
             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
               {[
                 { id: 'ALL', label: 'All Items' },
-                { id: 'FAST', label: 'Fast Moving' },
-                { id: 'SLOW', label: 'Slow Moving' },
+                { id: 'FAST', label: 'Well Stocked' },
+                { id: 'SLOW', label: 'Low / Out' },
                 { id: 'LOW_STOCK', label: 'Low Stock' }
               ].map(f => (
                 <button
@@ -388,13 +388,13 @@ export default function AdminInventoryPage() {
                   <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
-                        {/* DYNAMIC ICON BASED ON VELOCITY */}
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border shadow-sm ${item.salesVelocity > 5 ? 'bg-amber-50 border-amber-100 text-amber-600' :
-                          item.salesVelocity > 0 ? 'bg-blue-50 border-blue-100 text-blue-600' :
-                            'bg-white border-slate-100 text-slate-300'
+                        {/* DYNAMIC ICON BASED ON STOCK LEVEL */}
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border shadow-sm ${item.status === 'Low Stock' ? 'bg-red-50 border-red-100 text-red-600' :
+                          (item.stock || 0) > (item.minStock || 5) * 2 ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
+                            'bg-blue-50 border-blue-100 text-blue-600'
                           }`}>
-                          {item.salesVelocity > 5 ? <Zap className="w-5 h-5" /> :
-                            item.salesVelocity > 0 ? <Activity className="w-5 h-5" /> :
+                          {item.status === 'Low Stock' ? <AlertTriangle className="w-5 h-5" /> :
+                            (item.stock || 0) > (item.minStock || 5) * 2 ? <Zap className="w-5 h-5" /> :
                               <Package className="w-5 h-5" />}
                         </div>
                         <div>
@@ -402,8 +402,8 @@ export default function AdminInventoryPage() {
                           <div className="flex gap-3 text-[10px] font-bold text-slate-400 mt-1">
                             <span className="uppercase tracking-wider">{item.sku || "NO SKU"}</span>
                             <span className="text-slate-300">|</span>
-                            <span className={item.salesVelocity > 0 ? "text-emerald-600" : "text-slate-400"}>
-                              {item.salesVelocity ? `${item.salesVelocity} Sold` : "No Sales"}
+                            <span className={item.status === 'Low Stock' ? "text-red-600" : "text-emerald-600"}>
+                              {item.stock || 0} in stock
                             </span>
                           </div>
                         </div>
@@ -411,7 +411,7 @@ export default function AdminInventoryPage() {
                     </td>
                     <td className="px-6 py-5">
                       <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-wide">
-                        {item.subCat || "General"}
+                        {item.category || "General"}
                       </span>
                     </td>
                     <td className="px-6 py-5">
@@ -434,7 +434,7 @@ export default function AdminInventoryPage() {
                         <div
                           className={`h-full rounded-full transition-all duration-1000 shadow-sm ${item.stock <= (item.minStock || 5) ? 'bg-red-500' : 'bg-emerald-500'
                             }`}
-                          style={{ width: `${Math.min(100, (item.stock / (item.minStock * 4 || 20)) * 100)}%` }}
+                          style={{ width: `${Math.min(100, (item.stock / ((item.minStock || 5) * 4)) * 100)}%` }}
                         />
                       </div>
                     </td>

@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Force dynamic rendering for API routes that use database
 export const dynamic = 'force-dynamic';
 import { calculateDistance } from "@/lib/utils";
 import { requireAuth } from "@/lib/auth-helpers";
 
 /**
- * 🛰️ GEOFENCE ENGINE - PRODUCTION GRADE
+ * GEOFENCE ENGINE - PRODUCTION GRADE
  * Calculates real-world distance between coordinates in meters.
  * Features GPS accuracy validation and safety buffers.
+ * SECURED: Org-scoped - users can only update their own location within their org.
  */
 
 // ✅ TUNED GPS ACCURACY THRESHOLDS
@@ -41,9 +41,12 @@ export async function POST(req: Request) {
       }, { status: 403 });
     }
 
-    // 1. Authenticate Identity & Assigned Hub
-    const agent = await prisma.user.findUnique({
-      where: { id: userId },
+    // 1. Authenticate Identity & Assigned Hub (org-scoped)
+    const agent = await prisma.user.findFirst({
+      where: { 
+        id: userId,
+        organizationId: authenticatedUser.organizationId 
+      },
       include: { shop: true }
     });
 

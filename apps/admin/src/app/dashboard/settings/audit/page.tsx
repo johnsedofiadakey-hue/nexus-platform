@@ -12,8 +12,9 @@ export default function AuditLogPage() {
         setLoading(true);
         try {
             const res = await fetch("/api/audit");
-            const data = await res.json();
-            setLogs(data);
+            const payload = await res.json();
+            const rows = payload?.data ?? payload;
+            setLogs(Array.isArray(rows) ? rows : []);
         } catch (error) {
             console.error(error);
         } finally {
@@ -27,8 +28,8 @@ export default function AuditLogPage() {
 
     const filteredLogs = logs.filter(log =>
         log.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.entity.toLowerCase().includes(searchTerm.toLowerCase())
+        (log.action || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (log.entity || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (

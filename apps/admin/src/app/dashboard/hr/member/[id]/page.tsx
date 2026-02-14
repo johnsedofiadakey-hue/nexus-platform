@@ -91,33 +91,37 @@ export default function MemberPortal() {
         const aiData = await aRes.json();
         const targetsData = await tRes.json();
 
-        if (userData.error) {
+        // Unwrap ok() wrapper: { success, data } → data
+        const user = userData?.data ?? userData;
+        const targetsRaw = targetsData?.data ?? targetsData;
+
+        if (user.error) {
           // Include additional error details if available
-          const errorDetails = userData.details || userData.hint || '';
-          const fullError = errorDetails ? `${userData.error}: ${errorDetails}` : userData.error;
+          const errorDetails = user.details || user.hint || '';
+          const fullError = errorDetails ? `${user.error}: ${errorDetails}` : user.error;
           throw new Error(fullError);
         }
 
         setData({
-          ...userData,
-          targets: Array.isArray(targetsData) ? targetsData : []
+          ...user,
+          targets: Array.isArray(targetsRaw) ? targetsRaw : []
         });
-        setAiInsight(aiData);
-        setShops(Array.isArray(shopData) ? shopData : (shopData.data || []));
+        setAiInsight(aiData?.data ?? aiData);
+        setShops(Array.isArray(shopData) ? shopData : (shopData?.data ?? shopData?.shops ?? []));
 
         setFormState({
-          name: userData?.name || "",
-          email: userData?.email || "",
-          phone: userData?.phone || "",
-          shopId: userData?.shopId || "",
-          status: userData?.status || "ACTIVE",
+          name: user?.name || "",
+          email: user?.email || "",
+          phone: user?.phone || "",
+          shopId: user?.shopId || "",
+          status: user?.status || "ACTIVE",
           password: "",
-          bypassGeofence: userData?.bypassGeofence || false,
-          bankName: userData?.bankName || "",
-          bankAccountNumber: userData?.bankAccountNumber || "",
-          bankAccountName: userData?.bankAccountName || "",
-          ssnitNumber: userData?.ssnitNumber || "",
-          commencementDate: userData?.commencementDate ? new Date(userData.commencementDate).toISOString().split('T')[0] : ""
+          bypassGeofence: user?.bypassGeofence || false,
+          bankName: user?.bankName || "",
+          bankAccountNumber: user?.bankAccountNumber || "",
+          bankAccountName: user?.bankAccountName || "",
+          ssnitNumber: user?.ssnitNumber || "",
+          commencementDate: user?.commencementDate ? new Date(user.commencementDate).toISOString().split('T')[0] : ""
         });
       } else {
         // LIGHT UPDATE: Quietly refresh position and targets without blocking UI

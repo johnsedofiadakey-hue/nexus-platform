@@ -5,6 +5,9 @@
     "DATABASE_URL",
     "NEXTAUTH_SECRET",
     "NEXTAUTH_URL",
+    "CONTROL_NEXTAUTH_SECRET",
+    "CONTROL_OWNER_EMAIL",
+    "CONTROL_OWNER_PASSWORD",
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY"
   ],
@@ -24,8 +27,12 @@
       "cache": false,
       "persistent": true
     },
-    "lint": {
-      "dependsOn": ["^lint"]
+    "lint": {},
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["^test"]
     },
     "db:generate": {
       "cache": false

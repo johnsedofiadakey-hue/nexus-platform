@@ -52,11 +52,12 @@ export default function MasterActivityLogPage() {
       if (filters.shopId) params.append("shopId", filters.shopId);
 
       const response = await fetch(`/api/activity-log?${params.toString()}`);
-      const data = await response.json();
+      const payload = await response.json();
 
-      if (data.success) {
-        setLogs(data.data);
-        setTotal(data.total);
+      if (payload.success) {
+        const inner = payload.data;
+        setLogs(inner?.data ?? inner ?? []);
+        setTotal(inner?.total ?? payload.total ?? 0);
       }
     } catch (error) {
       console.error("Failed to fetch activity logs:", error);
@@ -88,10 +89,10 @@ export default function MasterActivityLogPage() {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       return (
-        log.description.toLowerCase().includes(searchLower) ||
-        log.userName.toLowerCase().includes(searchLower) ||
-        log.action.toLowerCase().includes(searchLower) ||
-        log.entity.toLowerCase().includes(searchLower)
+        (log.description || '').toLowerCase().includes(searchLower) ||
+        (log.userName || '').toLowerCase().includes(searchLower) ||
+        (log.action || '').toLowerCase().includes(searchLower) ||
+        (log.entity || '').toLowerCase().includes(searchLower)
       );
     }
     return true;

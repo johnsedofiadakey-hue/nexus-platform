@@ -1,4 +1,5 @@
 import { PrismaClient } from "@nexus/database";
+import { detectSlowQuery } from "@/lib/platform/observability";
 
 /**
  * HARDENED PRISMA CLIENT — Supabase Transaction Pooler (Free Tier Optimized)
@@ -83,8 +84,11 @@ function createExtendedClient() {
   // Wrap EVERY query with auto-retry — all 50+ API routes benefit
   const extendedClient = baseClient.$extends({
     query: {
-      $allOperations({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-        return retryOperation(() => query(args));
+      $allOperations({ model, operation, args, query }: { model?: string; operation: string; args: any; query: (args: any) => Promise<any> }) {
+        const started = Date.now();
+        return retryOperation(() => query(args)).finally(() => {
+          detectSlowQuery(Date.now() - started, model || "unknown", operation);
+        });
       },
     },
   });

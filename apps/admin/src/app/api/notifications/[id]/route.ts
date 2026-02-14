@@ -1,33 +1,45 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-// PATCH: Mark as Read
-// PATCH: Mark as Read
-export async function PATCH(
-    req: Request,
-    props: { params: Promise<{ id: string }> }
-) {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
 
-    try {
-        const params = await props.params;
-        const { id } = params;
+    return withApiErrorHandling(req, "/api/notifications/[id]", requestId, async () => {
+        const { id } = await props.params;
 
-        const notification = await prisma.notification.update({
-            where: { id },
-            data: { isRead: true }
-        });
+        const protectedPatch = withTenantProtection(
+            {
+                route: "/api/notifications/[id]",
+                roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+                rateLimit: { keyPrefix: "notifications-update", max: 60, windowMs: 60_000 },
+            },
+            async (_request, ctx) => {
+                const existing = await ctx.scopedPrisma.notification.findUnique({ where: { id }, select: { id: true } });
+                if (!existing) {
+                    return fail("NOTIFICATION_NOT_FOUND", "Notification not found", 404);
+                }
 
-        return NextResponse.json(notification);
-    } catch (error) {
-        return NextResponse.json({ error: "Failed to update notification" }, { status: 500 });
-    }
+                const notification = await ctx.scopedPrisma.notification.update({
+                    where: { id },
+                    data: { isRead: true },
+                    select: {
+                        id: true,
+                        type: true,
+                        title: true,
+                        message: true,
+                        link: true,
+                        isRead: true,
+                        createdAt: true,
+                    },
+                });
+
+                return ok(notification);
+            }
+        );
+
+        return protectedPatch(req);
+    });
 }

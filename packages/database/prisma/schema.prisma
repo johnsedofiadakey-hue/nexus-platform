@@ -21,10 +21,12 @@ model Organization {
   ownerId     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   // Billing
   plan        String   @default("FREE")
   nextBillingDate DateTime?
+  authVersion Int @default(1)
 
   // 🎨 BRANDING (White-Label)
   primaryColor   String?   @default("#2563EB") // Blue 600
@@ -42,19 +44,63 @@ model Organization {
 
 model Subscription {
   id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  planType       String       // MONTHLY, ANNUAL
-  amount         Float
-  currency       String       @default("GHS")
-  status         String       // ACTIVE, CANCELLED, PAST_DUE
-  startDate      DateTime     @default(now())
-  endDate        DateTime
-  paystackSubCode String?
+  tenantId       String
+  tenant         Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           Plan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+  billingCycle   BillingCycle
+  status         SubscriptionStatus
+  graceEndsAt    DateTime?
+  nextBillingDate DateTime
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  @@index([organizationId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([nextBillingDate])
+}
+
+model Plan {
+  id                    String   @id @default(cuid())
+  name                  String
+  pricePerShopMonthly   Float
+  annualDiscountPercent Float
+  features              String[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  subscriptions         Subscription[]
+
+  @@unique([name])
+}
+
+model PlatformAdmin {
+  id                  String       @id @default(cuid())
+  email               String       @unique
+  passwordHash        String
+  role                PlatformRole @default(OWNER)
+  isActive            Boolean      @default(true)
+  failedLoginAttempts Int          @default(0)
+  lockUntil           DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+model FeatureFlag {
+  id               String   @id @default(cuid())
+  key              String   @unique
+  enabledGlobally  Boolean  @default(true)
+  planRestrictions String[]
+  tenantOverrides  Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model Invoice {
@@ -110,8 +156,10 @@ model Shop {
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
   @@index([organizationId])
+  @@index([organizationId, createdAt])
 }
 
 // --- 1.1 DYNAMIC CATEGORIES ---
@@ -167,6 +215,7 @@ model User {
   status           String    @default("ACTIVE") 
   isInsideZone     Boolean   @default(false)
   bypassGeofence   Boolean   @default(false)
+  passwordResetRequired Boolean @default(false)
   
   // 📍 GPS TRACKING
   lastLat          Float?
@@ -189,9 +238,11 @@ model User {
   
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   @@index([shopId])
   @@index([organizationId])
+  @@index([organizationId, createdAt])
   @@index([email])
   @@index([role])
   @@index([status])
@@ -222,8 +273,10 @@ model Product {
   
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
   @@index([shopId])
+  @@index([shopId, createdAt])
   @@index([stockLevel]) // ⚡️ OPTIMIZATION: Speed up Low Stock Alerts
   @@index([category, subCategory]) // ⚡️ OPTIMIZATION: Speed up Filtered Inventory Queries
 }
@@ -243,8 +296,10 @@ model Sale {
   customer      Customer? @relation(fields: [customerId], references: [id])
   items         SaleItem[]
   createdAt     DateTime  @default(now())
+  deletedAt     DateTime?
 
   @@index([shopId])
+  @@index([shopId, createdAt])
   @@index([userId])
   @@index([customerId])
   @@index([createdAt]) // ⚡️ OPTIMIZATION: Speed up Date Range Filtering
@@ -293,6 +348,7 @@ model Expense {
   user        User     @relation(fields: [userId], references: [id])
 
   @@index([shopId])
+  @@index([shopId, date])
   @@index([userId])
 }
 
@@ -308,6 +364,7 @@ model Attendance {
   date      DateTime  @default(now())
 
   @@index([userId])
+  @@index([userId, date])
   @@index([date])    // ⚡️ OPTIMIZATION: Speed up Attendance Queries
   @@index([checkIn]) // ⚡️ OPTIMIZATION: Speed up Ghost Worker Detection
 }
@@ -334,6 +391,7 @@ model DailyReport {
   updatedAt  DateTime @updatedAt
 
   @@index([userId])
+  @@index([userId, createdAt])
   @@index([shopId])
   @@index([createdAt])
 }
@@ -399,6 +457,7 @@ model ActivityLog {
   createdAt   DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, createdAt])
   @@index([action])
   @@index([entity])
   @@index([createdAt])
@@ -489,4 +548,22 @@ model Notification {
   @@index([isRead])
   @@index([organizationId, isRead])
   @@index([createdAt])
+}
+
+enum PlatformRole {
+  OWNER
+  ENGINEER
+  SUPPORT
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  GRACE
+  LOCKED
+  CANCELLED
 }

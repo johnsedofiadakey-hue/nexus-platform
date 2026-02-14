@@ -31,8 +31,9 @@ export default function MobileHistory() {
         // Use the secure API that checks the session automatically
         const res = await fetch(`/api/sales/history?t=${Date.now()}`);
         if (res.ok) {
-          const data = await res.json();
-          setSales(Array.isArray(data) ? data : []);
+          const payload = await res.json();
+          const rows = payload?.data ?? payload;
+          setSales(Array.isArray(rows) ? rows : []);
         }
       } catch (e) {
         console.error("History Sync Failed", e);

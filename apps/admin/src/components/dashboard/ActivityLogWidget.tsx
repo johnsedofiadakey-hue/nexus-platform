@@ -17,23 +17,36 @@ export default function ActivityLogWidget() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const formatErrorMessage = (errorPayload: unknown, status: number) => {
+    if (typeof errorPayload === "string") return errorPayload;
+
+    if (errorPayload && typeof errorPayload === "object") {
+      const maybeError = (errorPayload as { error?: { message?: string } }).error;
+      if (maybeError?.message) return maybeError.message;
+    }
+
+    return `HTTP ${status}`;
+  };
+
   useEffect(() => {
     const fetchLogs = async () => {
       try {
         const response = await fetch("/api/activity-log?limit=10");
-        const data = await response.json();
+        const payload = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || `HTTP ${response.status}`);
+          throw new Error(formatErrorMessage(payload?.error ?? payload, response.status));
         }
 
-        if (data.success && Array.isArray(data.data)) {
-          setActivities(data.data);
+        const rows = payload?.data?.data ?? payload?.data;
+
+        if (Array.isArray(rows)) {
+          setActivities(rows);
         } else {
           setActivities([]);
         }
       } catch (error: any) {
-        console.error("❌ Failed to fetch activity log:", error.message);
+        console.error("❌ Failed to fetch activity log:", error?.message || String(error));
         setActivities([]);
       } finally {
         setLoading(false);

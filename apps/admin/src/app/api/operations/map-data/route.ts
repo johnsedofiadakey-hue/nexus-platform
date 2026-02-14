@@ -1,39 +1,37 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { requireAuth } from "@/lib/auth-helpers";
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    // 🔐 Require authentication
-    const user = await requireAuth();
-    
-    // 🏢 Build organization filter
-    const orgFilter = user.role === "SUPER_ADMIN" && !user.organizationId
-      ? {} // Super admin sees all
-      : { organizationId: user.organizationId };
-
-    const data = await prisma.shop.findMany({
-      where: orgFilter,
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/operations/map-data",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN", "AUDITOR"],
+    rateLimit: { keyPrefix: "operations-map-data-read", max: 120, windowMs: 60_000 },
+  },
+  async (_req, ctx) => {
+    const data = await ctx.scopedPrisma.shop.findMany({
       include: {
-        sales: true,
-        _count: { select: { users: true } }
-      }
-    }) || []; // Fallback to empty array
+        sales: { select: { totalAmount: true } },
+        _count: { select: { users: true } },
+      },
+    });
 
-    const formatted = data.map(node => ({
+    const formatted = data.map((node) => ({
       id: node.id,
       name: node.name,
       lat: node.latitude,
       lng: node.longitude,
-      sales: node.sales?.reduce((acc, s) => acc + s.totalAmount, 0) || 0,
-      staffCount: node._count.users || 0
+      sales: node.sales.reduce((acc, sale) => acc + sale.totalAmount, 0),
+      staffCount: node._count.users || 0,
     }));
 
-    return NextResponse.json(formatted);
-  } catch (e) {
-    return NextResponse.json([], { status: 200 }); // Return empty array on error to keep UI alive
+    return ok(formatted);
   }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/operations/map-data", requestId, () => protectedGet(req));
 }

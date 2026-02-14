@@ -17,9 +17,10 @@ export default function SentinelMapPage() {
       try {
          const res = await fetch('/api/dashboard/stats');
          if (res.ok) {
-            const data = await res.json();
-            setUnits(data.agents || []);
-            setStats(data.stats || { onlineAgents: 0, totalSales: 0, activeShops: 0 });
+            const payload = await res.json();
+            const data = payload?.data ?? payload;
+            setUnits(data?.agents || []);
+            setStats(data?.stats || { onlineAgents: 0, totalSales: 0, activeShops: 0 });
          }
       } catch (e) {
          toast.error("Live feed disconnected");

@@ -1,101 +1,84 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-// POST: Sync all active targets with actual sales data
-export async function POST(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        // Only admins can sync targets
-        if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-
-        // Fetch all active targets
-        const activeTargets = await prisma.target.findMany({
-            where: { status: 'ACTIVE' },
-            include: { user: true }
+const protectedPost = withTenantProtection(
+    {
+        route: "/api/targets/sync",
+        roles: ["ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "targets-sync-write", max: 10, windowMs: 60_000 },
+    },
+    async (_req, ctx) => {
+        const activeTargets = await ctx.scopedPrisma.target.findMany({
+            where: { status: "ACTIVE" },
+            include: { user: true },
         });
 
-        const syncResults = [];
+        const syncResults: Array<{
+            targetId: string;
+            userName: string | null;
+            previousAchieved: { value: number; quantity: number };
+            newAchieved: { value: number; quantity: number };
+            status: string;
+        }> = [];
 
         for (const target of activeTargets) {
-            // Calculate actual sales within target period
-            const sales = await prisma.sale.aggregate({
+            const sales = await ctx.scopedPrisma.sale.aggregate({
                 where: {
                     userId: target.userId,
-                    createdAt: {
-                        gte: target.startDate,
-                        lte: target.endDate
-                    }
+                    createdAt: { gte: target.startDate, lte: target.endDate },
                 },
-                _sum: {
-                    totalAmount: true,
-                }
+                _sum: { totalAmount: true },
             });
 
-            // Also count total items sold
-            const itemCount = await prisma.saleItem.aggregate({
+            const itemCount = await ctx.scopedPrisma.saleItem.aggregate({
                 where: {
                     sale: {
                         userId: target.userId,
-                        createdAt: {
-                            gte: target.startDate,
-                            lte: target.endDate
-                        }
-                    }
+                        createdAt: { gte: target.startDate, lte: target.endDate },
+                    },
                 },
-                _sum: {
-                    quantity: true
-                }
+                _sum: { quantity: true },
             });
 
             const achievedValue = sales._sum.totalAmount || 0;
             const achievedQuantity = itemCount._sum.quantity || 0;
 
-            // Update target with actual data
-            const updated = await prisma.target.update({
+            const updated = await ctx.scopedPrisma.target.update({
                 where: { id: target.id },
                 data: {
                     achievedValue,
                     achievedQuantity,
-                    // Auto-update status based on achievement and date
                     status: determineStatus(
                         target.targetValue,
                         achievedValue,
                         target.targetQuantity,
                         achievedQuantity,
                         target.endDate
-                    )
-                }
+                    ),
+                },
             });
 
-            // Log progress update
-            await prisma.targetHistory.create({
+            await ctx.scopedPrisma.targetHistory.create({
                 data: {
                     targetId: target.id,
-                    userId: session.user.id,
-                    action: 'PROGRESS_UPDATE',
+                    userId: ctx.sessionUser.id,
+                    action: "PROGRESS_UPDATE",
                     previousValue: {
                         achievedValue: target.achievedValue,
-                        achievedQuantity: target.achievedQuantity
+                        achievedQuantity: target.achievedQuantity,
                     },
                     newValue: {
                         achievedValue,
-                        achievedQuantity
+                        achievedQuantity,
                     },
                     progress: calculateProgress(target.targetValue, achievedValue, target.targetQuantity, achievedQuantity),
                     achievedValue,
                     achievedQuantity,
-                    notes: 'Auto-synced from sales data'
-                }
+                    notes: "Auto-synced from sales data",
+                },
             });
 
             syncResults.push({
@@ -103,20 +86,20 @@ export async function POST(req: Request) {
                 userName: target.user.name,
                 previousAchieved: { value: target.achievedValue, quantity: target.achievedQuantity },
                 newAchieved: { value: achievedValue, quantity: achievedQuantity },
-                status: updated.status
+                status: updated.status,
             });
         }
 
-        return NextResponse.json({
-            success: true,
+        return ok({
             message: `Synced ${syncResults.length} targets`,
-            results: syncResults
+            results: syncResults,
         });
-
-    } catch (error: any) {
-        console.error('Target Sync Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
     }
+);
+
+export async function POST(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/targets/sync", requestId, () => protectedPost(req));
 }
 
 // Helper function to determine status

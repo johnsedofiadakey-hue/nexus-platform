@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "@/context/ThemeContext";
-import { Palette, Users, CreditCard, Save, RotateCcw, Shield, Plus, Trash2, Check, X } from "lucide-react";
+import { Palette, Users, CreditCard, Save, RotateCcw, Shield, Plus, Trash2, Check, X, Loader2, AlertTriangle, CheckCircle2, Store, UserCheck } from "lucide-react";
 
 // --- TEAM MANAGER COMPONENT ---
 function TeamManager() {
@@ -23,7 +23,11 @@ function TeamManager() {
         setLoading(true);
         try {
             const res = await fetch('/api/hr/team');
-            if (res.ok) setTeam(await res.json());
+            if (res.ok) {
+                const payload = await res.json();
+                const list = payload?.data ?? payload;
+                setTeam(Array.isArray(list) ? list : []);
+            }
         } catch (e) { console.error(e); }
         finally { setLoading(false); }
     };
@@ -165,6 +169,204 @@ function TeamManager() {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// --- SUBSCRIPTION MANAGER COMPONENT ---
+function SubscriptionManager() {
+    const [data, setData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchSubscription = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch('/api/subscription');
+            const payload = await res.json();
+            const inner = payload?.data ?? payload;
+            if (payload?.success === false) {
+                setError(inner?.error?.message || 'Failed to load subscription');
+            } else {
+                setData(inner);
+            }
+        } catch (e: any) {
+            setError(e.message || 'Failed to load subscription');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchSubscription(); }, []);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+        );
+    }
+
+    if (error || !data) {
+        return (
+            <div className="bg-rose-50 border border-rose-200 p-6 text-center">
+                <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-rose-700">{error || 'No subscription data available'}</p>
+                <button onClick={fetchSubscription} className="mt-4 px-4 py-2 bg-rose-100 text-rose-700 text-xs font-semibold uppercase tracking-wider hover:bg-rose-200 transition-colors">
+                    Retry
+                </button>
+            </div>
+        );
+    }
+
+    const { subscription, plan, usage, billing, invoices } = data;
+    const statusColors: Record<string, string> = {
+        ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        GRACE: 'bg-amber-50 text-amber-700 border-amber-200',
+        LOCKED: 'bg-rose-50 text-rose-700 border-rose-200',
+        CANCELLED: 'bg-slate-100 text-slate-600 border-slate-200',
+    };
+    const subStatus = subscription?.status || 'NONE';
+    const statusLabel = subStatus === 'NONE' ? 'No Active Plan' : subStatus;
+
+    return (
+        <div className="space-y-6">
+            {/* Plan Card */}
+            <div className="bg-slate-900 text-white p-8 rounded-3xl relative overflow-hidden">
+                <div className="relative z-10">
+                    <div className="flex items-start justify-between mb-4">
+                        <div>
+                            <h3 className="text-2xl font-black mb-1">
+                                {plan ? `Nexus ${plan.name}` : 'No Plan'}
+                            </h3>
+                            <p className="text-slate-400 text-sm">
+                                {subscription
+                                    ? `${statusLabel} Subscription • ${subscription.billingCycle === 'ANNUAL' ? 'Annual' : 'Monthly'} Plan`
+                                    : 'No active subscription'}
+                            </p>
+                        </div>
+                        <span className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border rounded-lg ${statusColors[subStatus] || 'bg-slate-700 text-slate-300 border-slate-600'}`}>
+                            {statusLabel}
+                        </span>
+                    </div>
+
+                    {subscription && (
+                        <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-slate-500 mb-6">
+                            <span>
+                                Next Billing: {new Date(subscription.nextBillingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                            <span>•</span>
+                            <span>
+                                ${billing.currentAmount.toFixed(2)} / {billing.cycle === 'ANNUAL' ? 'Year' : 'Month'}
+                            </span>
+                        </div>
+                    )}
+
+                    {plan && (
+                        <div className="flex items-center gap-3 text-xs text-slate-400 mb-6">
+                            <span className="flex items-center gap-1">
+                                <CreditCard size={12} /> ${plan.pricePerShopMonthly}/shop/month
+                            </span>
+                            {plan.annualDiscountPercent > 0 && (
+                                <>
+                                    <span>•</span>
+                                    <span className="text-emerald-400">{plan.annualDiscountPercent}% annual discount</span>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {subscription?.status === 'GRACE' && subscription.graceEndsAt && (
+                        <div className="bg-amber-500/20 border border-amber-500/30 rounded-xl px-4 py-3 mb-4">
+                            <p className="text-amber-300 text-xs font-semibold flex items-center gap-2">
+                                <AlertTriangle size={14} />
+                                Grace period ends: {new Date(subscription.graceEndsAt).toLocaleDateString()}
+                            </p>
+                        </div>
+                    )}
+                </div>
+                <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-50 pointer-events-none"></div>
+            </div>
+
+            {/* Usage Stats */}
+            <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white p-5 border border-slate-200">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-9 h-9 bg-blue-50 flex items-center justify-center rounded-lg">
+                            <Store size={16} className="text-blue-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-black text-slate-900">{usage.shops}</p>
+                            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Active Shops</p>
+                        </div>
+                    </div>
+                    {plan && (
+                        <p className="text-[10px] text-slate-400 font-medium">
+                            Billed at ${plan.pricePerShopMonthly}/shop/month = ${(usage.shops * plan.pricePerShopMonthly).toFixed(2)}/month
+                        </p>
+                    )}
+                </div>
+                <div className="bg-white p-5 border border-slate-200">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-9 h-9 bg-emerald-50 flex items-center justify-center rounded-lg">
+                            <UserCheck size={16} className="text-emerald-600" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-black text-slate-900">{usage.users}</p>
+                            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Team Members</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Plan Features */}
+            {plan?.features && plan.features.length > 0 && (
+                <div className="bg-white p-6 border border-slate-200">
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Included Features</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                        {plan.features.map((f: string) => (
+                            <div key={f} className="flex items-center gap-2 text-sm text-slate-700">
+                                <CheckCircle2 size={14} className="text-emerald-500 flex-shrink-0" />
+                                <span className="font-medium capitalize">{f.replace(/-/g, ' ')}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Recent Invoices */}
+            {invoices && invoices.length > 0 && (
+                <div className="bg-white p-6 border border-slate-200">
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Recent Invoices</h4>
+                    <div className="space-y-2">
+                        {invoices.map((inv: any) => (
+                            <div key={inv.id} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-700">
+                                        ${inv.amount.toFixed(2)}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400">
+                                        {new Date(inv.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </p>
+                                </div>
+                                <span className={`px-2 py-1 text-[10px] font-semibold uppercase tracking-wider border rounded ${inv.status === 'PAID' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                    inv.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                        'bg-rose-50 text-rose-600 border-rose-200'}`}>
+                                    {inv.status}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {!subscription && (
+                <div className="bg-blue-50 border border-blue-200 p-6 text-center">
+                    <p className="text-sm text-blue-700 font-semibold mb-1">No active subscription</p>
+                    <p className="text-xs text-blue-500">Contact your platform administrator to set up a subscription plan.</p>
                 </div>
             )}
         </div>
@@ -332,24 +534,7 @@ export default function SettingsPage() {
 
                 {activeTab === 'BILLING' && (
                     <div className="col-span-12 lg:col-span-8 animate-in fade-in slide-in-from-bottom-4">
-                        <div className="bg-slate-900 text-white p-8 rounded-3xl relative overflow-hidden">
-                            <div className="relative z-10">
-                                <h3 className="text-2xl font-black mb-2">Nexus Enterprise</h3>
-                                <p className="text-slate-400 text-sm mb-6">Active Subscription • Annual Plan</p>
-
-                                <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-slate-500 mb-8">
-                                    <span>Renews: Dec 2026</span>
-                                    <span>•</span>
-                                    <span>$499 / Year</span>
-                                </div>
-
-                                <button className="px-6 py-3 bg-white text-slate-900 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all">
-                                    Manage Billing
-                                </button>
-                            </div>
-
-                            <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-50 pointer-events-none"></div>
-                        </div>
+                        <SubscriptionManager />
                     </div>
                 )}
 

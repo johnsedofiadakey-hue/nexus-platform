@@ -1,48 +1,45 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok, fail } from "@/lib/platform/api-response";
+import { parseJsonBody, parseQuery } from "@/lib/platform/validation";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+export const dynamic = "force-dynamic";
 
-// ----------------------------------------------------------------------
-// 1. GET: FETCH CONVERSATION WITH A USER
-// ----------------------------------------------------------------------
-export async function GET(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.organizationId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+const querySchema = z.object({ userId: z.string().min(1) }).strip();
+const sendSchema = z
+  .object({
+    receiverId: z.string().min(1),
+    content: z.string().min(1).max(3000),
+  })
+  .strip();
 
-    const { searchParams } = new URL(req.url);
-    const targetUserId = searchParams.get('userId');
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/messages",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "user-messages-read", max: 90, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const query = parseQuery(new URL(req.url), querySchema);
 
-    if (!targetUserId) {
-      return NextResponse.json({ error: "Target User ID required" }, { status: 400 });
-    }
-
-    // Find all admin/manager users in this organization for "shared inbox" behavior
-    const orgAdmins = await prisma.user.findMany({
+    const orgAdmins = await ctx.scopedPrisma.user.findMany({
       where: {
-        organizationId: session.user.organizationId,
-        role: { in: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }
+        role: { in: ["SUPER_ADMIN", "ADMIN", "MANAGER"] },
       },
-      select: { id: true }
+      select: { id: true },
     });
-    const adminIds = orgAdmins.map(a => a.id);
 
-    // Show ALL messages between the target agent and ANY admin in the org
-    // This ensures messages don't "disappear" when routed to a different admin
-    const messages = await prisma.message.findMany({
+    const adminIds = orgAdmins.map((admin) => admin.id);
+
+    const messages = await ctx.scopedPrisma.message.findMany({
       where: {
         OR: [
-          { senderId: targetUserId, receiverId: { in: adminIds } },
-          { senderId: { in: adminIds }, receiverId: targetUserId }
-        ]
+          { senderId: query.userId, receiverId: { in: adminIds } },
+          { senderId: { in: adminIds }, receiverId: query.userId },
+        ],
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
       select: {
         id: true,
         content: true,
@@ -50,73 +47,68 @@ export async function GET(req: Request) {
         createdAt: true,
         senderId: true,
         receiverId: true,
-        sender: { 
-          select: { 
-            name: true, 
-            role: true,
-            image: true
-          } 
-        }
+        sender: { select: { name: true, role: true, image: true } },
       },
-      take: 100
+      take: 100,
     });
 
-    // Mark unread messages from this agent as read 
-    await prisma.message.updateMany({
+    await ctx.scopedPrisma.message.updateMany({
       where: {
-        senderId: targetUserId,
+        senderId: query.userId,
         receiverId: { in: adminIds },
-        isRead: false
+        isRead: false,
       },
-      data: { isRead: true }
+      data: { isRead: true },
     });
 
-    return NextResponse.json(messages);
-
-  } catch (error) {
-    console.error("GET_MESSAGES_ERROR:", error);
-    return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });
+    return ok(messages);
   }
-}
+);
 
-// ----------------------------------------------------------------------
-// 2. POST: SEND A MESSAGE
-// ----------------------------------------------------------------------
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.organizationId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+const protectedPost = withTenantProtection(
+  {
+    route: "/api/messages",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "user-messages-write", max: 35, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const body = await parseJsonBody(req, sendSchema);
 
-    const body = await req.json();
-    const { receiverId, content } = body;
-
-    if (!receiverId || !content) {
-      return NextResponse.json({ error: "Receiver and Content required" }, { status: 400 });
-    }
-
-    // Verify receiver is in the same org (Security)
-    const receiver = await prisma.user.findFirst({
-      where: { id: receiverId, organizationId: session.user.organizationId }
+    const receiver = await ctx.scopedPrisma.user.findUnique({
+      where: { id: body.receiverId },
+      select: { id: true },
     });
 
     if (!receiver) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return fail("RECEIVER_NOT_FOUND", "Receiver not found", 404);
     }
 
-    const message = await prisma.message.create({
+    const message = await ctx.scopedPrisma.message.create({
       data: {
-        senderId: session.user.id,
-        receiverId,
-        content
-      }
+        senderId: ctx.sessionUser.id,
+        receiverId: body.receiverId,
+        content: body.content,
+      },
+      select: {
+        id: true,
+        content: true,
+        isRead: true,
+        createdAt: true,
+        senderId: true,
+        receiverId: true,
+      },
     });
 
-    return NextResponse.json(message);
-
-  } catch (error) {
-    console.error("SEND_MESSAGE_ERROR:", error);
-    return NextResponse.json({ error: "Failed to send" }, { status: 500 });
+    return ok(message, 201);
   }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/messages", requestId, () => protectedGet(req));
+}
+
+export async function POST(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/messages", requestId, () => protectedPost(req));
 }

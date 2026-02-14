@@ -1,35 +1,24 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth"; // ✅ FIXED: Pointing to the correct config file
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    // 1. SECURE SESSION CHECK
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized Access" }, { status: 401 });
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/inventory/shop-specific",
+    roles: ["WORKER", "AGENT", "ASSISTANT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "inventory-shop-specific-read", max: 120, windowMs: 60_000 },
+  },
+  async (_req, ctx) => {
+    if (!ctx.sessionUser.shopId) {
+      return ok([]);
     }
 
-    // 2. IDENTIFY THE SHOP
-    // We cast to 'any' because we added shopId to the session in lib/auth.ts
-    const userShopId = (session.user as any).shopId;
-
-    // Safety: If an agent isn't assigned to a hub, they see an empty list (Security First)
-    if (!userShopId) {
-      console.log(`⚠️ Inventory blocked: User ${session.user.email} has no assigned shop.`);
-      return NextResponse.json([]);
-    }
-
-    // 3. FETCH INVENTORY (Filtered for Speed)
-    const inventory = await prisma.product.findMany({
+    const inventory = await ctx.scopedPrisma.product.findMany({
       where: {
-        shopId: userShopId,
-        stockLevel: { gt: 0 } // 🚀 OPTIMIZATION: Only fetch items currently in stock
+        shopId: ctx.sessionUser.shopId,
+        stockLevel: { gt: 0 },
       },
       select: {
         id: true,
@@ -38,15 +27,15 @@ export async function GET() {
         sellingPrice: true,
         stockLevel: true,
         category: true,
-        // formulation: true // Not in schema
       },
-      orderBy: { name: 'asc' }
+      orderBy: { name: "asc" },
     });
 
-    return NextResponse.json(inventory);
-
-  } catch (error) {
-    console.error("❌ SHOP INVENTORY SYNC ERROR:", error);
-    return NextResponse.json({ error: "Failed to sync shop inventory" }, { status: 500 });
+    return ok(inventory);
   }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/inventory/shop-specific", requestId, () => protectedGet(req));
 }

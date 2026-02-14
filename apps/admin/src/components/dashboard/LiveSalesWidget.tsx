@@ -20,8 +20,9 @@ export default function LiveSalesWidget() {
         try {
             const response = await fetch("/api/sales/register?limit=10");
             if (response.ok) {
-                const data = await response.json();
-                setSales(data);
+                const payload = await response.json();
+                const rows = payload?.data ?? payload;
+                setSales(Array.isArray(rows) ? rows : []);
             }
         } catch (error) {
             console.error("Failed to fetch live sales:", error);

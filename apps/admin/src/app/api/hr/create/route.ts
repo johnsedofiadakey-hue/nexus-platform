@@ -14,8 +14,13 @@ import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
  */
 export async function POST(req: Request) {
   try {
-    // 🔐 Require authentication
+    // 🔐 Require authentication + role gate
     const user = await requireAuth();
+
+    // Only ADMIN, MANAGER, and SUPER_ADMIN can create users
+    if (!['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(user.role || '')) {
+      return NextResponse.json({ error: "Access Denied: Insufficient permissions to create users." }, { status: 403 });
+    }
 
     const body = await req.json();
     const {

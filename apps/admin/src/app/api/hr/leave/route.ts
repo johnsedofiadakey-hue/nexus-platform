@@ -1,102 +1,126 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
+import { parseJsonBody } from "@/lib/platform/validation";
+import { enqueueJob } from "@/lib/platform/queue";
+import { bootstrapPlatformQueue } from "@/lib/platform/bootstrap";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+export const dynamic = "force-dynamic";
 
-// 1. POST: Submit a Leave Request
-export async function POST(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session || !session.user || !session.user.organizationId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+const createLeaveSchema = z
+    .object({
+        type: z.string().min(1).max(60),
+        startDate: z.string().min(1),
+        endDate: z.string().min(1),
+        reason: z.string().max(2000).optional(),
+        userId: z.string().min(1),
+    })
+    .strip();
 
-        const body = await req.json();
-        const { type, startDate, endDate, reason, userId } = body;
+const updateLeaveSchema = z
+    .object({
+        leaveId: z.string().min(1),
+        status: z.enum(["APPROVED", "REJECTED", "PENDING"]),
+    })
+    .strip();
 
-        if (!type || !startDate || !endDate || !userId) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-        }
+const protectedPost = withTenantProtection(
+    {
+        route: "/api/hr/leave",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "hr-leave-admin-create", max: 25, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        bootstrapPlatformQueue();
+        const body = await parseJsonBody(req, createLeaveSchema);
 
-        // Security: Only allow creating for users in your Organization
-        const targetUser = await prisma.user.findFirst({
-            where: { id: userId, organizationId: session.user.organizationId }
+        const targetUser = await ctx.scopedPrisma.user.findUnique({
+            where: { id: body.userId },
+            select: { id: true, name: true },
         });
 
         if (!targetUser) {
-            return NextResponse.json({ error: "Target user not found or access denied" }, { status: 403 });
+            return fail("USER_NOT_FOUND", "Target user not found or access denied", 403);
         }
 
-        const leave = await prisma.leaveRequest.create({
+        const leave = await ctx.scopedPrisma.leaveRequest.create({
             data: {
-                userId,
-                type,
-                startDate: new Date(startDate),
-                endDate: new Date(endDate),
-                reason: reason || "",
-                status: "PENDING"
-            }
+                userId: body.userId,
+                type: body.type,
+                startDate: new Date(body.startDate),
+                endDate: new Date(body.endDate),
+                reason: body.reason || "",
+                status: "PENDING",
+            },
+            select: {
+                id: true,
+                userId: true,
+                type: true,
+                startDate: true,
+                endDate: true,
+                reason: true,
+                status: true,
+            },
         });
 
-        // 🔔 NOTIFICATION TRIGGER
-        if (targetUser && session.user.organizationId) {
-            await prisma.notification.create({
-                data: {
-                    organizationId: session.user.organizationId,
-                    type: 'LEAVE',
-                    title: 'New Leave Request',
-                    message: `${targetUser.name || 'Staff'}: Requested ${type.replace('_', ' ')} (${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()})`,
-                    link: `/dashboard/hr/member/${userId}?tab=COMPLIANCE`
-                }
+        if (ctx.orgId) {
+            enqueueJob("notification", {
+                organizationId: ctx.orgId,
+                type: "LEAVE",
+                title: "New Leave Request",
+                message: `${targetUser.name || "Staff"}: Requested ${body.type.replaceAll("_", " ")}`,
+                link: `/dashboard/hr/member/${body.userId}?tab=COMPLIANCE`,
             });
         }
 
-        return NextResponse.json(leave);
-
-    } catch (error) {
-        console.error("LEAVE_REQ_ERROR:", error);
-        return NextResponse.json({ error: "Failed to submit request" }, { status: 500 });
+        return ok(leave, 201);
     }
+);
+
+const protectedPatch = withTenantProtection(
+    {
+        route: "/api/hr/leave",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "hr-leave-admin-update", max: 40, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        const body = await parseJsonBody(req, updateLeaveSchema);
+
+        const leave = await ctx.scopedPrisma.leaveRequest.findUnique({
+            where: { id: body.leaveId },
+            select: { id: true },
+        });
+
+        if (!leave) {
+            return fail("LEAVE_NOT_FOUND", "Leave not found or unauthorized", 403);
+        }
+
+        const updated = await ctx.scopedPrisma.leaveRequest.update({
+            where: { id: body.leaveId },
+            data: { status: body.status },
+            select: {
+                id: true,
+                userId: true,
+                type: true,
+                startDate: true,
+                endDate: true,
+                reason: true,
+                status: true,
+            },
+        });
+
+        return ok(updated);
+    }
+);
+
+// 1. POST: Submit a Leave Request
+export async function POST(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/hr/leave", requestId, () => protectedPost(req));
 }
 
-// 2. PATCH: Approve or Reject
 export async function PATCH(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session || !session.user || !session.user.organizationId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const body = await req.json();
-        const { leaveId, status } = body;
-
-        if (!leaveId || !['APPROVED', 'REJECTED', 'PENDING'].includes(status)) {
-            return NextResponse.json({ error: "Invalid Request" }, { status: 400 });
-        }
-
-        // Verify the leave belongs to a user in my org
-        // We need to fetch the leave and include the user to check org
-        const leave = await prisma.leaveRequest.findUnique({
-            where: { id: leaveId },
-            include: { user: true }
-        });
-
-        if (!leave || leave.user.organizationId !== session.user.organizationId) {
-            return NextResponse.json({ error: "Leave not found or unauthorized" }, { status: 403 });
-        }
-
-        const updated = await prisma.leaveRequest.update({
-            where: { id: leaveId },
-            data: { status }
-        });
-
-        return NextResponse.json(updated);
-
-    } catch (error) {
-        console.error("LEAVE_UPDATE_ERROR:", error);
-        return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
-    }
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/hr/leave", requestId, () => protectedPatch(req));
 }

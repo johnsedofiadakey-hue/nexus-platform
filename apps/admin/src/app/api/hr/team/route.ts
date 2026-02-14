@@ -1,22 +1,71 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok, fail } from "@/lib/platform/api-response";
+import { parseJsonBody, parseQuery } from "@/lib/platform/validation";
 
-// GET: List all users in Organization who have "Access" (Not just WORKER)
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const dynamic = "force-dynamic";
 
-    const users = await prisma.user.findMany({
-      where: {
-        role: { in: ['ADMIN', 'ASSISTANT', 'AUDITOR'] }, // 👻 GHOST MODE: Hide Super Admin
-        // organizationId: session.user.organizationId
+const createTeamMemberSchema = z
+  .object({
+    name: z.string().min(1).max(120),
+    email: z.string().email(),
+    password: z.string().min(8).max(128),
+    role: z.enum(["ADMIN", "ASSISTANT", "AUDITOR"]).optional(),
+  })
+  .strip();
+
+const deleteQuerySchema = z.object({ id: z.string().min(1) }).strip();
+
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/hr/team",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "hr-team-read", max: 80, windowMs: 60_000 },
+  },
+  async (_req, ctx) => {
+    const users = await ctx.scopedPrisma.user.findMany({
+      where: { role: { in: ["ADMIN", "ASSISTANT", "AUDITOR"] } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        lastSeen: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return ok(users);
+  }
+);
+
+const protectedPost = withTenantProtection(
+  {
+    route: "/api/hr/team",
+    roles: ["ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "hr-team-write", max: 25, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const body = await parseJsonBody(req, createTeamMemberSchema);
+    const normalizedEmail = body.email.toLowerCase();
+
+    const exists = await ctx.scopedPrisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (exists) {
+      return fail("EMAIL_IN_USE", "Email already in use", 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(body.password, 12);
+
+    const newUser = await ctx.scopedPrisma.user.create({
+      data: {
+        name: body.name,
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: body.role || "ASSISTANT",
+        status: "ACTIVE",
       },
       select: {
         id: true,
@@ -24,73 +73,50 @@ export async function GET() {
         email: true,
         role: true,
         status: true,
-        lastSeen: true
       },
-      orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json(users);
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch team" }, { status: 500 });
+    return ok(newUser, 201);
   }
+);
+
+const protectedDelete = withTenantProtection(
+  {
+    route: "/api/hr/team",
+    roles: ["ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "hr-team-delete", max: 20, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const query = parseQuery(new URL(req.url), deleteQuerySchema);
+
+    const target = await ctx.scopedPrisma.user.findUnique({
+      where: { id: query.id },
+      select: { id: true, role: true },
+    });
+
+    if (!target) {
+      return fail("USER_NOT_FOUND", "Team member not found", 404);
+    }
+
+    if (target.role === "SUPER_ADMIN") {
+      return fail("FORBIDDEN", "Cannot delete the owner", 403);
+    }
+
+    await ctx.scopedPrisma.user.delete({ where: { id: target.id } });
+    return ok({ success: true });
+  }
+);
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/hr/team", requestId, () => protectedGet(req));
 }
 
-// POST: Invite/Create New Admin/Assistant
 export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    // Check Permissions (Only ADMIN/SUPER_ADMIN can invite)
-    if (!['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const body = await req.json();
-    const { name, email, password, role, permissions } = body;
-
-    if (!email || !password || !name) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    // Check if user exists
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) return NextResponse.json({ error: "Email already in use" }, { status: 400 });
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: role || 'ASSISTANT',
-        organizationId: session.user.organizationId,
-        status: 'ACTIVE'
-      }
-    });
-
-    return NextResponse.json(newUser);
-
-  } catch (error) {
-    console.error("Invite Error:", error);
-    return NextResponse.json({ error: "Invite Failed" }, { status: 500 });
-  }
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/hr/team", requestId, () => protectedPost(req));
 }
 
-// DELETE: Remove Access
 export async function DELETE(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-
-  if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
-
-  // 🛡️ SECURITY: Prevent deleting Super Admin
-  const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
-  if (target?.role === 'SUPER_ADMIN') {
-    return NextResponse.json({ error: "Cannot delete the Owner" }, { status: 403 });
-  }
-
-  await prisma.user.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/hr/team", requestId, () => protectedDelete(req));
 }

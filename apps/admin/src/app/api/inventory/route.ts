@@ -1,52 +1,34 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireAuth, handleApiError } from "@/lib/auth-helpers";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
+import { parseQuery } from "@/lib/platform/validation";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const shopId = searchParams.get("shopId");
+const querySchema = z
+  .object({
+    shopId: z.string().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+  })
+  .strip();
 
-  try {
-    // 🔐 Require authentication
-    const user = await requireAuth();
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/inventory",
+    roles: ["WORKER", "AGENT", "ASSISTANT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "inventory-read", max: 120, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const query = parseQuery(new URL(req.url), querySchema);
+    const skip = (query.page - 1) * query.limit;
 
-    let whereClause: any = {};
+    const whereClause = query.shopId ? { shopId: query.shopId } : {};
 
-    // 🏢 Multi-tenancy enforcement
-    if (shopId) {
-      // Verify shop belongs to user's organization
-      const shop = await prisma.shop.findUnique({
-        where: { id: shopId },
-        select: { organizationId: true }
-      });
-
-      if (shop && user.role !== "SUPER_ADMIN") {
-        if (shop.organizationId !== user.organizationId) {
-          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-      }
-      whereClause.shopId = shopId;
-    } else {
-      // No shopId: filter by organization
-      if (user.role === "SUPER_ADMIN" && !user.organizationId) {
-        // Super admin sees all
-      } else {
-        // Filter products through shops in user's organization
-        whereClause.shop = { organizationId: user.organizationId };
-      }
-    }
-
-    // PAGINATION
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const skip = (page - 1) * limit;
-
-    // ⚡️ OPTIMIZED: Parallel fetch with select for speed
     const [total, products] = await Promise.all([
-      prisma.product.count({ where: whereClause }),
-      prisma.product.findMany({
+      ctx.scopedPrisma.product.count({ where: whereClause }),
+      ctx.scopedPrisma.product.findMany({
         where: whereClause,
         select: {
           id: true,
@@ -57,43 +39,44 @@ export async function GET(req: Request) {
           category: true,
           minStock: true,
           shopId: true,
-          shop: { select: { name: true } }
+          shop: { select: { name: true } },
         },
-        orderBy: { name: 'asc' },
-        take: limit,
-        skip: skip
-      })
+        orderBy: { name: "asc" },
+        take: query.limit,
+        skip,
+      }),
     ]);
 
-    // MAP DATABASE FIELDS FOR MOBILE POS CONSISTENCY
-    return NextResponse.json({
-      data: products.map(p => ({
-        id: p.id,
-        // Mobile POS expects these exact fields:
-        productName: p.name,
-        name: p.name,
-        sku: p.barcode || p.id.substring(0, 6).toUpperCase(),
-        barcode: p.barcode || p.id.substring(0, 6).toUpperCase(),
-        priceGHS: p.sellingPrice,
-        price: p.sellingPrice,
-        sellingPrice: p.sellingPrice,
-        stockLevel: p.stockLevel,
-        quantity: p.stockLevel,
-        stock: p.stockLevel,
-        category: p.category || "General",
-        shopId: p.shopId,
-        hub: p.shop?.name || "Unknown",
-        status: p.stockLevel <= (p.minStock || 5) ? 'Low Stock' : 'In Stock'
+    return ok({
+      items: products.map((product) => ({
+        id: product.id,
+        productName: product.name,
+        name: product.name,
+        sku: product.barcode || product.id.substring(0, 6).toUpperCase(),
+        barcode: product.barcode || product.id.substring(0, 6).toUpperCase(),
+        priceGHS: product.sellingPrice,
+        price: product.sellingPrice,
+        sellingPrice: product.sellingPrice,
+        stockLevel: product.stockLevel,
+        quantity: product.stockLevel,
+        stock: product.stockLevel,
+        category: product.category || "General",
+        minStock: product.minStock ?? 5,
+        shopId: product.shopId,
+        hub: product.shop?.name || "Unknown",
+        status: product.stockLevel <= (product.minStock || 5) ? "Low Stock" : "In Stock",
       })),
-      meta: {
+      pagination: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
-      }
+        page: query.page,
+        limit: query.limit,
+        totalPages: Math.ceil(total / query.limit),
+      },
     });
-  } catch (error: any) {
-    console.error("Inventory Fetch Error:", error.message);
-    return NextResponse.json({ error: "Failed to fetch inventory" }, { status: 500 });
   }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/inventory", requestId, () => protectedGet(req));
 }

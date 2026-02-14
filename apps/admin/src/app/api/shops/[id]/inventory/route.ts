@@ -1,142 +1,130 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok, fail } from "@/lib/platform/api-response";
 
-// Force dynamic rendering for API routes that use database
 export const dynamic = 'force-dynamic';
 
 // ----------------------------------------------------------------------
-// 1. GET: FETCH INVENTORY
+// 1. GET: FETCH SHOP INVENTORY (Scoped)
 // ----------------------------------------------------------------------
-export async function GET(
-  req: Request,
-  props: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await props.params;
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/shops/[id]/inventory",
+    roles: ["WORKER", "AGENT", "ASSISTANT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "shop-inv-read", max: 120, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split("/");
+    const shopIdx = pathParts.indexOf("shops");
+    const shopId = pathParts[shopIdx + 1];
 
-    const products = await prisma.product.findMany({
-      where: { shopId: params.id },
-      orderBy: { updatedAt: "desc" }, // Show most recently changed/added items first
+    // Verify shop belongs to org via scoped prisma
+    const shop = await ctx.scopedPrisma.shop.findUnique({ where: { id: shopId } });
+    if (!shop) return fail("NOT_FOUND", "Shop not found", 404);
+
+    const products = await ctx.scopedPrisma.product.findMany({
+      where: { shopId },
+      orderBy: { updatedAt: "desc" },
     });
 
-    return NextResponse.json(products);
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to load inventory" }, { status: 500 });
+    return ok(products);
   }
-}
+);
 
 // ----------------------------------------------------------------------
-// 2. POST: CREATE ITEM OR RESTOCK
+// 2. POST: CREATE ITEM OR RESTOCK (Scoped)
 // ----------------------------------------------------------------------
-export async function POST(
-  req: Request,
-  props: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await props.params;
+const protectedPost = withTenantProtection(
+  {
+    route: "/api/shops/[id]/inventory",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "shop-inv-write", max: 60, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split("/");
+    const shopIdx = pathParts.indexOf("shops");
+    const shopId = pathParts[shopIdx + 1];
+
+    // Verify shop belongs to org
+    const shop = await ctx.scopedPrisma.shop.findUnique({ where: { id: shopId } });
+    if (!shop) return fail("NOT_FOUND", "Shop not found", 404);
+
     const body = await req.json();
 
-    console.log(`\n📦 INVENTORY ACTION [Shop: ${params.id}]`, body);
-
-    //Options A: RESTOCK (Update Quantity Only)
+    // Option A: RESTOCK
     if (body.action === 'RESTOCK') {
       if (!body.productId || !body.amount) {
-        return NextResponse.json({ error: "Product ID and Amount required" }, { status: 400 });
+        return fail("VALIDATION", "Product ID and Amount required", 400);
       }
-
-      const updated = await prisma.product.update({
+      const updated = await ctx.scopedPrisma.product.update({
         where: { id: body.productId },
-        data: {
-          stockLevel: { increment: parseInt(body.amount) }
-        }
+        data: { stockLevel: { increment: parseInt(body.amount) } }
       });
-      return NextResponse.json(updated);
+      return ok(updated);
     }
 
     // Option B: CREATE NEW ITEM
-    // --- 1. DATA SANITIZATION ---
-    // Map various frontend field names to our Schema
     const name = body.productName || body.name;
     const price = parseFloat(body.priceGHS || body.price || body.sellingPrice || '0');
     const cost = parseFloat(body.buyingPrice || body.costPrice || '0');
     const qty = parseInt(body.quantity || body.stockLevel || '0');
     const minStock = parseInt(body.minStock || '5');
 
-    // --- 2. VALIDATION ---
     if (!name || isNaN(price)) {
-      return NextResponse.json(
-        { error: "Product Name and Selling Price are required" },
-        { status: 400 }
-      );
+      return fail("VALIDATION", "Product Name and Selling Price are required", 400);
     }
 
-    // --- 3. BARCODE GENERATION ---
     const barcode = body.sku?.trim() || body.barcode?.trim() || `SKU-${Date.now().toString().slice(-6)}`;
 
-    // --- 4. DUPLICATE CHECK ---
-    const existing = await prisma.product.findUnique({ 
-      where: { barcode: barcode } 
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        { error: `Product with Barcode/SKU '${barcode}' already exists.` },
-        { status: 409 }
-      );
-    }
-
-    // --- 5. CREATE DATABASE RECORD ---
-    const product = await prisma.product.create({
+    const product = await ctx.scopedPrisma.product.create({
       data: {
-        shopId: params.id,
-        name: name,
-        barcode: barcode,
+        shopId,
+        name,
+        barcode,
         sellingPrice: price,
         buyingPrice: cost,
         stockLevel: qty,
-        minStock: minStock,
+        minStock,
         category: body.category || "GENERAL",
       },
     });
 
-    return NextResponse.json(product);
-
-  } catch (e: any) {
-    console.error("❌ INVENTORY_ERROR:", e.message);
-    
-    if (e.code === 'P2002') {
-       return NextResponse.json(
-        { error: "A product with this Barcode already exists." },
-        { status: 409 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Operation failed" },
-      { status: 500 }
-    );
+    return ok(product);
   }
+);
+
+// ----------------------------------------------------------------------
+// 3. DELETE: REMOVE INVENTORY ITEM (Scoped)
+// ----------------------------------------------------------------------
+const protectedDelete = withTenantProtection(
+  {
+    route: "/api/shops/[id]/inventory",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "shop-inv-del", max: 30, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const body = await req.json();
+    const { id } = body;
+    if (!id) return fail("VALIDATION", "Product ID required", 400);
+
+    await ctx.scopedPrisma.product.delete({ where: { id } });
+    return ok({ deleted: true });
+  }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/shops/[id]/inventory", requestId, () => protectedGet(req));
 }
 
-// ----------------------------------------------------------------------
-// 3. DELETE: REMOVE INVENTORY ITEM
-// ----------------------------------------------------------------------
-export async function DELETE(
-  req: Request,
-  props: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await req.json();
-    
-    if (!id) return NextResponse.json({ error: "Product ID required" }, { status: 400 });
+export async function POST(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/shops/[id]/inventory", requestId, () => protectedPost(req));
+}
 
-    await prisma.product.delete({ where: { id } });
-    
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    return NextResponse.json(
-      { error: "Delete failed" },
-      { status: 500 }
-    );
-  }
+export async function DELETE(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/shops/[id]/inventory", requestId, () => protectedDelete(req));
 }

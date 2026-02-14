@@ -24,7 +24,11 @@ export default function MessagingPage() {
         async function fetchAgents() {
             try {
                 const res = await fetch('/api/dashboard/agents');
-                if (res.ok) setAgents(await res.json());
+                if (res.ok) {
+                    const payload = await res.json();
+                    const rows = payload?.data ?? payload;
+                    setAgents(Array.isArray(rows) ? rows : []);
+                }
             } finally {
                 setLoadingAgents(false);
             }
@@ -40,11 +44,9 @@ export default function MessagingPage() {
             try {
                 const res = await fetch(`/api/messages?userId=${activeChatId}`);
                 if (res.ok) {
-                    const latestMatches = await res.json();
-                    // Basic duplicate check or state replacement
-                    setMessages(latestMatches);
-                    // Note: In a real "WhatsApp" speed app, we'd merge or use SWR. 
-                    // For now, replacing state is "correct" but maybe jittery if scrolled up.
+                    const payload = await res.json();
+                    const rows = payload?.data ?? payload;
+                    setMessages(Array.isArray(rows) ? rows : []);
                 }
             } catch (e) {
                 console.error("Poll failed", e);

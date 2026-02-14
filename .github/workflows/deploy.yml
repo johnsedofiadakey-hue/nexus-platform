@@ -31,6 +31,15 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm db:generate
 
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
       - name: Install Vercel CLI
         run: pnpm add -g vercel@latest
 

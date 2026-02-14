@@ -62,7 +62,7 @@ export async function GET(req: Request) {
             }
         });
 
-        return NextResponse.json(sales);
+        return NextResponse.json({ success: true, data: sales });
     } catch (error) {
         console.error("SALES REGISTER ERROR:", error);
         return NextResponse.json({ error: "Failed to load sales register" }, { status: 500 });

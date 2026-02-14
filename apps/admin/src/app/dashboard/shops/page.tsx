@@ -82,7 +82,8 @@ export default function AdminShopsPage() {
     try {
       const res = await fetch(`/api/shops/list?t=${Date.now()}`);
       const json = await res.json();
-      setShops(Array.isArray(json) ? json : (json.data || []));
+      const rows = json?.data ?? json;
+      setShops(Array.isArray(rows) ? rows : []);
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };
@@ -90,8 +91,9 @@ export default function AdminShopsPage() {
   const fetchCategories = async (shopId: string) => {
     try {
       const res = await fetch(`/api/shops/${shopId}/settings/categories`);
-      const data = await res.json();
-      setCategories(Array.isArray(data) ? data : []);
+      const payload = await res.json();
+      const rows = payload?.data ?? payload;
+      setCategories(Array.isArray(rows) ? rows : []);
     } catch (e) { toast.error("Could not load taxonomy"); }
   };
 
@@ -105,7 +107,8 @@ export default function AdminShopsPage() {
     try {
       const res = await fetch(`/api/shops/${shopId}?t=${Date.now()}`);
       const json = await res.json();
-      setShopInventory(json.inventory || json.products || []);
+      const inner = json?.data ?? json;
+      setShopInventory(inner?.inventory || inner?.products || []);
     } catch (e) {
       setShopInventory([]);
       toast.error("Failed to load ledger");

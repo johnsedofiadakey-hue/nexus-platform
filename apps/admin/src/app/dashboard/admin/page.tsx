@@ -22,9 +22,10 @@ export default function AdminActivityDashboard() {
         setIsRefreshing(true);
         try {
             const res = await fetch('/api/audit');
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                setLogs(data);
+            const payload = await res.json();
+            const rows = payload?.data ?? payload;
+            if (Array.isArray(rows)) {
+                setLogs(rows);
             }
         } catch (e) {
             toast.error("Failed to load audit trails");

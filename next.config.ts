@@ -23,13 +23,6 @@ const nextConfig: NextConfig = {
     serverExternalPackages: ["leaflet"],
 
     /**
-     * ⚠️ Build tolerances (your choice, preserved)
-     */
-    typescript: {
-        ignoreBuildErrors: true,
-    },
-
-    /**
      * 🧪 Experimental - Performance Optimizations
      */
     experimental: {

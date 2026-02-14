@@ -1,33 +1,29 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-        // Only Admins can see Audit Logs
-        const role = (session.user as any).role;
-        if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-
-        const logs = await prisma.auditLog.findMany({
-            orderBy: { createdAt: 'desc' },
-            take: 100, // Limit for now
+const protectedGet = withTenantProtection(
+    {
+        route: "/api/audit",
+        roles: ["ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "audit-read", max: 90, windowMs: 60_000 },
+    },
+    async (_req, ctx) => {
+        const logs = await ctx.scopedPrisma.auditLog.findMany({
+            orderBy: { createdAt: "desc" },
+            take: 100,
             include: {
-                user: { select: { name: true, role: true } }
-            }
+                user: { select: { name: true, role: true } },
+            },
         });
 
-        return NextResponse.json(logs);
-
-    } catch (error) {
-        console.error("❌ AUDIT_API_ERROR:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return ok(logs);
     }
+);
+
+export async function GET(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/audit", requestId, () => protectedGet(req));
 }

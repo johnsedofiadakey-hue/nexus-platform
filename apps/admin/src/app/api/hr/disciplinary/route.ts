@@ -1,48 +1,56 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
+import { parseJsonBody } from "@/lib/platform/validation";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session || !session.user || !session.user.organizationId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const bodySchema = z
+    .object({
+        userId: z.string().min(1),
+        type: z.string().min(1),
+        severity: z.string().min(1),
+        description: z.string().optional(),
+    })
+    .strip();
+
+const protectedPost = withTenantProtection(
+    {
+        route: "/api/hr/disciplinary",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "hr-disciplinary-write", max: 40, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        if (!ctx.orgId && ctx.sessionUser.role !== "SUPER_ADMIN") {
+            return fail("UNAUTHORIZED", "Unauthorized", 401);
         }
 
-        const body = await req.json();
-        const { userId, type, severity, description } = body;
+        const body = await parseJsonBody(req, bodySchema);
 
-        if (!userId || !type || !severity) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-        }
-
-        // Security: Target user must be in same org
-        const targetUser = await prisma.user.findFirst({
-            where: { id: userId, organizationId: session.user.organizationId }
+        const targetUser = await ctx.scopedPrisma.user.findFirst({
+            where: { id: body.userId },
         });
 
         if (!targetUser) {
-            return NextResponse.json({ error: "User not found or access denied" }, { status: 403 });
+            return fail("FORBIDDEN", "User not found or access denied", 403);
         }
 
-        const record = await prisma.disciplinaryRecord.create({
+        const record = await ctx.scopedPrisma.disciplinaryRecord.create({
             data: {
-                userId,
-                type,
-                severity,
-                description: description || "Manual Citation",
-                actionTaken: "WARNING_ISSUED"
-            }
+                userId: body.userId,
+                type: body.type,
+                severity: body.severity,
+                description: body.description || "Manual Citation",
+                actionTaken: "WARNING_ISSUED",
+            },
         });
 
-        return NextResponse.json(record);
-
-    } catch (error) {
-        console.error("CITATION_LOG_ERROR:", error);
-        return NextResponse.json({ error: "Failed to log citation" }, { status: 500 });
+        return ok(record, 201);
     }
+);
+
+export async function POST(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/hr/disciplinary", requestId, () => protectedPost(req));
 }

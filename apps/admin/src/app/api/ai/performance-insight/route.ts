@@ -1,51 +1,45 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok, fail } from "@/lib/platform/api-response";
 
-// Force dynamic rendering for API routes that use database
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/ai/performance-insight",
+    roles: ["ADMIN", "SUPER_ADMIN", "MANAGER"],
+    rateLimit: { keyPrefix: "ai-insight", max: 30, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
 
     if (!userId) {
-        return NextResponse.json({ error: "User ID required" }, { status: 400 });
+      return fail("VALIDATION", "User ID required", 400);
     }
 
-    try {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                sales: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 50
-                },
-                attendance: {
-                    orderBy: { checkIn: 'desc' },
-                    take: 20
-                },
-                targets: {
-                    where: { status: 'ACTIVE' },
-                    take: 1
-                },
-                dailyReports: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 5
-                }
-            }
-        });
+    const user = await ctx.scopedPrisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        sales: { orderBy: { createdAt: 'desc' }, take: 50 },
+        attendance: { orderBy: { checkIn: 'desc' }, take: 20 },
+        targets: { where: { status: 'ACTIVE' }, take: 1 },
+        dailyReports: { orderBy: { createdAt: 'desc' }, take: 5 }
+      }
+    });
 
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        const insights = generateInsights(user);
-        return NextResponse.json(insights);
-
-    } catch (error) {
-        console.error("AI_INSIGHT_ERROR:", error);
-        return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+    if (!user) {
+      return fail("NOT_FOUND", "User not found", 404);
     }
+
+    const insights = generateInsights(user);
+    return ok(insights);
+  }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/ai/performance-insight", requestId, () => protectedGet(req));
 }
 
 function generateInsights(user: any) {

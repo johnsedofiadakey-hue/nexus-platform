@@ -1,31 +1,23 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session || !session.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const orgFilter = (session.user.role === "SUPER_ADMIN" && !session.user.organizationId)
-            ? {}
-            : { organizationId: session.user.organizationId };
-
+const protectedGet = withTenantProtection(
+    {
+        route: "/api/dashboard/stats",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN", "AUDITOR"],
+        rateLimit: { keyPrefix: "dashboard-stats-read", max: 120, windowMs: 60_000 },
+    },
+    async (_req, ctx) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 1. Fetch Agents for detailed breakdown (PROMOTERS ONLY) - Multi-tenant
-        const allPromoters = await prisma.user.findMany({
+        const allPromoters = await ctx.scopedPrisma.user.findMany({
             where: {
-                ...orgFilter,
-                role: { in: ['PROMOTER', 'AGENT', 'WORKER', 'ASSISTANT'] },
-                status: "ACTIVE"
+                role: { in: ["PROMOTER", "AGENT", "WORKER", "ASSISTANT"] },
+                status: "ACTIVE",
             },
             select: {
                 id: true,
@@ -34,87 +26,59 @@ export async function GET() {
                 lastLng: true,
                 lastSeen: true,
                 status: true,
-                shop: {
-                    select: { name: true }
-                }
-            }
+                shop: { select: { name: true } },
+            },
         });
 
-        // 2. Calculate Detailed Stats
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        const onlineCount = allPromoters.filter(a => a.lastSeen && a.lastSeen > fiveMinutesAgo).length;
+        const onlineCount = allPromoters.filter((agent) => agent.lastSeen && agent.lastSeen > fiveMinutesAgo).length;
         const offlineCount = allPromoters.length - onlineCount;
 
-        // 3. Today's Sales Analytics - Multi-tenant
-        const salesStats = await prisma.sale.aggregate({
-            where: {
-                createdAt: { gte: today },
-                shop: orgFilter // Filter sales via shop organization
-            },
-            _sum: {
-                totalAmount: true
-            },
-            _count: {
-                id: true
-            }
+        const salesStats = await ctx.scopedPrisma.sale.aggregate({
+            where: { createdAt: { gte: today } },
+            _sum: { totalAmount: true },
+            _count: { id: true },
         });
 
-        // 4. Top Performers (Leaderboard) - Multi-tenant
-        const topPerformersData = await prisma.sale.groupBy({
-            by: ['userId'],
-            where: {
-                createdAt: { gte: today },
-                shop: orgFilter
-            },
-            _sum: {
-                totalAmount: true
-            },
-            _count: {
-                id: true
-            },
-            orderBy: {
-                _sum: {
-                    totalAmount: 'desc'
-                }
-            },
-            take: 5
+        const topPerformersData = await ctx.scopedPrisma.sale.groupBy({
+            by: ["userId"],
+            where: { createdAt: { gte: today } },
+            _sum: { totalAmount: true },
+            _count: { id: true },
+            orderBy: { _sum: { totalAmount: "desc" } },
+            take: 5,
         });
 
-        // Fetch names for top performers
-        const performerIds = topPerformersData.map(p => p.userId);
-        const performers = await prisma.user.findMany({
+        const performerIds = topPerformersData.map((performer) => performer.userId);
+        const performers = await ctx.scopedPrisma.user.findMany({
             where: { id: { in: performerIds } },
-            select: { id: true, name: true, image: true }
+            select: { id: true, name: true, image: true },
         });
 
-        const topPerformers = topPerformersData.map(p => {
-            const user = performers.find(u => u.id === p.userId);
+        const topPerformers = topPerformersData.map((performer) => {
+            const user = performers.find((candidate) => candidate.id === performer.userId);
             return {
-                id: p.userId,
+                id: performer.userId,
                 name: user?.name || "Unknown",
                 image: user?.image,
-                totalSales: p._sum.totalAmount || 0,
-                transactionCount: p._count.id
+                totalSales: performer._sum.totalAmount || 0,
+                transactionCount: performer._count.id,
             };
         });
 
-        // 5. Shop Count (Strict Multi-Tenancy)
-        const shopCount = await prisma.shop.count({
-            where: {
-                ...orgFilter,
-                status: "ACTIVE"
-            }
+        const shopCount = await ctx.scopedPrisma.shop.count({
+            where: { status: "ACTIVE" },
         });
 
-        return NextResponse.json({
-            agents: allPromoters.map(a => ({
-                id: a.id,
-                name: a.name,
-                location: a.shop?.name || "Roaming",
-                status: (a.lastSeen && a.lastSeen > fiveMinutesAgo) ? "ONLINE" : "OFFLINE",
-                lat: a.lastLat,
-                lng: a.lastLng,
-                lastSeen: a.lastSeen
+        return ok({
+            agents: allPromoters.map((agent) => ({
+                id: agent.id,
+                name: agent.name,
+                location: agent.shop?.name || "Roaming",
+                status: agent.lastSeen && agent.lastSeen > fiveMinutesAgo ? "ONLINE" : "OFFLINE",
+                lat: agent.lastLat,
+                lng: agent.lastLng,
+                lastSeen: agent.lastSeen,
             })),
             stats: {
                 onlineAgents: onlineCount,
@@ -123,12 +87,13 @@ export async function GET() {
                 totalSales: salesStats._sum.totalAmount || 0,
                 totalTransactions: salesStats._count.id,
                 activeShops: shopCount,
-                topPerformers
-            }
+                topPerformers,
+            },
         });
-
-    } catch (error) {
-        console.error("DASHBOARD STATS ERROR:", error);
-        return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
     }
+);
+
+export async function GET(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/dashboard/stats", requestId, () => protectedGet(req));
 }

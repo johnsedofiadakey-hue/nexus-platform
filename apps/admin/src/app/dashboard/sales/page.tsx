@@ -26,9 +26,10 @@ export default function SalesRegisterPage() {
         try {
             const query = filterShop ? `?shopId=${filterShop}` : '';
             const res = await fetch(`/api/sales/register${query}`);
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                setSales(data);
+            const payload = await res.json();
+            const rows = payload?.data ?? payload;
+            if (Array.isArray(rows)) {
+                setSales(rows);
             }
         } catch (e) {
             toast.error("Failed to load Sales Register");

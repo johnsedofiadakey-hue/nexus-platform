@@ -22,8 +22,7 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Stats State
-  const [stats, setStats] = useState({
+  const defaultStats = {
     onlineAgents: 0,
     offlineAgents: 0,
     totalPromoters: 0,
@@ -31,7 +30,10 @@ export default function DashboardPage() {
     totalTransactions: 0,
     activeShops: 0,
     topPerformers: []
-  });
+  };
+
+  // Stats State
+  const [stats, setStats] = useState(defaultStats);
   const [pulseData, setPulseData] = useState([]);
   const [adminTarget, setAdminTarget] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,15 +48,17 @@ export default function DashboardPage() {
 
       if (statsRes.ok) {
         const data = await statsRes.json();
-        setStats(data.stats);
+        setStats(data?.data?.stats || data?.stats || defaultStats);
       }
 
       if (pulseRes.ok) {
-        setPulseData(await pulseRes.json());
+        const pulsePayload = await pulseRes.json();
+        setPulseData(pulsePayload?.data || pulsePayload || []);
       }
 
       if (targetsRes.ok) {
-        const targets = await targetsRes.json();
+        const targetsPayload = await targetsRes.json();
+        const targets = targetsPayload?.data || targetsPayload || [];
         setAdminTarget(targets[0] || null);
       }
     } catch (e) {
@@ -76,7 +80,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [session, status, router]);
 
-  if (status === "loading" || (loading && !stats.totalPromoters)) {
+  if (status === "loading" || (loading && !(stats?.totalPromoters ?? 0))) {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />

@@ -25,13 +25,6 @@ const nextConfig: NextConfig = {
     serverExternalPackages: ["leaflet", "@prisma/client", "@nexus/database"],
 
     /**
-     * ⚠️ Build tolerances (your choice, preserved)
-     */
-    typescript: {
-        ignoreBuildErrors: true,
-    },
-
-    /**
      * 🧪 Experimental - Performance Optimizations
      */
     experimental: {

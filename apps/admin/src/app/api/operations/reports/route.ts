@@ -1,136 +1,116 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
+import { parseJsonBody, parseQuery } from "@/lib/platform/validation";
+import { logActivity } from "@/lib/activity-logger";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { requireAuth, handleApiError } from "@/lib/auth-helpers";
-import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
+export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-  try {
-    // 🔐 Require authentication (vetted auth helper)
-    const user = await requireAuth();
+const reportPostSchema = z
+  .object({
+    walkIns: z.coerce.number().int().min(0).default(0),
+    inquiries: z.coerce.number().int().min(0).default(0),
+    buyers: z.coerce.number().int().min(0).optional(),
+    conversions: z.coerce.number().int().min(0).optional(),
+    marketIntel: z.string().max(10_000).optional().nullable(),
+    stockGaps: z.string().max(10_000).optional().nullable(),
+    notes: z.string().max(5_000).optional().nullable(),
+  })
+  .strip();
 
-    const body = await req.json();
+const reportQuerySchema = z
+  .object({
+    promoterOnly: z.string().optional(),
+    shopId: z.string().optional(),
+  })
+  .strip();
 
-    // Accept both legacy and new naming
-    const {
-      walkIns,
-      inquiries,
-      buyers,
-      conversions,
-      marketIntel,
-      stockGaps,
-      notes,
-    } = body;
+const protectedPost = withTenantProtection(
+  {
+    route: "/api/operations/reports",
+    roles: ["WORKER", "AGENT", "ASSISTANT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "operations-reports-write", max: 40, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const body = await parseJsonBody(req, reportPostSchema);
+    const buyersNum = Number(body.conversions ?? body.buyers ?? 0) || 0;
 
-    const walkInsNum = Number(walkIns) || 0;
-    const inquiriesNum = Number(inquiries) || 0;
-    const buyersNum = Number(conversions ?? buyers ?? 0) || 0;
-
-    // � Look up user's shopId from DB (session/JWT doesn't carry it)
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { shopId: true, shop: { select: { id: true, name: true } } }
+    const dbUser = await ctx.scopedPrisma.user.findUnique({
+      where: { id: ctx.sessionUser.id },
+      select: { shopId: true, shop: { select: { id: true, name: true } } },
     });
 
-    // 🛡️ PGBOUNCER-SAFE WRITE — now linked to shop
-    const report = await prisma.dailyReport.create({
+    const report = await ctx.scopedPrisma.dailyReport.create({
       data: {
-        userId: user.id,
+        userId: ctx.sessionUser.id,
         shopId: dbUser?.shopId || null,
-        walkIns: walkInsNum,
-        inquiries: inquiriesNum,
+        walkIns: body.walkIns,
+        inquiries: body.inquiries,
         buyers: buyersNum,
-        marketIntel: marketIntel ?? null,
-        stockGaps: stockGaps ?? null,
-        notes: notes ?? null,
+        marketIntel: body.marketIntel ?? null,
+        stockGaps: body.stockGaps ?? null,
+        notes: body.notes ?? null,
       },
-      include: {
-        user: {
-          include: {
-            shop: true
-          }
-        }
-      }
+      include: { user: { include: { shop: true } } },
     });
 
-    // 📝 Log activity for HQ feed
     await logActivity({
-      userId: user.id,
-      userName: user.name || "Unknown Agent",
-      userRole: (user as any).role || "WORKER",
+      userId: ctx.sessionUser.id,
+      userName: ctx.sessionUser.email,
+      userRole: ctx.sessionUser.role,
       action: "DAILY_REPORT_SUBMITTED",
       entity: "DailyReport",
       entityId: report.id,
-      description: `Submitted daily report: ${walkInsNum} walk-ins, ${buyersNum} buyers${marketIntel ? ', with competitor intel' : ''}`,
-      metadata: { walkIns: walkInsNum, inquiries: inquiriesNum, buyers: buyersNum, hasIntel: !!marketIntel },
-      ipAddress: getClientIp(req),
-      userAgent: getUserAgent(req),
+      description: `Submitted daily report: ${body.walkIns} walk-ins, ${buyersNum} buyers${body.marketIntel ? ", with competitor intel" : ""}`,
+      metadata: { walkIns: body.walkIns, inquiries: body.inquiries, buyers: buyersNum, hasIntel: Boolean(body.marketIntel) },
+      ipAddress: ctx.ip,
       shopId: dbUser?.shopId || undefined,
       shopName: dbUser?.shop?.name || undefined,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: report,
-    });
-  } catch (error: any) {
-    console.error("DAILY REPORT ERROR:", error);
-
-    // Check for auth errors via helper
-    if (error.message === "UNAUTHORIZED" || error.message === "FORBIDDEN") {
-      return handleApiError(error);
-    }
-
-    return NextResponse.json(
-      { success: false, error: "Failed to submit report" },
-      { status: 500 }
-    );
+    return ok(report, 201);
   }
-}
+);
 
-export async function GET(req: Request) {
-  try {
-    // 🔐 Require authentication
-    const user = await requireAuth();
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/operations/reports",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN", "AUDITOR"],
+    rateLimit: { keyPrefix: "operations-reports-read", max: 120, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const query = parseQuery(new URL(req.url), reportQuerySchema);
+    const promoterOnly = query.promoterOnly === "true";
 
-    // 🏢 Build organization filter
-    const orgFilter = user.role === "SUPER_ADMIN" && !user.organizationId
-      ? {} // Super admin sees all
-      : { organizationId: user.organizationId };
-
-    // Check for filters
-    const { searchParams } = new URL(req.url);
-    const promoterOnly = searchParams.get('promoterOnly') === 'true';
-    const shopIdFilter = searchParams.get('shopId');
-
-    const userFilter: any = { ...orgFilter };
+    const whereClause: Record<string, unknown> = {};
+    if (query.shopId) {
+      whereClause.shopId = query.shopId;
+    }
     if (promoterOnly) {
-      userFilter.role = 'PROMOTER';
+      whereClause.user = { role: "PROMOTER" };
     }
 
-    const whereClause: any = { user: userFilter };
-    if (shopIdFilter) {
-      whereClause.shopId = shopIdFilter;
-    }
-
-    const reports = await prisma.dailyReport.findMany({
+    const reports = await ctx.scopedPrisma.dailyReport.findMany({
       where: whereClause,
       include: {
         user: { select: { name: true, image: true, role: true, shop: { select: { id: true, name: true } } } },
-        shop: { select: { id: true, name: true } }
+        shop: { select: { id: true, name: true } },
       },
-      orderBy: { createdAt: 'desc' },
-      take: 100
+      orderBy: { createdAt: "desc" },
+      take: 100,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: reports
-    });
-  } catch (error) {
-    console.error("FETCH REPORTS ERROR:", error);
-    return NextResponse.json({ error: "Failed to fetch reports" }, { status: 500 });
+    return ok(reports);
   }
+);
+
+export async function POST(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/operations/reports", requestId, () => protectedPost(req));
+}
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/operations/reports", requestId, () => protectedGet(req));
 }

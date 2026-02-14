@@ -38,8 +38,10 @@ export default function ShopInventoryManager() {
   const fetchShopInventory = useCallback(async (shopId: string) => {
     try {
       const res = await fetch(`/api/inventory?shopId=${shopId}`);
-      const data = await res.json();
-      setInventory(Array.isArray(data) ? data : data.data || []);
+      const payload = await res.json();
+      const inner = payload?.data ?? payload;
+      const rows = inner?.items ?? inner;
+      setInventory(Array.isArray(rows) ? rows : []);
     } catch (e) {
       console.error("Failed to load node inventory");
     }

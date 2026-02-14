@@ -33,7 +33,8 @@ export default function TeamPage() {
       }
 
       const data = await res.json();
-      const staffList = Array.isArray(data) ? data : (data.data || []);
+      const inner = data?.data ?? data;
+      const staffList = Array.isArray(inner) ? inner : (inner?.items ?? []);
 
       const agentsOnly = staffList.filter((user: any) =>
         ['PROMOTER', 'AGENT', 'WORKER', 'ASSISTANT'].includes(user.role)

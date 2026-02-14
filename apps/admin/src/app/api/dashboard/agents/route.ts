@@ -1,66 +1,53 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session || !session.user || !session.user.organizationId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
+const protectedGet = withTenantProtection(
+    {
+        route: "/api/dashboard/agents",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN", "AUDITOR"],
+        rateLimit: { keyPrefix: "dashboard-agents-read", max: 120, windowMs: 60_000 },
+    },
+    async (_req, ctx) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // ⚡️ OPTIMIZED: Fetch agents with only required fields
-        const agents = await prisma.user.findMany({
+        const agents = await ctx.scopedPrisma.user.findMany({
             where: {
-                organizationId: session.user.organizationId,
-                role: { in: ['PROMOTER', 'AGENT', 'WORKER', 'ASSISTANT'] },
-                status: 'ACTIVE'
+                role: { in: ["PROMOTER", "AGENT", "WORKER", "ASSISTANT"] },
+                status: "ACTIVE",
             },
             select: {
                 id: true,
                 name: true,
                 role: true,
                 lastSeen: true,
-                shop: {
-                    select: {
-                        name: true
-                    }
-                },
+                shop: { select: { name: true } },
                 attendance: {
                     where: { date: { gte: today } },
-                    orderBy: { checkIn: 'desc' },
+                    orderBy: { checkIn: "desc" },
                     take: 1,
-                    select: {
-                        checkIn: true,
-                        checkOut: true
-                    }
-                }
+                    select: { checkIn: true, checkOut: true },
+                },
             },
-            orderBy: { name: 'asc' }
+            orderBy: { name: "asc" },
         });
 
-        // ⚡️ OPTIMIZED: Batch fetch sales counts for all agents
-        const salesCounts = await prisma.sale.groupBy({
-            by: ['userId'],
+        const salesCounts = await ctx.scopedPrisma.sale.groupBy({
+            by: ["userId"],
             where: {
-                userId: { in: agents.map(a => a.id) },
-                createdAt: { gte: today }
+                userId: { in: agents.map((agent) => agent.id) },
+                createdAt: { gte: today },
             },
-            _count: true
+            _count: true,
         });
 
-        // Create a map for quick lookup
-        const salesMap = new Map(salesCounts.map(s => [s.userId, s._count]));
-
+        const salesMap = new Map(salesCounts.map((sales) => [sales.userId, sales._count]));
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-        const formatted = agents.map(agent => {
+        const formatted = agents.map((agent) => {
             const isOnline = agent.lastSeen ? agent.lastSeen > fiveMinutesAgo : false;
             const lastAttendance = agent.attendance[0];
 
@@ -72,17 +59,16 @@ export async function GET() {
                 isOnline,
                 lastSeen: agent.lastSeen,
                 salesToday: salesMap.get(agent.id) || 0,
-                attendanceStatus: lastAttendance
-                    ? (lastAttendance.checkOut ? 'CLOCKED_OUT' : 'CLOCKED_IN')
-                    : 'ABSENT',
-                clockInTime: lastAttendance?.checkIn || null
+                attendanceStatus: lastAttendance ? (lastAttendance.checkOut ? "CLOCKED_OUT" : "CLOCKED_IN") : "ABSENT",
+                clockInTime: lastAttendance?.checkIn || null,
             };
         });
 
-        return NextResponse.json(formatted);
-
-    } catch (error) {
-        console.error("AGENTS LIST ERROR:", error);
-        return NextResponse.json({ error: "Failed to fetch agents" }, { status: 500 });
+        return ok(formatted);
     }
+);
+
+export async function GET(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/dashboard/agents", requestId, () => protectedGet(req));
 }

@@ -1,93 +1,75 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
+import { parseQuery } from "@/lib/platform/validation";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+const querySchema = z
+    .object({
+        userId: z.string().optional(),
+        action: z.string().optional(),
+        entity: z.string().optional(),
+        shopId: z.string().optional(),
+        limit: z.coerce.number().int().min(1).max(500).optional(),
+        offset: z.coerce.number().int().min(0).optional(),
+    })
+    .strip();
 
-        // Only admins can view full activity log
-        if (!['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(session.user.role || '')) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
+const protectedGet = withTenantProtection(
+    {
+        route: "/api/activity-log",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "activity-log-read", max: 120, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        const query = parseQuery(new URL(req.url), querySchema);
+        const limit = query.limit ?? 100;
+        const offset = query.offset ?? 0;
 
-        const { searchParams } = new URL(req.url);
-        const userId = searchParams.get("userId");
-        const action = searchParams.get("action");
-        const entity = searchParams.get("entity");
-        const requestedShopId = searchParams.get("shopId");
-
-        // 🔢 SAFE PARSING: Prevent NaN crashes
-        const limitStr = searchParams.get("limit");
-        const offsetStr = searchParams.get("offset");
-        const limit = limitStr ? Math.min(parseInt(limitStr) || 100, 500) : 100;
-        const offset = offsetStr ? Math.max(parseInt(offsetStr) || 0, 0) : 0;
-
-        // 🏗️ Build filter conditions
         const where: any = {};
-        if (userId) where.userId = userId;
-        if (action) where.action = action;
-        if (entity) where.entity = entity;
+        if (query.userId) where.userId = query.userId;
+        if (query.action) where.action = query.action;
+        if (query.entity) where.entity = query.entity;
 
-        // 🛡️ MULTI-TENANCY: Enforce organization isolation
-        const userRole = (session.user as any).role;
-        const orgId = (session.user as any).organizationId;
-
-        if (userRole !== 'SUPER_ADMIN') {
-            if (!orgId) {
-                return NextResponse.json({ error: "Organization context missing" }, { status: 400 });
+        if (ctx.sessionUser.role !== "SUPER_ADMIN") {
+            if (!ctx.orgId) {
+                return fail("BAD_REQUEST", "Organization context missing", 400);
             }
 
-            // Fetch shops belonging to this organization
-            const userShops = await prisma.shop.findMany({
-                where: { organizationId: orgId },
-                select: { id: true }
+            const userShops = await ctx.scopedPrisma.shop.findMany({
+                select: { id: true },
             });
-            const shopIds = userShops.map(s => s.id);
+            const shopIds = userShops.map((shop) => shop.id);
 
-            if (requestedShopId) {
-                // If specific shop requested, verify it belongs to user's org
-                if (!shopIds.includes(requestedShopId)) {
-                    return NextResponse.json({ error: "Access denied to requested hub" }, { status: 403 });
+            if (query.shopId) {
+                if (!shopIds.includes(query.shopId)) {
+                    return fail("FORBIDDEN", "Access denied to requested hub", 403);
                 }
-                where.shopId = requestedShopId;
+                where.shopId = query.shopId;
             } else {
-                // Otherwise, restrict to all org shops
                 where.shopId = { in: shopIds };
             }
-        } else if (requestedShopId) {
-            // SUPER_ADMIN can see any requested shop
-            where.shopId = requestedShopId;
+        } else if (query.shopId) {
+            where.shopId = query.shopId;
         }
 
         const [logs, total] = await Promise.all([
-            prisma.activityLog.findMany({
+            ctx.scopedPrisma.activityLog.findMany({
                 where,
-                orderBy: { createdAt: 'desc' },
+                orderBy: { createdAt: "desc" },
                 take: limit,
                 skip: offset,
             }),
-            prisma.activityLog.count({ where })
+            ctx.scopedPrisma.activityLog.count({ where }),
         ]);
 
-        return NextResponse.json({
-            success: true,
-            data: logs,
-            total,
-            limit,
-            offset,
-        });
-    } catch (error: any) {
-        console.error("❌ ACTIVITY_LOG_SERVER_ERROR:", error);
-        return NextResponse.json({
-            error: "Failed to load activity stream",
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        }, { status: 500 });
+        return ok({ data: logs, total, limit, offset });
     }
+);
+
+export async function GET(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/activity-log", requestId, () => protectedGet(req));
 }

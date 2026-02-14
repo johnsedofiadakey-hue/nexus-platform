@@ -36,7 +36,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const res = await fetch('/api/settings');
             if (res.ok) {
-                const data = await res.json();
+                const payload = await res.json();
+                const data = payload?.data ?? payload;
                 const serverTheme = {
                     primaryColor: data.primaryColor || defaultTheme.primaryColor,
                     secondaryColor: data.secondaryColor || defaultTheme.secondaryColor,

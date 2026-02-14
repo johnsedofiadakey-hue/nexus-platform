@@ -1,84 +1,95 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
+import { parseJsonBody } from "@/lib/platform/validation";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const patchSchema = z
+    .object({
+        primaryColor: z.string().optional(),
+        secondaryColor: z.string().optional(),
+        accentColor: z.string().optional(),
+        logoUrl: z.string().nullable().optional(),
+        name: z.string().optional(),
+        planType: z.string().optional(),
+    })
+    .strip();
 
-        // For now, if no orgId, return defaults or fetch the first created org (Single Tenant Mode)
-        // If Multi-tenant, we'd use session.user.organizationId
+const protectedGet = withTenantProtection(
+    {
+        route: "/api/settings",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "settings-read", max: 90, windowMs: 60_000 },
+    },
+    async (_req, ctx) => {
         let org = null;
-        if (session.user.organizationId) {
-            org = await prisma.organization.findUnique({ where: { id: session.user.organizationId } });
+        if (ctx.orgId) {
+            org = await ctx.scopedPrisma.organization.findUnique({ where: { id: ctx.orgId } });
         } else {
-            // Fallback for current single-setup users: Get the first Organization or Create one
-            org = await prisma.organization.findFirst();
+            org = await ctx.scopedPrisma.organization.findFirst();
             if (!org) {
-                org = await prisma.organization.create({
+                org = await ctx.scopedPrisma.organization.create({
                     data: {
                         name: "My Organization",
-                        slug: "my-org-" + Date.now(),
+                        slug: `my-org-${Date.now()}`,
                         primaryColor: "#2563EB",
                         secondaryColor: "#0F172A",
-                        accentColor: "#F59E0B"
-                    }
+                        accentColor: "#F59E0B",
+                    },
                 });
-                // Auto-link user?
-                // await prisma.user.update({ where: { id: session.user.id }, data: { organizationId: org.id }});
             }
         }
 
-        return NextResponse.json(org);
-    } catch (error) {
-        return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
+        return ok(org);
     }
-}
+);
 
-export async function PATCH(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const protectedPatch = withTenantProtection(
+    {
+        route: "/api/settings",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "settings-write", max: 40, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        if (ctx.sessionUser.role === "WORKER") {
+            return fail("FORBIDDEN", "Forbidden", 403);
+        }
 
-        // Check Admin Role
-        const userRole = session.user.role; // Assuming role is in session, or fetch user
-        // Ideally fetch user to confirm role if session is stale, but for speed logic:
-        if (userRole === "WORKER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        const body = await parseJsonBody(req, patchSchema);
 
-        const body = await req.json();
-        const { primaryColor, secondaryColor, accentColor, logoUrl, name, planType } = body;
-
-        // Resolve Org ID (Same logic as GET)
-        let orgId = session.user.organizationId;
+        let orgId = ctx.orgId;
         if (!orgId) {
-            const org = await prisma.organization.findFirst();
+            const org = await ctx.scopedPrisma.organization.findFirst();
             if (org) orgId = org.id;
         }
 
-        if (!orgId) return NextResponse.json({ error: "No Organization Found" }, { status: 404 });
+        if (!orgId) {
+            return fail("NOT_FOUND", "No Organization Found", 404);
+        }
 
-        const updated = await prisma.organization.update({
+        const updated = await ctx.scopedPrisma.organization.update({
             where: { id: orgId },
             data: {
-                // Only update fields if provided
-                ...(primaryColor && { primaryColor }),
-                ...(secondaryColor && { secondaryColor }),
-                ...(accentColor && { accentColor }),
-                ...(logoUrl !== undefined && { logoUrl }), // Allow clearing if empty string passed?
-                ...(name && { name }),
-                // Billing Plan logic could go here or separate route
-            }
+                ...(body.primaryColor && { primaryColor: body.primaryColor }),
+                ...(body.secondaryColor && { secondaryColor: body.secondaryColor }),
+                ...(body.accentColor && { accentColor: body.accentColor }),
+                ...(body.logoUrl !== undefined && { logoUrl: body.logoUrl }),
+                ...(body.name && { name: body.name }),
+            },
         });
 
-        return NextResponse.json(updated);
-
-    } catch (error) {
-        console.error("Settings Update Error:", error);
-        return NextResponse.json({ error: "Update Failed" }, { status: 500 });
+        return ok(updated);
     }
+);
+
+export async function GET(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/settings", requestId, () => protectedGet(req));
+}
+
+export async function PATCH(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/settings", requestId, () => protectedPatch(req));
 }

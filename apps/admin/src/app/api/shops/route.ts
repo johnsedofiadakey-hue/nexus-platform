@@ -1,89 +1,101 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
+import { parseJsonBody } from "@/lib/platform/validation";
+import { logActivity } from "@/lib/activity-logger";
 
-// 🚀 Force dynamic fetching to ensure the list is always fresh
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-// --- 1. GET: FETCH ALL SHOPS ---
-export async function GET(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    // Secure fetch: only shops in user's org
-    const orgId = session?.user?.organizationId;
+const createShopSchema = z
+  .object({
+    name: z.string().min(1).max(120),
+    location: z.string().max(250).optional(),
+    latitude: z.coerce.number().optional(),
+    longitude: z.coerce.number().optional(),
+    radius: z.coerce.number().positive().optional(),
+    managerName: z.string().max(120).optional(),
+    managerContact: z.string().max(120).optional(),
+  })
+  .strip();
 
-    const shops = await prisma.shop.findMany({
-      where: orgId ? { organizationId: orgId } : undefined,
-      orderBy: { createdAt: 'desc' },
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/shops",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN", "AUDITOR"],
+    rateLimit: { keyPrefix: "shops-read", max: 120, windowMs: 60_000 },
+  },
+  async (_req, ctx) => {
+    const shops = await ctx.scopedPrisma.shop.findMany({
+      orderBy: { createdAt: "desc" },
       include: {
-        _count: {
-          select: { users: true }
-        }
-      }
-    });
-
-    return NextResponse.json({ success: true, data: shops });
-  } catch (error: any) {
-    console.error("❌ SHOPS_LIST_ERROR:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch shops" }, { status: 500 });
-  }
-}
-
-// --- 2. POST: SAVE NEW SHOP ---
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.organizationId) {
-      return NextResponse.json({ error: "Unauthorized: Organization required" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const { name, location, latitude, longitude, radius, managerName, managerContact } = body;
-
-    // 🛡️ Safety Check for Coordinates
-    const safeLat = parseFloat(latitude);
-    const safeLng = parseFloat(longitude);
-    const finalLat = isNaN(safeLat) ? 0.0 : safeLat;
-    const finalLng = isNaN(safeLng) ? 0.0 : safeLng;
-
-    const shop = await prisma.shop.create({
-      data: {
-        name,
-        location: location || "Unknown Location",
-        latitude: finalLat,
-        longitude: finalLng,
-        radius: parseInt(radius) || 150,
-        managerName,
-        managerContact,
-        // 🔗 Link to Organization
-        organization: {
-          connect: { id: session.user.organizationId }
-        }
+        _count: { select: { users: true } },
       },
     });
 
-    // 📊 Log Activity
+    return ok(shops);
+  }
+);
+
+const protectedPost = withTenantProtection(
+  {
+    route: "/api/shops",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "shops-write", max: 30, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    if (!ctx.orgId) {
+      return fail("ORGANIZATION_REQUIRED", "Organization is required", 400);
+    }
+
+    const body = await parseJsonBody(req, createShopSchema);
+    const shop = await ctx.scopedPrisma.shop.create({
+      data: {
+        name: body.name,
+        location: body.location || "Unknown Location",
+        latitude: body.latitude ?? 0,
+        longitude: body.longitude ?? 0,
+        radius: body.radius ?? 150,
+        managerName: body.managerName,
+        managerContact: body.managerContact,
+        organization: { connect: { id: ctx.orgId } },
+      },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        latitude: true,
+        longitude: true,
+        radius: true,
+        managerName: true,
+        managerContact: true,
+      },
+    });
+
     await logActivity({
-      userId: session.user.id,
-      userName: session.user.name || "Unknown",
-      userRole: (session.user as any).role || "USER",
+      userId: ctx.sessionUser.id,
+      userName: ctx.sessionUser.email,
+      userRole: ctx.sessionUser.role,
       action: "SHOP_CREATED",
       entity: "Shop",
       entityId: shop.id,
-      description: `Created shop "${name}" at ${location}`,
-      metadata: { shopId: shop.id, name, location, managerName },
-      ipAddress: getClientIp(req),
-      userAgent: getUserAgent(req),
+      description: `Created shop "${shop.name}" at ${shop.location}`,
+      metadata: { shopId: shop.id, name: shop.name, location: shop.location },
+      ipAddress: ctx.ip,
       shopId: shop.id,
-      shopName: name
+      shopName: shop.name,
     });
 
-    return NextResponse.json(shop);
-
-  } catch (error: any) {
-    console.error("❌ SHOP_SAVE_ERROR:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return ok(shop, 201);
   }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/shops", requestId, () => protectedGet(req));
+}
+
+export async function POST(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/shops", requestId, () => protectedPost(req));
 }

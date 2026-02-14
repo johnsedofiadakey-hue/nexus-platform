@@ -1,98 +1,134 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { logActivity, logTargetActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
+import { parseJsonBody, parseQuery } from "@/lib/platform/validation";
+import { logActivity, logTargetActivity } from "@/lib/activity-logger";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-// GET: Fetch Targets (All or by User)
-export async function GET(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+const getQuerySchema = z
+    .object({
+        userId: z.string().optional(),
+        targetType: z.string().optional(),
+        includeHistory: z
+            .union([z.literal("true"), z.literal("false")])
+            .optional()
+            .transform((value) => value === "true"),
+    })
+    .strip();
 
-        const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
-        if (!isSuperAdmin && !session.user.organizationId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+const createTargetSchema = z
+    .object({
+        userId: z.string().optional(),
+        targetQuantity: z.coerce.number().int().min(0).optional(),
+        targetValue: z.coerce.number().min(0).optional(),
+        startDate: z.coerce.date(),
+        endDate: z.coerce.date(),
+        targetType: z.string().optional(),
+        achievedValue: z.coerce.number().min(0).optional(),
+        achievedQuantity: z.coerce.number().int().min(0).optional(),
+    })
+    .strip();
 
-        const { searchParams } = new URL(req.url);
-        const userId = searchParams.get("userId");
-        const targetType = searchParams.get("targetType");
-        const includeHistory = searchParams.get("includeHistory") === "true";
+const updateTargetSchema = z
+    .object({
+        id: z.string().optional(),
+        targetId: z.string().optional(),
+        targetQuantity: z.coerce.number().int().min(0).optional(),
+        targetValue: z.coerce.number().min(0).optional(),
+        startDate: z.coerce.date().optional(),
+        endDate: z.coerce.date().optional(),
+        status: z.string().optional(),
+        targetType: z.string().optional(),
+        achievedValue: z.coerce.number().min(0).optional(),
+        achievedQuantity: z.coerce.number().int().min(0).optional(),
+    })
+    .strip();
+
+const deleteQuerySchema = z
+    .object({
+        id: z.string().optional(),
+        targetId: z.string().optional(),
+    })
+    .strip();
+
+const protectedGet = withTenantProtection(
+    {
+        route: "/api/targets",
+        roles: ["MANAGER", "ADMIN", "SUPER_ADMIN", "AUDITOR"],
+        rateLimit: { keyPrefix: "targets-read", max: 120, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        const query = parseQuery(new URL(req.url), getQuerySchema);
+        const isSuperAdmin = ctx.sessionUser.role === "SUPER_ADMIN";
 
         const whereClause: any = {};
-        if (userId) whereClause.userId = userId;
-        if (targetType) whereClause.targetType = targetType;
-        if (!isSuperAdmin && !userId && !targetType) {
-            whereClause.user = { organizationId: session.user.organizationId };
+        if (query.userId) whereClause.userId = query.userId;
+        if (query.targetType) whereClause.targetType = query.targetType;
+        if (!isSuperAdmin && !query.userId && !query.targetType && ctx.orgId) {
+            whereClause.user = { organizationId: ctx.orgId };
         }
 
-        const targets = await prisma.target.findMany({
-            where: whereClause,
-            include: { 
-                user: { select: { name: true, image: true, shop: { select: { name: true } } } },
-                history: includeHistory ? { orderBy: { createdAt: 'desc' }, take: 50 } : false
-            },
-            orderBy: { createdAt: "desc" }
-        });
+        const baseInclude = {
+            user: { select: { name: true, image: true, shop: { select: { name: true } } } },
+        };
 
-        return NextResponse.json(targets);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const targets = query.includeHistory
+            ? await ctx.scopedPrisma.target.findMany({
+                    where: whereClause,
+                    include: {
+                        ...baseInclude,
+                        history: { orderBy: { createdAt: "desc" }, take: 50 },
+                    },
+                    orderBy: { createdAt: "desc" },
+                })
+            : await ctx.scopedPrisma.target.findMany({
+                    where: whereClause,
+                    include: baseInclude,
+                    orderBy: { createdAt: "desc" },
+                });
+
+        return ok(targets);
     }
-}
+);
 
-// POST: Create Target
-export async function POST(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
-        if (!isSuperAdmin && !session.user.organizationId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const body = await req.json();
-        const { userId, targetQuantity, targetValue, startDate, endDate, targetType, achievedValue, achievedQuantity } = body;
-
-        // For ADMIN targets, use the session user's ID
-        const finalUserId = (targetType === "ADMIN" && !userId) ? session.user.id : userId;
+const protectedPost = withTenantProtection(
+    {
+        route: "/api/targets",
+        roles: ["ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "targets-write", max: 40, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        const body = await parseJsonBody(req, createTargetSchema);
+        const finalUserId = body.targetType === "ADMIN" && !body.userId ? ctx.sessionUser.id : body.userId;
 
         if (!finalUserId) {
-            return NextResponse.json({ error: "User ID required" }, { status: 400 });
+            return fail("VALIDATION_ERROR", "User ID required", 400);
         }
 
-        // Fetch target user for shop info
-        const targetUser = await prisma.user.findUnique({
+        const targetUser = await ctx.scopedPrisma.user.findUnique({
             where: { id: finalUserId },
-            include: { shop: true }
+            include: { shop: true },
         });
 
-        const target = await prisma.target.create({
+        const target = await ctx.scopedPrisma.target.create({
             data: {
                 userId: finalUserId,
-                targetQuantity: parseInt(targetQuantity) || 0,
-                targetValue: parseFloat(targetValue) || 0,
-                achievedQuantity: parseInt(achievedQuantity) || 0,
-                achievedValue: parseFloat(achievedValue) || 0,
-                startDate: new Date(startDate),
-                endDate: new Date(endDate),
+                targetQuantity: body.targetQuantity || 0,
+                targetValue: body.targetValue || 0,
+                achievedQuantity: body.achievedQuantity || 0,
+                achievedValue: body.achievedValue || 0,
+                startDate: body.startDate,
+                endDate: body.endDate,
                 status: "ACTIVE",
-                targetType: targetType || "AGENT"
-            }
+                targetType: body.targetType || "AGENT",
+            },
         });
 
-        // Log target creation in history
         await logTargetActivity(
             target.id,
-            session.user.id,
+            ctx.sessionUser.id,
             "CREATED",
             null,
             {
@@ -104,76 +140,72 @@ export async function POST(req: Request) {
             0,
             0,
             0,
-            `Target created by ${session.user.name}`
+            `Target created by ${ctx.sessionUser.email}`
         );
 
-        // Log in master activity log
         await logActivity({
-            userId: session.user.id,
-            userName: session.user.name || "Unknown",
-            userRole: session.user.role || "USER",
+            userId: ctx.sessionUser.id,
+            userName: ctx.sessionUser.email,
+            userRole: ctx.sessionUser.role,
             action: "TARGET_CREATED",
             entity: "Target",
             entityId: target.id,
-            description: `Created target for ${targetUser?.name}: ₵${targetValue} / ${targetQuantity} units`,
-            metadata: { targetId: target.id, userId, targetQuantity, targetValue },
-            ipAddress: getClientIp(req),
-            userAgent: getUserAgent(req),
-            shopId: targetUser?.shopId,
-            shopName: targetUser?.shop?.name,
+            description: `Created target for ${targetUser?.name || "Unknown"}: ₵${body.targetValue || 0} / ${body.targetQuantity || 0} units`,
+            metadata: {
+                targetId: target.id,
+                userId: finalUserId,
+                targetQuantity: body.targetQuantity || 0,
+                targetValue: body.targetValue || 0,
+            },
+            ipAddress: ctx.ip,
+            shopId: targetUser?.shopId || undefined,
+            shopName: targetUser?.shop?.name || undefined,
         });
 
-        return NextResponse.json(target);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return ok(target, 201);
     }
-}
+);
 
-// PATCH: Update Target
-export async function PATCH(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+const protectedPatch = withTenantProtection(
+    {
+        route: "/api/targets",
+        roles: ["ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "targets-write", max: 40, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        const body = await parseJsonBody(req, updateTargetSchema);
+        const finalTargetId = body.id || body.targetId;
 
-        const body = await req.json();
-        const { id, targetId, targetQuantity, targetValue, startDate, endDate, status, targetType, achievedValue, achievedQuantity } = body;
-
-        const finalTargetId = id || targetId;
         if (!finalTargetId) {
-            return NextResponse.json({ error: "Target ID required" }, { status: 400 });
+            return fail("VALIDATION_ERROR", "Target ID required", 400);
         }
 
-        // Get existing target
-        const existingTarget = await prisma.target.findUnique({
+        const existingTarget = await ctx.scopedPrisma.target.findUnique({
             where: { id: finalTargetId },
-            include: { user: { include: { shop: true } } }
+            include: { user: { include: { shop: true } } },
         });
 
         if (!existingTarget) {
-            return NextResponse.json({ error: "Target not found" }, { status: 404 });
+            return fail("NOT_FOUND", "Target not found", 404);
         }
 
-        // Update target
-        const updatedTarget = await prisma.target.update({
+        const updatedTarget = await ctx.scopedPrisma.target.update({
             where: { id: finalTargetId },
             data: {
-                ...(targetQuantity !== undefined && { targetQuantity: parseInt(targetQuantity) }),
-                ...(targetValue !== undefined && { targetValue: parseFloat(targetValue) }),
-                ...(achievedQuantity !== undefined && { achievedQuantity: parseInt(achievedQuantity) }),
-                ...(achievedValue !== undefined && { achievedValue: parseFloat(achievedValue) }),
-                ...(startDate && { startDate: new Date(startDate) }),
-                ...(endDate && { endDate: new Date(endDate) }),
-                ...(status && { status }),
-                ...(targetType && { targetType }),
-            }
+                ...(body.targetQuantity !== undefined && { targetQuantity: body.targetQuantity }),
+                ...(body.targetValue !== undefined && { targetValue: body.targetValue }),
+                ...(body.achievedQuantity !== undefined && { achievedQuantity: body.achievedQuantity }),
+                ...(body.achievedValue !== undefined && { achievedValue: body.achievedValue }),
+                ...(body.startDate && { startDate: body.startDate }),
+                ...(body.endDate && { endDate: body.endDate }),
+                ...(body.status && { status: body.status }),
+                ...(body.targetType && { targetType: body.targetType }),
+            },
         });
 
-        // Log target update in history
         await logTargetActivity(
             finalTargetId,
-            session.user.id,
+            ctx.sessionUser.id,
             "UPDATED",
             {
                 targetQuantity: existingTarget.targetQuantity,
@@ -192,60 +224,53 @@ export async function PATCH(req: Request) {
             0,
             0,
             0,
-            `Target updated by ${session.user.name}`
+            `Target updated by ${ctx.sessionUser.email}`
         );
 
-        // Log in master activity log
         await logActivity({
-            userId: session.user.id,
-            userName: session.user.name || "Unknown",
-            userRole: session.user.role || "USER",
+            userId: ctx.sessionUser.id,
+            userName: ctx.sessionUser.email,
+            userRole: ctx.sessionUser.role,
             action: "TARGET_UPDATED",
             entity: "Target",
             entityId: finalTargetId,
             description: `Updated target for ${existingTarget.user.name}`,
             metadata: { targetId: finalTargetId, changes: body },
-            ipAddress: getClientIp(req),
-            userAgent: getUserAgent(req),
-            shopId: existingTarget.user.shopId,
-            shopName: existingTarget.user.shop?.name,
+            ipAddress: ctx.ip,
+            shopId: existingTarget.user.shopId || undefined,
+            shopName: existingTarget.user.shop?.name || undefined,
         });
 
-        return NextResponse.json(updatedTarget);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return ok(updatedTarget);
     }
-}
+);
 
-// DELETE: Delete Target
-export async function DELETE(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const { searchParams } = new URL(req.url);
-        const targetId = searchParams.get("id") || searchParams.get("targetId");
+const protectedDelete = withTenantProtection(
+    {
+        route: "/api/targets",
+        roles: ["ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "targets-write", max: 30, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        const query = parseQuery(new URL(req.url), deleteQuerySchema);
+        const targetId = query.id || query.targetId;
 
         if (!targetId) {
-            return NextResponse.json({ error: "Target ID required" }, { status: 400 });
+            return fail("VALIDATION_ERROR", "Target ID required", 400);
         }
 
-        // Get existing target before deletion
-        const existingTarget = await prisma.target.findUnique({
+        const existingTarget = await ctx.scopedPrisma.target.findUnique({
             where: { id: targetId },
-            include: { user: { include: { shop: true } } }
+            include: { user: { include: { shop: true } } },
         });
 
         if (!existingTarget) {
-            return NextResponse.json({ error: "Target not found" }, { status: 404 });
+            return fail("NOT_FOUND", "Target not found", 404);
         }
 
-        // Log target deletion in history (before deleting)
         await logTargetActivity(
             targetId,
-            session.user.id,
+            ctx.sessionUser.id,
             "DELETED",
             {
                 targetQuantity: existingTarget.targetQuantity,
@@ -258,33 +283,46 @@ export async function DELETE(req: Request) {
             0,
             0,
             0,
-            `Target deleted by ${session.user.name}`
+            `Target deleted by ${ctx.sessionUser.email}`
         );
 
-        // Delete target (cascade will handle history)
-        await prisma.target.delete({
-            where: { id: targetId }
-        });
+        await ctx.scopedPrisma.target.delete({ where: { id: targetId } });
 
-        // Log in master activity log
         await logActivity({
-            userId: session.user.id,
-            userName: session.user.name || "Unknown",
-            userRole: session.user.role || "USER",
+            userId: ctx.sessionUser.id,
+            userName: ctx.sessionUser.email,
+            userRole: ctx.sessionUser.role,
             action: "TARGET_DELETED",
             entity: "Target",
             entityId: targetId,
             description: `Deleted target for ${existingTarget.user.name}`,
             metadata: { targetId, deletedTarget: existingTarget },
-            ipAddress: getClientIp(req),
-            userAgent: getUserAgent(req),
-            shopId: existingTarget.user.shopId,
-            shopName: existingTarget.user.shop?.name,
+            ipAddress: ctx.ip,
+            shopId: existingTarget.user.shopId || undefined,
+            shopName: existingTarget.user.shop?.name || undefined,
         });
 
-        return NextResponse.json({ success: true, message: "Target deleted" });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return ok({ message: "Target deleted" });
     }
+);
+
+export async function GET(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/targets", requestId, () => protectedGet(req));
+}
+
+export async function POST(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/targets", requestId, () => protectedPost(req));
+}
+
+export async function PATCH(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/targets", requestId, () => protectedPatch(req));
+}
+
+export async function DELETE(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/targets", requestId, () => protectedDelete(req));
 }
 

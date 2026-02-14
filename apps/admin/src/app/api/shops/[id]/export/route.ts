@@ -7,6 +7,12 @@ import { requireAuth } from "@/lib/auth-helpers";
 export async function GET(req: Request) {
   try {
     const user = await requireAuth();
+
+    // Role gate: only managers and above can export data
+    if (!['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role || '')) {
+      return NextResponse.json({ error: "Forbidden: Insufficient permissions." }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const shopId = searchParams.get('shopId');
     const type = searchParams.get('type') || 'reports'; // 'reports' or 'sales'

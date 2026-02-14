@@ -1,36 +1,32 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ count: 0 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true }
-    });
-
-    if (!user) {
-      return NextResponse.json({ count: 0 });
-    }
-
-    const count = await prisma.message.count({
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/mobile/messages/unread-count",
+    roles: ["WORKER", "ASSISTANT", "AGENT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "mobile-unread-read", max: 180, windowMs: 60_000 },
+  },
+  async (_req, ctx) => {
+    const count = await ctx.scopedPrisma.message.count({
       where: {
-        receiverId: user.id,
-        isRead: false
-      }
+        receiverId: ctx.sessionUser.id,
+        isRead: false,
+      },
     });
 
-    return NextResponse.json({ count });
-  } catch (error) {
-    console.error("UNREAD_COUNT_ERROR:", error);
-    return NextResponse.json({ count: 0 });
+    return ok({ count });
+  }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  try {
+    return await withApiErrorHandling(req, "/api/mobile/messages/unread-count", requestId, () => protectedGet(req));
+  } catch {
+    return ok({ count: 0 });
   }
 }

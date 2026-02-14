@@ -1,59 +1,46 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok } from "@/lib/platform/api-response";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { requireAuth } from "@/lib/auth-helpers";
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    // 🔐 Require authentication
-    const user = await requireAuth();
-    
-    // 🏢 Build organization filter
-    const orgFilter = user.role === "SUPER_ADMIN" && !user.organizationId
-      ? {} : { organizationId: user.organizationId };
-
-    // Aggregate sales by shop and category
-    const sales = await prisma.sale.findMany({
-      where: {
-        shop: orgFilter
-      },
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/analytics/sales-mix",
+    roles: ["MANAGER", "ADMIN", "SUPER_ADMIN", "AUDITOR"],
+    rateLimit: { keyPrefix: "analytics-sales-mix-read", max: 90, windowMs: 60_000 },
+  },
+  async (_req, ctx) => {
+    const sales = await ctx.scopedPrisma.sale.findMany({
       include: {
         shop: { select: { name: true } },
+        items: { include: { product: { select: { category: true } } } },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
+      take: 1000,
     });
 
-    // Process data for the chart (Grouped by Hub and Product Category)
-    const analytics = sales.reduce((acc: any, sale: any) => {
+    const analytics = sales.reduce<Record<string, { hub: string; category: string; total: number }>>((acc, sale) => {
       const shopName = sale.shop.name;
-      
-      // 🛡️ Safe JSON parsing
-      let items: any[] = [];
-      try {
-        items = JSON.parse(sale.items as string);
-      } catch (e) {
-        console.error('Failed to parse sale items:', e);
-        return acc;
-      }
-      
-      items.forEach((item: any) => {
-        const key = `${shopName}-${item.category || 'General'}`;
+      sale.items.forEach((item) => {
+        const category = item.product.category || "General";
+        const key = `${shopName}-${category}`;
         if (!acc[key]) {
-          acc[key] = { hub: shopName, category: item.category || 'General', total: 0 };
+          acc[key] = { hub: shopName, category, total: 0 };
         }
-        acc[key].total += sale.totalAmount;
+        acc[key].total += item.price * item.quantity;
       });
       return acc;
     }, {});
 
-    return NextResponse.json({ 
-      success: true, 
-      data: Object.values(analytics),
-      totalRevenue: sales.reduce((sum, s) => sum + s.totalAmount, 0)
+    return ok({
+      items: Object.values(analytics),
+      totalRevenue: sales.reduce((sum, sale) => sum + sale.totalAmount, 0),
     });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/analytics/sales-mix", requestId, () => protectedGet(req));
 }

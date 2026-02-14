@@ -27,8 +27,9 @@ export default function SmartAttendance({ shopLat, shopLng, radius, bypassGeofen
         const checkStatus = async () => {
             try {
                 const res = await fetch('/api/mobile/attendance');
-                const data = await res.json();
-                setStatus(data.status);
+                const payload = await res.json();
+                const inner = payload?.data ?? payload;
+                setStatus(inner?.status ?? 'CLOCKED_OUT');
             } catch (e) {
                 console.error(e);
                 setStatus('CLOCKED_OUT');

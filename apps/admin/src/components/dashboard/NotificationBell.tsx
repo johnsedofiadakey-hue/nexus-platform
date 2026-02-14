@@ -17,10 +17,11 @@ export default function NotificationBell() {
     const fetchNotifications = async () => {
         try {
             const res = await fetch('/api/notifications');
-            const data = await res.json();
-            if (data.notifications) {
-                setNotifications(data.notifications);
-                setUnreadCount(data.unreadCount);
+            const payload = await res.json();
+            const inner = payload?.data ?? payload;
+            if (inner?.notifications) {
+                setNotifications(inner.notifications);
+                setUnreadCount(inner.unreadCount ?? 0);
             }
         } catch (err) {
             console.error("Failed to sync notifications", err);

@@ -1,190 +1,165 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { logActivity, getClientIp, getUserAgent } from "@/lib/activity-logger";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { ok, fail } from "@/lib/platform/api-response";
+import { parseJsonBody, parseQuery } from "@/lib/platform/validation";
+import { logActivity } from "@/lib/activity-logger";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+const getQuerySchema = z
+  .object({
+    userId: z.string().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+  })
+  .strip();
 
-    if (!userId) {
-      return NextResponse.json([]);
+const postSchema = z
+  .object({
+    shopId: z.string().min(1),
+    totalAmount: z.number().nonnegative(),
+    source: z.string().optional().default("MOBILE"),
+    items: z
+      .array(
+        z
+          .object({
+            productId: z.string().min(1),
+            quantity: z.number().int().positive(),
+            price: z.number().nonnegative(),
+          })
+          .strip()
+      )
+      .min(1),
+  })
+  .strip();
+
+const protectedGet = withTenantProtection(
+  {
+    route: "/api/sales",
+    roles: ["WORKER", "AGENT", "ASSISTANT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "user-sales-read", max: 120, windowMs: 60_000 },
+  },
+  async (req, ctx) => {
+    const url = new URL(req.url);
+    const query = parseQuery(url, getQuerySchema);
+
+    const targetUserId = query.userId || ctx.sessionUser.id;
+    const privileged = ["MANAGER", "ADMIN", "SUPER_ADMIN"].includes(ctx.sessionUser.role);
+    if (!privileged && targetUserId !== ctx.sessionUser.id) {
+      return fail("FORBIDDEN", "Cannot view other user sales", 403);
     }
 
-    // ✅ AUTHENTICATION CHECK
-    let user;
-    try {
-      user = await requireAuth();
-    } catch (error) {
-      return NextResponse.json(
-        { error: "Unauthorized - Please sign in" },
-        { status: 401 }
-      );
-    }
+    const skip = (query.page - 1) * query.limit;
 
-    // ✅ AUTHORIZATION CHECK
-    if (user.id !== userId && !['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(user.role)) {
-      return NextResponse.json(
-        { error: "Forbidden: Cannot view other user's sales" },
-        { status: 403 }
-      );
-    }
-
-    // ✅ TENANT ISOLATION
-    const targetUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { organizationId: true }
-    });
-
-    if (!targetUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    if (user.organizationId !== targetUser.organizationId && user.role !== 'SUPER_ADMIN') {
-      return NextResponse.json(
-        { error: "Forbidden: Different organization" },
-        { status: 403 }
-      );
-    }
-
-    // ⚡️ OPTIMIZED: Only fetch the last 50 sales with select for speed
-    const sales = await prisma.sale.findMany({
-      where: { userId },
-      take: 50,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        totalAmount: true,
-        amountPaid: true,
-        paymentMethod: true,
-        status: true,
-        createdAt: true,
-        shop: {
-          select: { name: true }
+    const [total, sales] = await Promise.all([
+      ctx.scopedPrisma.sale.count({ where: { userId: targetUserId } }),
+      ctx.scopedPrisma.sale.findMany({
+        where: { userId: targetUserId },
+        take: query.limit,
+        skip,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          totalAmount: true,
+          amountPaid: true,
+          paymentMethod: true,
+          status: true,
+          createdAt: true,
+          shop: { select: { name: true } },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              price: true,
+              product: { select: { name: true } },
+            },
+          },
         },
-        items: {
-          select: {
-            id: true,
-            quantity: true,
-            price: true,
-            product: {
-              select: { name: true }
-            }
-          }
-        }
-      }
+      }),
+    ]);
+
+    return ok({
+      items: sales,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit),
+      },
     });
-
-    return NextResponse.json(sales);
-  } catch (error) {
-    console.error("❌ SALES_API_ERROR:", error);
-    return NextResponse.json([], { status: 500 });
   }
-}
+);
 
-// ----------------------------------------------------------------------
-// ⚡️ HIGH-SPEED TRANSACTION ENGINE (V4 - FRESH BUILD)
-// ----------------------------------------------------------------------
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const { shopId, items, totalAmount, gps, source = "MOBILE" } = body;
+const protectedPost = withTenantProtection(
+  {
+    route: "/api/sales",
+    roles: ["WORKER", "AGENT", "ASSISTANT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+    rateLimit: { keyPrefix: "user-sales-write", max: 30, windowMs: 60_000 },
+    requireShopId: true,
+  },
+  async (req, ctx) => {
+    const body = await parseJsonBody(req, postSchema);
 
-    // 0. AUTHENTICATION
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized Terminal" }, { status: 401 });
-    }
-
-    // 1. VALIDATION
-    if (!shopId || !items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: "Invalid Transaction Data" }, { status: 400 });
-    }
-
-    // 2. ATOMIC EXECUTION (The "Ledger Lock")
-    // We use an interactive transaction to check stock AND decrement it safely.
-    // If any item fails, the WHOLE sale is rejected.
-    const result = await prisma.$transaction(async (tx) => {
-
-      // A. Verify User/Agent (Optional: Get from Session if not relying on body)
-      // For speed in Phase 2, we assume auth middleware handles header checks.
-      // But ideally we'd get session here. Let's rely on the body containing shopId for now
-      // and assume the caller is authenticated via middleware.
-
-      // B. Process Items (Check & Decrement)
-      const finalizedItems = [];
-
-      for (const item of items) {
-        // Lock the product row for update
-        const product = await tx.product.findUnique({
-          where: { id: item.productId }
-        });
-
+    const result = await ctx.scopedPrisma.$transaction(async (tx: any) => {
+      for (const item of body.items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } });
         if (!product) {
           throw new Error(`Product not found: ${item.productId}`);
         }
-
         if (product.stockLevel < item.quantity) {
-          throw new Error(`Stockout: ${product.name} (Req: ${item.quantity}, Avail: ${product.stockLevel})`);
+          throw new Error(`Insufficient stock for ${product.name}`);
         }
+      }
 
-        // Decrement Stock
+      for (const item of body.items) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stockLevel: { decrement: item.quantity } }
-        });
-
-        // 🛡️ SANITIZED INPUT: Explicitly map only valid schema fields
-        finalizedItems.push({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: item.price
+          data: { stockLevel: { decrement: item.quantity } },
         });
       }
 
-      // C. Record Sale
-      const sale = await tx.sale.create({
+      return tx.sale.create({
         data: {
-          shopId,
-          userId: session.user.id,
-          totalAmount,
+          shopId: body.shopId,
+          userId: ctx.sessionUser.id,
+          totalAmount: body.totalAmount,
           paymentMethod: "CASH",
           status: "COMPLETED",
           items: {
-            create: finalizedItems
-          }
-        }
+            create: body.items.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+            })),
+          },
+        },
       });
-
-      return sale;
     });
 
-    // 📊 Log Activity
-    const shop = await prisma.shop.findUnique({ where: { id: shopId }, select: { name: true } });
     await logActivity({
-      userId: session.user.id,
-      userName: session.user.name || "Unknown",
-      userRole: (session.user as any).role || "USER",
+      userId: ctx.sessionUser.id,
+      userName: ctx.sessionUser.email,
+      userRole: ctx.sessionUser.role,
       action: "SALE_CREATED",
       entity: "Sale",
       entityId: result.id,
-      description: `Recorded sale of GHS ${totalAmount.toFixed(2)} with ${items.length} item(s)`,
-      metadata: { saleId: result.id, totalAmount, itemCount: items.length, source },
-      ipAddress: getClientIp(req),
-      userAgent: getUserAgent(req),
-      shopId,
-      shopName: shop?.name || "Unknown Shop"
+      description: `Sale created: ${body.items.length} item(s), total ${body.totalAmount}`,
+      metadata: { totalAmount: body.totalAmount, itemCount: body.items.length, source: body.source },
+      ipAddress: ctx.ip,
+      shopId: body.shopId,
     });
 
-    return NextResponse.json({ success: true, saleId: result.id });
-
-  } catch (error: any) {
-    console.error("❌ TRANSACTION_FAILED:", error.message);
-    return NextResponse.json({ error: error.message || "Transaction Failed" }, { status: 409 }); // 409 Conflict
+    return ok({ id: result.id }, 201);
   }
+);
+
+export async function GET(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/sales", requestId, () => protectedGet(req));
+}
+
+export async function POST(req: Request) {
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  return withApiErrorHandling(req, "/api/sales", requestId, () => protectedPost(req));
 }

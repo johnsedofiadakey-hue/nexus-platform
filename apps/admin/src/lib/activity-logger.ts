@@ -1,4 +1,6 @@
 import { prisma } from "./prisma";
+import { enqueueJob, registerJobHandler, startQueueWorker } from "@/lib/platform/queue";
+import { logger } from "@/lib/platform/logger";
 
 export interface ActivityLogParams {
   userId: string;
@@ -15,30 +17,73 @@ export interface ActivityLogParams {
   shopName?: string;
 }
 
+let queueBootstrapped = false;
+
+function bootstrapQueue() {
+  if (queueBootstrapped) return;
+  queueBootstrapped = true;
+
+  registerJobHandler("activity-log", async (payload) => {
+    const data = payload as ActivityLogParams;
+    await prisma.activityLog.create({
+      data: {
+        userId: data.userId,
+        userName: data.userName,
+        userRole: data.userRole,
+        action: data.action,
+        entity: data.entity,
+        entityId: data.entityId,
+        description: data.description,
+        metadata: data.metadata || {},
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
+        shopId: data.shopId,
+        shopName: data.shopName,
+      },
+    });
+  });
+
+  registerJobHandler("analytics", async (payload) => {
+    const data = payload as {
+      targetId: string;
+      userId: string;
+      action: "CREATED" | "UPDATED" | "DELETED" | "PROGRESS_UPDATE";
+      previousValue?: any;
+      newValue?: any;
+      progress?: number;
+      achievedValue?: number;
+      achievedQuantity?: number;
+      notes?: string;
+    };
+
+    await prisma.targetHistory.create({
+      data: {
+        targetId: data.targetId,
+        userId: data.userId,
+        action: data.action,
+        previousValue: data.previousValue || {},
+        newValue: data.newValue || {},
+        progress: data.progress || 0,
+        achievedValue: data.achievedValue || 0,
+        achievedQuantity: data.achievedQuantity || 0,
+        notes: data.notes,
+      },
+    });
+  });
+
+  startQueueWorker();
+}
+
 /**
  * Master Activity Logger - Logs all system activities
  * This captures every meaningful action from agents, admins, and all users
  */
 export async function logActivity(params: ActivityLogParams) {
   try {
-    await prisma.activityLog.create({
-      data: {
-        userId: params.userId,
-        userName: params.userName,
-        userRole: params.userRole,
-        action: params.action,
-        entity: params.entity,
-        entityId: params.entityId,
-        description: params.description,
-        metadata: params.metadata || {},
-        ipAddress: params.ipAddress,
-        userAgent: params.userAgent,
-        shopId: params.shopId,
-        shopName: params.shopName,
-      },
-    });
+    bootstrapQueue();
+    enqueueJob("activity-log", params);
   } catch (error) {
-    console.error("❌ Activity Logger Error:", error);
+    logger.error({ err: error }, "Activity Logger Error");
     // Don't throw - logging failures shouldn't break the main operation
   }
 }
@@ -58,21 +103,20 @@ export async function logTargetActivity(
   notes?: string
 ) {
   try {
-    await prisma.targetHistory.create({
-      data: {
-        targetId,
-        userId,
-        action,
-        previousValue: previousValue || {},
-        newValue: newValue || {},
-        progress: progress || 0,
-        achievedValue: achievedValue || 0,
-        achievedQuantity: achievedQuantity || 0,
-        notes,
-      },
+    bootstrapQueue();
+    enqueueJob("analytics", {
+      targetId,
+      userId,
+      action,
+      previousValue,
+      newValue,
+      progress,
+      achievedValue,
+      achievedQuantity,
+      notes,
     });
   } catch (error) {
-    console.error("❌ Target History Logger Error:", error);
+    logger.error({ err: error }, "Target History Logger Error");
   }
 }
 

@@ -24,7 +24,7 @@ if (!process.env.NEXTAUTH_URL && process.env.NODE_ENV === 'production') {
 }
 
 export const authOptions: NextAuthOptions = {
-  debug: true, // Enable debug to see what's happening
+  debug: process.env.NODE_ENV === 'development',
 
   // 🔒 NextAuth configuration
 
@@ -67,7 +67,12 @@ export const authOptions: NextAuthOptions = {
         try {
           // 1. Find User
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email.toLowerCase() }
+            where: { email: credentials.email.toLowerCase() },
+            include: {
+              organization: {
+                select: { authVersion: true },
+              },
+            },
           });
 
           if (!user) {
@@ -98,6 +103,7 @@ export const authOptions: NextAuthOptions = {
             commencementDate: user.commencementDate,
             ghanaCard: user.ghanaCard,
             dob: user.dob
+            ,orgAuthVersion: user.organization?.authVersion ?? 1
           };
         } catch (error) {
           console.error("❌ Auth error:", error);
@@ -127,6 +133,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role;
         token.id = user.id;
         token.organizationId = (user as any).organizationId;
+        token.orgAuthVersion = (user as any).orgAuthVersion ?? 1;
         // ✅ Removed: bankName, bankAccountNumber, ssnitNumber, ghanaCard, dob
         // Sensitive data should NEVER be in JWT tokens (visible to client)
       }
@@ -137,6 +144,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).role = token.role;
         (session.user as any).id = token.id;
         (session.user as any).organizationId = token.organizationId;
+        (session.user as any).orgAuthVersion = token.orgAuthVersion;
         // ✅ Removed: Sensitive data - fetch server-side only when needed
       }
       return session;

@@ -17,7 +17,7 @@ export async function GET() {
 
     // 🚀 High-Speed Aggregation with tenant isolation
     const [userCount, shopCount, totalSales] = await Promise.all([
-      prisma.user.count({ where: { ...orgFilter, role: 'SALES_REP' } }),
+      prisma.user.count({ where: { ...orgFilter, role: { in: ['WORKER', 'AGENT', 'ASSISTANT'] } } }),
       prisma.shop.count({ where: orgFilter }),
       prisma.sale.aggregate({
         where: {

@@ -11,12 +11,17 @@ export async function POST(req: Request) {
         const signature = req.headers.get("x-paystack-signature");
         const secret = process.env.PAYSTACK_SECRET_KEY;
 
-        // 1. Verify Signature (Security)
-        if (secret && signature) {
-            const hash = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
-            if (hash !== signature) {
-                return NextResponse.json({ error: "Invalid Signature" }, { status: 401 });
-            }
+        // 1. Verify Signature (Security) - MANDATORY
+        if (!secret) {
+            console.error("PAYSTACK_SECRET_KEY is not configured - rejecting webhook");
+            return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+        }
+        if (!signature) {
+            return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+        }
+        const hash = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
+        if (hash !== signature) {
+            return NextResponse.json({ error: "Invalid Signature" }, { status: 401 });
         }
 
         // 🛡️ Safe JSON parsing

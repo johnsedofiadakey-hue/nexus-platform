@@ -1,136 +1,128 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { withTenantProtection } from "@/lib/platform/tenant-protection";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
+import { fail, ok } from "@/lib/platform/api-response";
+import { parseJsonBody } from "@/lib/platform/validation";
 
-// Force dynamic rendering for API routes that use database
-export const dynamic = 'force-dynamic';
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-    try {
-        const session = await getServerSession(authOptions);
+const bodySchema = z
+    .object({
+        action: z.enum(["CLOCK_IN", "CLOCK_OUT"]),
+        lat: z.coerce.number(),
+        lng: z.coerce.number(),
+    })
+    .strip();
 
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+const protectedPost = withTenantProtection(
+    {
+        route: "/api/mobile/attendance",
+        roles: ["WORKER", "ASSISTANT", "AGENT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "mobile-attendance-write", max: 60, windowMs: 60_000 },
+    },
+    async (req, ctx) => {
+        const body = await parseJsonBody(req, bodySchema);
 
-        const { action, lat, lng } = await req.json();
-
-        if (!['CLOCK_IN', 'CLOCK_OUT'].includes(action)) {
-            return NextResponse.json({ error: "Invalid Action" }, { status: 400 });
-        }
-
-        // 1. Get Agent & Shop
-        const agent = await prisma.user.findUnique({
-            where: { email: session.user.email },
-            include: { shop: true }
+        const agent = await ctx.scopedPrisma.user.findUnique({
+            where: { id: ctx.sessionUser.id },
+            include: { shop: true },
         });
 
         if (!agent || !agent.shop) {
-            return NextResponse.json({ error: "Agent or Shop not found" }, { status: 404 });
+            return fail("NOT_FOUND", "Agent or Shop not found", 404);
         }
 
-        // 2. Validate Geofence (Server-Side Enforcement)
-        const R = 6371e3; // Earth Radius
-        const dLat = (agent.shop.latitude! - lat) * Math.PI / 180;
-        const dLng = (agent.shop.longitude! - lng) * Math.PI / 180;
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat * Math.PI / 180) * Math.cos(agent.shop.latitude! * Math.PI / 180) *
+        const R = 6371e3;
+        const dLat = (agent.shop.latitude! - body.lat) * Math.PI / 180;
+        const dLng = (agent.shop.longitude! - body.lng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(body.lat * Math.PI / 180) * Math.cos(agent.shop.latitude! * Math.PI / 180) *
             Math.sin(dLng / 2) * Math.sin(dLng / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distance = R * c;
 
         const allowedRadius = agent.shop.radius || 100;
+        const attendanceStatus = distance > allowedRadius ? "OFF_SITE" : "PRESENT";
 
-        let attendanceStatus = 'PRESENT';
-
-        if (distance > allowedRadius) {
-            attendanceStatus = 'OFF_SITE';
-            // We allow this now, but mark it as OFF_SITE
-        }
-
-        // 3. Process Attendance
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        let record;
-
-        if (action === 'CLOCK_IN') {
-            // Check if already clocked in today
-            const existing = await prisma.attendance.findFirst({
+        if (body.action === "CLOCK_IN") {
+            const existing = await ctx.scopedPrisma.attendance.findFirst({
                 where: {
                     userId: agent.id,
-                    date: { gte: today }
-                }
+                    date: { gte: today },
+                },
             });
 
             if (existing) {
-                return NextResponse.json({ error: "Already clocked in today." }, { status: 409 });
+                return fail("CONFLICT", "Already clocked in today.", 409);
             }
 
-            record = await prisma.attendance.create({
+            const record = await ctx.scopedPrisma.attendance.create({
                 data: {
                     userId: agent.id,
                     checkIn: new Date(),
                     status: attendanceStatus,
-                    date: new Date()
-                }
-            });
-        } else {
-            // CLOCK_OUT
-            const active = await prisma.attendance.findFirst({
-                where: {
-                    userId: agent.id,
-                    checkOut: null
+                    date: new Date(),
                 },
-                orderBy: { checkIn: 'desc' }
             });
 
-            if (!active) {
-                return NextResponse.json({ error: "No active shift found." }, { status: 404 });
-            }
-
-            record = await prisma.attendance.update({
-                where: { id: active.id },
-                data: {
-                    checkOut: new Date()
-                }
-            });
+            return ok({ record });
         }
 
-        return NextResponse.json({ success: true, record });
-
-    } catch (error) {
-        console.error("ATTENDANCE ACTION ERROR:", error);
-        return NextResponse.json({ error: "System Error" }, { status: 500 });
-    }
-}
-
-export async function GET(req: Request) {
-    // Check Status
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) return NextResponse.json({ status: 'UNKNOWN' });
-
-        const agent = await prisma.user.findUnique({
-            where: { email: session.user.email },
-            select: { id: true }
-        });
-
-        if (!agent) return NextResponse.json({ status: 'UNKNOWN' });
-
-        const active = await prisma.attendance.findFirst({
+        const active = await ctx.scopedPrisma.attendance.findFirst({
             where: {
                 userId: agent.id,
                 checkOut: null,
-                date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
-            }
+            },
+            orderBy: { checkIn: "desc" },
         });
 
-        return NextResponse.json({ status: active ? 'CLOCKED_IN' : 'CLOCKED_OUT' });
+        if (!active) {
+            return fail("NOT_FOUND", "No active shift found.", 404);
+        }
 
-    } catch (e) {
-        return NextResponse.json({ status: 'UNKNOWN' });
+        const record = await ctx.scopedPrisma.attendance.update({
+            where: { id: active.id },
+            data: {
+                checkOut: new Date(),
+            },
+        });
+
+        return ok({ record });
+    }
+);
+
+const protectedGet = withTenantProtection(
+    {
+        route: "/api/mobile/attendance",
+        roles: ["WORKER", "ASSISTANT", "AGENT", "MANAGER", "ADMIN", "SUPER_ADMIN"],
+        rateLimit: { keyPrefix: "mobile-attendance-read", max: 120, windowMs: 60_000 },
+    },
+    async (_req, ctx) => {
+        const active = await ctx.scopedPrisma.attendance.findFirst({
+            where: {
+                userId: ctx.sessionUser.id,
+                checkOut: null,
+                date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+            },
+        });
+
+        return ok({ status: active ? "CLOCKED_IN" : "CLOCKED_OUT" });
+    }
+);
+
+export async function POST(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    return withApiErrorHandling(req, "/api/mobile/attendance", requestId, () => protectedPost(req));
+}
+
+export async function GET(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+    try {
+        return await withApiErrorHandling(req, "/api/mobile/attendance", requestId, () => protectedGet(req));
+    } catch {
+        return ok({ status: "UNKNOWN" });
     }
 }
