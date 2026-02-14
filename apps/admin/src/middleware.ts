@@ -17,6 +17,7 @@ const PUBLIC_ROUTES = [
 ];
 
 const BILLING_ALLOWED_PREFIXES = ['/dashboard/settings', '/dashboard/billing', '/api/payments'];
+const ENFORCEMENT_TIMEOUT_MS = 1500;
 
 export function shouldBlockForReadOnly(params: {
   pathname: string;
@@ -64,6 +65,41 @@ function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
   return request.headers.get('x-real-ip') || 'unknown';
+}
+
+async function fetchEnforcementPayload(params: {
+  request: NextRequest;
+  requestId: string;
+  featureKey?: string;
+}): Promise<any | null> {
+  const { request, requestId, featureKey } = params;
+  const endpoint = featureKey
+    ? `${request.nextUrl.origin}/api/platform/enforcement?featureKey=${encodeURIComponent(featureKey)}`
+    : `${request.nextUrl.origin}/api/platform/enforcement`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ENFORCEMENT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        cookie: request.headers.get('cookie') || '',
+        'x-request-id': requestId,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -138,17 +174,10 @@ export async function middleware(request: NextRequest) {
 
   if (!pathname.startsWith('/api/auth') && !pathname.startsWith('/auth')) {
     try {
-      const enforcementResponse = await fetch(`${request.nextUrl.origin}/api/platform/enforcement`, {
-        method: 'GET',
-        headers: {
-          cookie: request.headers.get('cookie') || '',
-          'x-request-id': requestId,
-        },
-      });
+      const payload = await fetchEnforcementPayload({ request, requestId });
+      const enforcement = payload?.data;
 
-      if (enforcementResponse.ok) {
-        const payload = await enforcementResponse.json();
-        const enforcement = payload?.data;
+      if (enforcement) {
 
         if (enforcement?.authVersion && Number(token.orgAuthVersion || 1) < Number(enforcement.authVersion || 1)) {
           const loginUrl = new URL('/auth/signin', request.url);
@@ -197,31 +226,20 @@ export async function middleware(request: NextRequest) {
 
         const featureKey = featureKeyForPath(pathname);
         if (featureKey) {
-          const featureResponse = await fetch(`${request.nextUrl.origin}/api/platform/enforcement?featureKey=${encodeURIComponent(featureKey)}`, {
-            method: 'GET',
-            headers: {
-              cookie: request.headers.get('cookie') || '',
-              'x-request-id': requestId,
-            },
-          });
-
-          if (featureResponse.ok) {
-            const featurePayload = await featureResponse.json();
-            if (featurePayload?.data?.featureEnabled === false) {
-              return NextResponse.json(
-                {
-                  success: false,
-                  error: { code: 'FEATURE_DISABLED', message: `Feature '${featureKey}' is not enabled for this tenant` },
-                },
-                { status: 403, headers: { 'x-request-id': requestId } }
-              );
-            }
+          const featurePayload = await fetchEnforcementPayload({ request, requestId, featureKey });
+          if (featurePayload?.data?.featureEnabled === false) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: { code: 'FEATURE_DISABLED', message: `Feature '${featureKey}' is not enabled for this tenant` },
+              },
+              { status: 403, headers: { 'x-request-id': requestId } }
+            );
           }
         }
       }
     } catch (enforcementError) {
-      // Log but fail-open for middleware fetch errors to avoid platform-wide auth lockout.
-      console.error("[middleware] Enforcement check failed:", enforcementError instanceof Error ? enforcementError.message : "unknown error");
+      // Fail-open intentionally to avoid platform-wide auth lockout when enforcement endpoint is unreachable.
     }
   }
 

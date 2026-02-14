@@ -90,6 +90,26 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
   const syncIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const previousShopIdRef = useRef<string | null>(null);
 
+  const normalizeInventory = useCallback((payload: any): InventoryItem[] => {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (Array.isArray(payload?.data?.items)) {
+      return payload.data.items;
+    }
+
+    if (Array.isArray(payload?.items)) {
+      return payload.items;
+    }
+
+    if (Array.isArray(payload?.data)) {
+      return payload.data;
+    }
+
+    return [];
+  }, []);
+
   // 📦 OPTIMIZED: Load from cache with tiered TTL
   const loadFromCache = useCallback(() => {
     try {
@@ -104,7 +124,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
         // Use inventory cache duration (5 minutes)
         if (age < CACHE_DURATION.INVENTORY) {
           const parsedIdentity = JSON.parse(cachedIdentity);
-          const parsedInventory = JSON.parse(cachedInventory);
+          const parsedInventory = normalizeInventory(JSON.parse(cachedInventory));
 
           setIdentity(parsedIdentity);
           setInventory(parsedInventory);
@@ -120,7 +140,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       console.error('Cache load failed:', e);
     }
     return false;
-  }, []);
+  }, [normalizeInventory]);
 
   // 💾 SAVE TO CACHE
   const saveToCache = useCallback((identityData: MobileIdentity, inventoryData: InventoryItem[]) => {
@@ -156,7 +176,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
           throw new Error(`HTTP ${res.status}`);
         })
         .then(data => {
-          const items = Array.isArray(data) ? data : (data.data || []);
+          const items = normalizeInventory(data);
           setInventory(items);
 
           // Update cache
@@ -175,7 +195,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       console.warn('⚠️ Background inventory sync failed:', e.message);
       // Don't set error state for background sync failures
     }
-  }, [identity, saveToCache]);
+  }, [identity, saveToCache, normalizeInventory]);
 
   // 🔄 FULL DATA REFRESH WITH REQUEST DEDUPLICATION
   const refreshData = useCallback(async (showLoader = false) => {
@@ -214,7 +234,14 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
           throw new Error('Init failed');
         }
 
-        const initData = await initRes.json();
+        const initPayload = await initRes.json();
+        const initData = initPayload?.data ?? initPayload;
+
+        if (!initData || typeof initData !== 'object') {
+          console.error('❌ Mobile Init: Invalid response payload');
+          throw new Error('Invalid init payload');
+        }
+
         console.log('✅ Mobile Init: Assignment data received', {
           shopId: initData.shopId,
           shopName: initData.shopName,
@@ -263,7 +290,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
 
         if (invRes.ok) {
           const invData = await invRes.json();
-          const items = Array.isArray(invData) ? invData : (invData.data || []);
+          const items = normalizeInventory(invData);
 
           console.log(`✅ Inventory loaded: ${items.length} items`);
           setInventory(items);
@@ -303,7 +330,7 @@ export function MobileDataProvider({ children }: { children: React.ReactNode }) 
       setError(errorMessage);
       setLoading(false);
     }
-  }, [saveToCache]);
+  }, [saveToCache, normalizeInventory]);
 
   // 🎯 OPTIMISTIC UPDATE
   const updateInventoryItem = useCallback((id: string, updates: Partial<InventoryItem>) => {

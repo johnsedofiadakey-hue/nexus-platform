@@ -56,8 +56,9 @@ export default function MobileDashboard() {
     );
   }
 
-  const lowStockCount = inventory.filter(item => item.stockLevel < 10).length;
-  const totalProducts = inventory.length;
+  const inventoryItems = Array.isArray(inventory) ? inventory : [];
+  const lowStockCount = inventoryItems.filter(item => item.stockLevel < 10).length;
+  const totalProducts = inventoryItems.length;
 
   return (
     <div className="min-h-full px-4 pt-6 pb-32 space-y-4">

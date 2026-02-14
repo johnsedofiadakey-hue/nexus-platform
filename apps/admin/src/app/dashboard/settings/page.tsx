@@ -9,6 +9,9 @@ function TeamManager() {
     const [team, setTeam] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [teamError, setTeamError] = useState<string | null>(null);
+    const [inviteError, setInviteError] = useState<string | null>(null);
+    const [inviteSubmitting, setInviteSubmitting] = useState(false);
 
     // New User Form
     const [newUser, setNewUser] = useState({
@@ -19,34 +22,114 @@ function TeamManager() {
         "VIEW_REPORTS", "MANAGE_INVENTORY", "MANAGE_STAFF", "VIEW_FINANCE", "EDIT_SETTINGS"
     ];
 
+    const buildTeamErrorMessage = (status: number, payload: any) => {
+        const code = payload?.error?.code;
+        const message = payload?.error?.message;
+
+        if (code === 'SUBSCRIPTION_LOCKED' || code === 'FORBIDDEN') {
+            return 'Team management is unavailable while subscription is locked. Update billing to continue.';
+        }
+
+        if (status === 401 || code === 'UNAUTHORIZED') {
+            return 'Your session has expired. Please sign in again.';
+        }
+
+        if (status === 429 || code === 'RATE_LIMITED') {
+            return 'Too many requests. Please wait a moment and retry.';
+        }
+
+        return message || `Failed to load team members (HTTP ${status})`;
+    };
+
+    const buildInviteErrorMessage = (status: number, payload: any) => {
+        const code = payload?.error?.code;
+        const message = payload?.error?.message;
+
+        if (code === 'EMAIL_IN_USE') {
+            return 'This email is already in use. Try a different email address.';
+        }
+
+        if (code === 'SUBSCRIPTION_LOCKED' || code === 'FORBIDDEN') {
+            return 'Cannot invite users while subscription is locked. Update billing to continue.';
+        }
+
+        if (status === 401 || code === 'UNAUTHORIZED') {
+            return 'Your session has expired. Please sign in again.';
+        }
+
+        if (status === 429 || code === 'RATE_LIMITED') {
+            return 'Too many invite attempts. Please wait a moment and retry.';
+        }
+
+        return message || `Failed to invite user (HTTP ${status})`;
+    };
+
     const fetchTeam = async () => {
         setLoading(true);
+        setTeamError(null);
         try {
             const res = await fetch('/api/hr/team');
-            if (res.ok) {
-                const payload = await res.json();
-                const list = payload?.data ?? payload;
-                setTeam(Array.isArray(list) ? list : []);
+            const rawText = await res.text();
+            const payload = rawText ? JSON.parse(rawText) : {};
+
+            if (!res.ok || payload?.success === false) {
+                setTeam([]);
+                setTeamError(buildTeamErrorMessage(res.status, payload));
+                return;
             }
-        } catch (e) { console.error(e); }
+
+            const list = payload?.data ?? payload;
+            setTeam(Array.isArray(list) ? list : []);
+        } catch (e: any) {
+            console.error(e);
+            setTeam([]);
+            setTeamError(
+                e?.message?.includes('Unexpected token')
+                    ? 'Received an invalid response while loading team members. Please retry.'
+                    : (e?.message || 'Failed to load team members')
+            );
+        }
         finally { setLoading(false); }
     };
 
     useEffect(() => { fetchTeam(); }, []);
 
     const handleInvite = async () => {
-        if (!newUser.name || !newUser.email || !newUser.password) return alert("Fill all fields");
-        const res = await fetch('/api/hr/team', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newUser)
-        });
-        if (res.ok) {
+        if (!newUser.name || !newUser.email || !newUser.password) {
+            setInviteError('Please fill in all required fields.');
+            return;
+        }
+
+        setInviteSubmitting(true);
+        setInviteError(null);
+
+        try {
+            const res = await fetch('/api/hr/team', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newUser)
+            });
+
+            const rawText = await res.text();
+            const payload = rawText ? JSON.parse(rawText) : {};
+
+            if (!res.ok || payload?.success === false) {
+                setInviteError(buildInviteErrorMessage(res.status, payload));
+                return;
+            }
+
             setShowModal(false);
             setNewUser({ name: '', email: '', password: '', role: 'ASSISTANT', permissions: [] });
+            setInviteError(null);
             fetchTeam();
-        } else {
-            alert('Failed to invite');
+        } catch (e: any) {
+            setInviteError(
+                e?.message?.includes('Unexpected token')
+                    ? 'Received an invalid response while inviting user. Please retry.'
+                    : (e?.message || 'Failed to invite user')
+            );
+        } finally {
+            setInviteSubmitting(false);
         }
     };
 
@@ -70,6 +153,17 @@ function TeamManager() {
 
             {/* LIST */}
             <div className="space-y-3">
+                {teamError && (
+                    <div className="bg-rose-50 border border-rose-200 p-4 flex items-center justify-between gap-4">
+                        <p className="text-xs font-semibold text-rose-700">{teamError}</p>
+                        <button
+                            onClick={fetchTeam}
+                            className="px-3 py-1.5 bg-rose-100 text-rose-700 text-[10px] font-semibold uppercase tracking-wider hover:bg-rose-200 transition-colors"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                )}
                 {team.map(user => (
                     <div key={user.id} className="bg-white p-4 border border-slate-200 flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -109,6 +203,12 @@ function TeamManager() {
                         <h3 className="text-lg font-bold text-slate-900 mb-6">Invite New Member</h3>
 
                         <div className="space-y-4">
+                            {inviteError && (
+                                <div className="bg-rose-50 border border-rose-200 p-3">
+                                    <p className="text-xs font-semibold text-rose-700">{inviteError}</p>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">Full Name</label>
@@ -164,8 +264,13 @@ function TeamManager() {
                                 </div>
                             )}
 
-                            <button onClick={handleInvite} className="w-full py-3 bg-blue-600 text-white font-semibold uppercase tracking-wider hover:bg-blue-700 transition-colors mt-4">
-                                Send Invite
+                            <button
+                                onClick={handleInvite}
+                                disabled={inviteSubmitting}
+                                className="w-full py-3 bg-blue-600 text-white font-semibold uppercase tracking-wider hover:bg-blue-700 transition-colors mt-4 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {inviteSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                {inviteSubmitting ? 'Sending Invite...' : 'Send Invite'}
                             </button>
                         </div>
                     </div>
@@ -181,20 +286,46 @@ function SubscriptionManager() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const buildSubscriptionErrorMessage = (status: number, payload: any) => {
+        const code = payload?.error?.code;
+        const message = payload?.error?.message;
+
+        if (code === 'SUBSCRIPTION_LOCKED' || code === 'FORBIDDEN') {
+            return 'Subscription is locked or inactive. Please update billing to restore full access.';
+        }
+
+        if (status === 404 || code === 'NOT_FOUND') {
+            return 'No subscription is configured for this organization yet.';
+        }
+
+        if (status === 401 || code === 'UNAUTHORIZED') {
+            return 'Your session has expired. Please sign in again.';
+        }
+
+        return message || `Failed to load subscription (HTTP ${status})`;
+    };
+
     const fetchSubscription = async () => {
         setLoading(true);
         setError(null);
         try {
             const res = await fetch('/api/subscription');
-            const payload = await res.json();
-            const inner = payload?.data ?? payload;
-            if (payload?.success === false) {
-                setError(inner?.error?.message || 'Failed to load subscription');
-            } else {
-                setData(inner);
+            const rawText = await res.text();
+            const payload = rawText ? JSON.parse(rawText) : {};
+
+            if (!res.ok || payload?.success === false) {
+                setData(null);
+                setError(buildSubscriptionErrorMessage(res.status, payload));
+                return;
             }
+
+            const inner = payload?.data ?? payload;
+            setData(inner);
         } catch (e: any) {
-            setError(e.message || 'Failed to load subscription');
+            setData(null);
+            setError(e?.message?.includes('Unexpected token')
+                ? 'Received an invalid subscription response from server. Please retry.'
+                : (e.message || 'Failed to load subscription'));
         } finally {
             setLoading(false);
         }
@@ -380,22 +511,58 @@ export default function SettingsPage() {
     // Edit State
     const [formTheme, setFormTheme] = useState(theme);
     const [saving, setSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState<string | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
+
+    const buildSaveErrorMessage = (status: number, payload: any) => {
+        const code = payload?.error?.code;
+        const message = payload?.error?.message;
+
+        if (code === 'SUBSCRIPTION_LOCKED' || code === 'FORBIDDEN') {
+            return 'Settings are locked while subscription is inactive. Update billing to continue.';
+        }
+
+        if (status === 401 || code === 'UNAUTHORIZED') {
+            return 'Your session has expired. Please sign in again.';
+        }
+
+        if (status === 429 || code === 'RATE_LIMITED') {
+            return 'Too many save attempts. Please wait and try again.';
+        }
+
+        return message || `Failed to save settings (HTTP ${status})`;
+    };
 
     const handleSave = async () => {
         setSaving(true);
+        setSaveError(null);
+        setSaveMessage(null);
         try {
             const res = await fetch('/api/settings', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formTheme)
             });
-            if (res.ok) {
-                updateTheme(formTheme); // Immediate Client Update
-            } else {
-                alert('Failed to save settings');
+
+            const rawText = await res.text();
+            const payload = rawText ? JSON.parse(rawText) : {};
+
+            if (!res.ok || payload?.success === false) {
+                setSaveError(buildSaveErrorMessage(res.status, payload));
+                return;
             }
+
+            const updatedTheme = payload?.data ?? payload;
+            updateTheme(updatedTheme); // Immediate Client Update
+            setSaveMessage('Settings saved successfully.');
         } catch (e) {
             console.error(e);
+            const err = e as any;
+            setSaveError(
+                err?.message?.includes('Unexpected token')
+                    ? 'Received an invalid response while saving settings. Please retry.'
+                    : (err?.message || 'Failed to save settings')
+            );
         } finally {
             setSaving(false);
         }
@@ -513,6 +680,15 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="pt-5 border-t border-slate-200 flex justify-end">
+                                <div className="w-full">
+                                    {(saveError || saveMessage) && (
+                                        <div className={`mb-4 p-3 border ${saveError ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                                            <p className={`text-xs font-semibold ${saveError ? 'text-rose-700' : 'text-emerald-700'}`}>
+                                                {saveError || saveMessage}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                                 <button
                                     onClick={handleSave}
                                     className="px-6 py-3 bg-slate-900 text-white font-semibold uppercase tracking-wider text-[10px] hover:bg-slate-800 transition-colors flex items-center gap-2"

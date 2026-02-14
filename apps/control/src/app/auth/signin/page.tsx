@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { Suspense, FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ControlSignInPage() {
+function ControlSignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -43,5 +43,13 @@ export default function ControlSignInPage() {
         <button type="submit" disabled={loading} style={{ width: "100%" }}>{loading ? "Signing in..." : "Sign in"}</button>
       </form>
     </main>
+  );
+}
+
+export default function ControlSignInPage() {
+  return (
+    <Suspense fallback={<main style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>Loading...</main>}>
+      <ControlSignInForm />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 import { withTenantProtection } from "@/lib/platform/tenant-protection";
 import { ok, fail } from "@/lib/platform/api-response";
 import { prisma } from "@/lib/prisma";
+import { withApiErrorHandling } from "@/lib/platform/error-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -131,11 +132,12 @@ const protectedGetPlans = withTenantProtection(
 );
 
 export async function GET(req: Request) {
+    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
     const { searchParams } = new URL(req.url);
 
     if (searchParams.get("action") === "plans") {
-        return protectedGetPlans(req);
+        return withApiErrorHandling(req, "/api/subscription", requestId, () => protectedGetPlans(req));
     }
 
-    return protectedGet(req);
+    return withApiErrorHandling(req, "/api/subscription", requestId, () => protectedGet(req));
 }

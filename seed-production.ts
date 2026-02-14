@@ -6,6 +6,34 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('🌱 Seeding production database...');
 
+    const defaultPlan = await prisma.plan.upsert({
+        where: { name: 'ENTERPRISE' },
+        update: {
+            pricePerShopMonthly: 199,
+            annualDiscountPercent: 15,
+            features: [
+                'messaging',
+                'gps-tracking',
+                'analytics',
+                'hr-suite',
+                'mobile-pos'
+            ],
+        },
+        create: {
+            name: 'ENTERPRISE',
+            pricePerShopMonthly: 199,
+            annualDiscountPercent: 15,
+            features: [
+                'messaging',
+                'gps-tracking',
+                'analytics',
+                'hr-suite',
+                'mobile-pos'
+            ],
+        },
+    });
+    console.log('✅ Plan ensured:', defaultPlan.name);
+
     // Create organization
     const org = await prisma.organization.upsert({
         where: { slug: 'nexus-retail-ltd' },
@@ -18,6 +46,38 @@ async function main() {
         },
     });
     console.log('✅ Organization created:', org.name);
+
+    const existingSubscription = await prisma.subscription.findFirst({
+        where: { tenantId: org.id },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+    });
+
+    const nextBillingDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    if (existingSubscription) {
+        await prisma.subscription.update({
+            where: { id: existingSubscription.id },
+            data: {
+                planId: defaultPlan.id,
+                billingCycle: 'MONTHLY',
+                status: 'ACTIVE',
+                graceEndsAt: null,
+                nextBillingDate,
+            },
+        });
+    } else {
+        await prisma.subscription.create({
+            data: {
+                tenantId: org.id,
+                planId: defaultPlan.id,
+                billingCycle: 'MONTHLY',
+                status: 'ACTIVE',
+                nextBillingDate,
+            },
+        });
+    }
+    console.log('✅ Active subscription ensured');
 
     // Create admin user
     const adminPassword = await bcrypt.hash('admin123', 10);
