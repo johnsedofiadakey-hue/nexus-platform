@@ -55,10 +55,8 @@ If you want GitHub Actions to handle deployment:
    Add these secrets:
    - `VERCEL_TOKEN` - Get from: https://vercel.com/account/tokens
    - `VERCEL_ORG_ID` - From `.vercel/project.json` after `vercel link`
-   - `VERCEL_PROJECT_ID` - From `.vercel/project.json` after `vercel link`
-   - `DATABASE_URL` - Your PostgreSQL connection string
-   - `NEXTAUTH_SECRET` - Your NextAuth secret
-   - `NEXTAUTH_URL` - Your deployment URL
+   - `VERCEL_PROJECT_ID_ADMIN` - Link from `apps/admin` and copy `.vercel/project.json` projectId
+   - `VERCEL_PROJECT_ID_CONTROL` - Link from `apps/control` and copy `.vercel/project.json` projectId
 
 3. **Push the GitHub Actions workflow:**
    ```bash
