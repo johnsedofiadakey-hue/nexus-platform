@@ -49,21 +49,18 @@ jobs:
       - name: Link Admin Vercel Project
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel link --yes --scope john-dakeys-projects --project nexus-admin --token=${{ env.VERCEL_TOKEN }}
-        working-directory: apps/admin
 
       - name: Pull Admin Vercel Environment
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
-        working-directory: apps/admin
 
       - name: Deploy Admin to Vercel
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel deploy --prod --yes --token=${{ env.VERCEL_TOKEN }}
-        working-directory: apps/admin
 
       - name: Link Control Vercel Project
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
-        run: vercel link --yes --scope john-dakeys-projects --project nexus-agent --token=${{ env.VERCEL_TOKEN }}
+        run: vercel link --yes --scope john-dakeys-projects --project nexus-control --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/control
 
       - name: Pull Control Vercel Environment
