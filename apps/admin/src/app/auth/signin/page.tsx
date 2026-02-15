@@ -44,25 +44,27 @@ export default function UnifiedSignIn() {
         toast.error(result.error === "CredentialsSignin" ? "Invalid credentials" : "Login failed");
         setIsSubmitting(false);
       } else if (result?.ok) {
-        // 🛡️ STRICT ROLE VALIDATION
-        // We need to fetch the session briefly to check the role before final redirect
-        // or rely on a quick check. Since we are using client-side signIn, 
-        // we can fetch the session now.
-        const sessionRes = await fetch('/api/auth/session');
-        const sessionData = await sessionRes.json();
-        const userRole = sessionData?.user?.role;
+        // Wait briefly for session cookie propagation to avoid false negative role checks.
+        let userRole: string | undefined;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const sessionRes = await fetch('/api/auth/session', { cache: 'no-store' });
+          const sessionData = await sessionRes.json();
+          userRole = sessionData?.user?.role;
+          if (userRole) break;
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
 
         const isPromoterRole = ['WORKER', 'AGENT', 'ASSISTANT'].includes(userRole);
         const isAdminRole = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'AUDITOR'].includes(userRole);
 
-        // Check for mismatch
-        if (role === "ADMIN" && !isAdminRole) {
+        // Check for mismatch only when role is available.
+        if (userRole && role === "ADMIN" && !isAdminRole) {
           toast.error("Access Denied: This account does not have Admin privileges.");
           setIsSubmitting(false);
           return;
         }
 
-        if (role === "PROMOTER" && !isPromoterRole) {
+        if (userRole && role === "PROMOTER" && !isPromoterRole) {
           toast.error("Access Denied: This account is not authorized for Promoter access.");
           setIsSubmitting(false);
           return;
