@@ -74,8 +74,8 @@ const CACHE_DURATION = {
 
 // 🚀 OPTIMIZED: Smart sync intervals based on visibility
 const SYNC_INTERVAL = {
-  ACTIVE: 2 * 60 * 1000,       // 2 minutes when tab active
-  BACKGROUND: 10 * 60 * 1000   // 10 minutes when tab hidden
+  ACTIVE: 45 * 1000,           // 45 seconds when tab active
+  BACKGROUND: 3 * 60 * 1000    // 3 minutes when tab hidden
 };
 
 // Request deduplication cache

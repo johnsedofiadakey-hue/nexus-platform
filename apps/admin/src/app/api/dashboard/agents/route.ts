@@ -1,6 +1,7 @@
 import { withTenantProtection } from "@/lib/platform/tenant-protection";
 import { withApiErrorHandling } from "@/lib/platform/error-handler";
 import { ok } from "@/lib/platform/api-response";
+import { resolveOpenSessionEnd, resolveStrictStatus } from "@/lib/attendance/strict-status";
 
 export const dynamic = "force-dynamic";
 
@@ -50,8 +51,9 @@ const protectedGet = withTenantProtection(
         const formatted = agents.map((agent) => {
             const isOnline = agent.lastSeen ? agent.lastSeen > fiveMinutesAgo : false;
             const activeAttendance = agent.attendance.find((entry) => !entry.checkOut) || null;
+            const attendanceStatus = resolveStrictStatus(Boolean(agent.isInsideZone), agent.lastSeen, new Date());
             const totalOnSiteSecondsToday = agent.attendance.reduce((total, entry) => {
-                const end = entry.checkOut || new Date();
+                const end = entry.checkOut ?? resolveOpenSessionEnd(agent.lastSeen, new Date());
                 const seconds = Math.max(0, Math.floor((end.getTime() - entry.checkIn.getTime()) / 1000));
                 return total + seconds;
             }, 0);
@@ -64,7 +66,7 @@ const protectedGet = withTenantProtection(
                 isOnline,
                 lastSeen: agent.lastSeen,
                 salesToday: salesMap.get(agent.id) || 0,
-                attendanceStatus: agent.isInsideZone ? "ON_SITE" : "OFF_SITE",
+                attendanceStatus,
                 clockInTime: activeAttendance?.checkIn || null,
                 totalOnSiteSecondsToday,
             };

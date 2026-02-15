@@ -66,8 +66,8 @@ export default function LocationGuard({ children }: { children: React.ReactNode 
 
     const sendPulse = async (lat: number, lng: number, accuracy?: number) => {
       const now = Date.now();
-      // Throttle: Send once every 30 seconds (Optimized)
-      if (now - lastPulse.current < 30000) return;
+      // Throttle: Send once every 15 seconds for strict and responsive status.
+      if (now - lastPulse.current < 15000) return;
 
       try {
         const res = await fetch('/api/mobile/pulse', {

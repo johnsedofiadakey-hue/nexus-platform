@@ -42,7 +42,7 @@ export default function MessagingPage() {
 
         const fetchMessages = async () => {
             try {
-                const res = await fetch(`/api/messages?userId=${activeChatId}`);
+                const res = await fetch(`/api/messages?userId=${activeChatId}`, { cache: 'no-store' });
                 if (res.ok) {
                     const payload = await res.json();
                     const rows = payload?.data ?? payload;
@@ -54,7 +54,7 @@ export default function MessagingPage() {
         };
 
         fetchMessages(); // Initial load
-        const interval = setInterval(fetchMessages, 10000); // Poll every 10s (reduced from 2s)
+        const interval = setInterval(fetchMessages, 2000); // Near real-time polling
         return () => clearInterval(interval);
     }, [activeChatId]);
 
@@ -87,6 +87,7 @@ export default function MessagingPage() {
         try {
             const res = await fetch('/api/messages', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     receiverId: activeChatId,
                     content: tempMsg.content
@@ -95,9 +96,12 @@ export default function MessagingPage() {
 
             if (!res.ok) throw new Error("Failed");
 
-            // The polling will naturally start picking up the real message, 
-            // but we can also manually refresh immediately for instant sync
-            // triggerPoll() -> implemented by calling fetch again if we moved logic out
+            const latestRes = await fetch(`/api/messages?userId=${activeChatId}`, { cache: 'no-store' });
+            if (latestRes.ok) {
+                const payload = await latestRes.json();
+                const rows = payload?.data ?? payload;
+                setMessages(Array.isArray(rows) ? rows : []);
+            }
         } catch (e) {
             console.error("Send failed");
             // Ideally: mark message as failed (red exclamation)

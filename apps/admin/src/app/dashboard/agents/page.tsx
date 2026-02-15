@@ -13,13 +13,13 @@ export default function AgentsPage() {
 
     useEffect(() => {
         fetchAgents();
-        const interval = setInterval(fetchAgents, 30000); // Poll every 30s
+        const interval = setInterval(fetchAgents, 10000); // Poll every 10s
         return () => clearInterval(interval);
     }, []);
 
     const fetchAgents = async () => {
         try {
-            const res = await fetch('/api/dashboard/agents');
+            const res = await fetch('/api/dashboard/agents', { cache: 'no-store' });
             if (res.ok) {
                 const payload = await res.json();
                 const list = payload?.data ?? payload;

@@ -86,7 +86,7 @@ export default function GeoLockoutOverlay({
 
     useEffect(() => {
         checkLocation();
-        const interval = setInterval(checkLocation, 30000);
+        const interval = setInterval(checkLocation, 15000);
         return () => clearInterval(interval);
     }, [shopLat, shopLng, radius, bypass]);
 

@@ -44,7 +44,7 @@ export default function SmartAttendance({ shopLat, shopLng, radius, bypassGeofen
 
     useEffect(() => {
         refreshStrictStatus();
-        const interval = setInterval(refreshStrictStatus, 10000);
+        const interval = setInterval(refreshStrictStatus, 5000);
         return () => clearInterval(interval);
     }, []);
 

@@ -49,10 +49,10 @@ export default function DashboardPage() {
   const fetchData = async () => {
     try {
       const [statsRes, pulseRes, targetsRes, agentsRes] = await Promise.all([
-        fetch('/api/dashboard/stats'),
-        fetch('/api/operations/pulse-feed'),
-        fetch('/api/targets?targetType=ADMIN'),
-        fetch('/api/dashboard/agents')
+        fetch('/api/dashboard/stats', { cache: 'no-store' }),
+        fetch('/api/operations/pulse-feed', { cache: 'no-store' }),
+        fetch('/api/targets?targetType=ADMIN', { cache: 'no-store' }),
+        fetch('/api/dashboard/agents', { cache: 'no-store' })
       ]);
 
       if (statsRes.ok) {
@@ -95,7 +95,7 @@ export default function DashboardPage() {
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 30000); // 30s refresh
+    const interval = setInterval(fetchData, 10000); // 10s refresh
     return () => clearInterval(interval);
   }, [session, status, router]);
 

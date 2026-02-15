@@ -3,6 +3,7 @@ import { withTenantProtection } from "@/lib/platform/tenant-protection";
 import { withApiErrorHandling } from "@/lib/platform/error-handler";
 import { fail, ok } from "@/lib/platform/api-response";
 import { parseJsonBody } from "@/lib/platform/validation";
+import { resolveOpenSessionEnd, resolveStrictStatus } from "@/lib/attendance/strict-status";
 
 export const dynamic = "force-dynamic";
 
@@ -128,7 +129,7 @@ const protectedGet = withTenantProtection(
         ]);
 
         const totalOnSiteSeconds = todayRecords.reduce((total, entry) => {
-            const end = entry.checkOut ?? now;
+            const end = entry.checkOut ?? resolveOpenSessionEnd(user?.lastSeen ?? null, now);
             const seconds = Math.max(0, Math.floor((end.getTime() - entry.checkIn.getTime()) / 1000));
             return total + seconds;
         }, 0);
@@ -137,11 +138,13 @@ const protectedGet = withTenantProtection(
         const totalOffSiteSeconds = Math.max(0, dayElapsedSeconds - totalOnSiteSeconds);
 
         const currentSessionSeconds = active
-            ? Math.max(0, Math.floor((now.getTime() - active.checkIn.getTime()) / 1000))
+            ? Math.max(0, Math.floor((resolveOpenSessionEnd(user?.lastSeen ?? null, now).getTime() - active.checkIn.getTime()) / 1000))
             : 0;
 
+        const strictStatus = resolveStrictStatus(Boolean(user?.isInsideZone), user?.lastSeen ?? null, now);
+
         return ok({
-            status: user?.isInsideZone ? "ON_SITE" : "OFF_SITE",
+            status: strictStatus,
             hasActiveShift: Boolean(active),
             clockInTime: active?.checkIn ?? null,
             currentSessionSeconds,

@@ -5,6 +5,7 @@ import { withApiErrorHandling } from "@/lib/platform/error-handler";
 import { fail, ok } from "@/lib/platform/api-response";
 import { parseJsonBody, parseQuery } from "@/lib/platform/validation";
 import { logActivity } from "@/lib/activity-logger";
+import { resolveStrictStatus } from "@/lib/attendance/strict-status";
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +119,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
         return ok({
           ...user,
+          strictAttendanceStatus: resolveStrictStatus(Boolean(user.isInsideZone), user.lastSeen, new Date()),
           disciplinaryLog,
           messages: chatHistory,
           geofenceStats,

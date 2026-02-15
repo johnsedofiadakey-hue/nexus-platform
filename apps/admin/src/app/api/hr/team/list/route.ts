@@ -1,6 +1,7 @@
 import { withTenantProtection } from "@/lib/platform/tenant-protection";
 import { withApiErrorHandling } from "@/lib/platform/error-handler";
 import { ok } from "@/lib/platform/api-response";
+import { resolveStrictStatus } from "@/lib/attendance/strict-status";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,10 @@ const protectedGet = withTenantProtection(
       },
     });
 
-    const formattedTeam = staff.map((user) => ({
+    const formattedTeam = staff.map((user) => {
+      const strictAttendanceStatus = resolveStrictStatus(Boolean(user.isInsideZone), user.lastSeen, new Date());
+
+      return {
       id: user.id,
       name: user.name || "Unknown Agent",
       role: user.role,
@@ -65,7 +69,9 @@ const protectedGet = withTenantProtection(
         : { lat: 5.6037, lng: -0.187 },
       lastActive: user.lastSeen || user.attendance[0]?.checkIn || new Date(),
       isInsideZone: user.isInsideZone || false,
-    }));
+      strictAttendanceStatus,
+      };
+    });
 
     return ok({
       items: formattedTeam,

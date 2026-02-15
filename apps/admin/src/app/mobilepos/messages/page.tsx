@@ -33,7 +33,7 @@ export default function StaffChat() {
   // --------------------------------------------------
   const fetchMessages = async () => {
     try {
-      const res = await fetch("/api/mobile/messages");
+      const res = await fetch("/api/mobile/messages", { cache: 'no-store' });
       if (res.ok) {
         const payload = await res.json();
         const inner = payload?.data ?? payload;
@@ -49,7 +49,7 @@ export default function StaffChat() {
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(fetchMessages, 2000);
     return () => clearInterval(interval);
   }, []);
 
