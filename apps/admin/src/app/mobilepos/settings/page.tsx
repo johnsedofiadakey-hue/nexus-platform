@@ -39,7 +39,11 @@ export default function MobileSettings() {
       fetch('/api/mobile/history')
         .then(res => res.json())
         .then(d => {
-          setData(d);
+          const payload = d?.data ?? d;
+          setData({
+            reports: Array.isArray(payload?.reports) ? payload.reports : [],
+            leaves: Array.isArray(payload?.leaves) ? payload.leaves : [],
+          });
           setLoading(false);
         })
         .catch(() => setLoading(false));

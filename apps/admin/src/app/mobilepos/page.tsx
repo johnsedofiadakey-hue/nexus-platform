@@ -59,6 +59,9 @@ export default function MobileDashboard() {
   const inventoryItems = Array.isArray(inventory) ? inventory : [];
   const lowStockCount = inventoryItems.filter(item => item.stockLevel < 10).length;
   const totalProducts = inventoryItems.length;
+  const userRole = String((session?.user as any)?.role || "");
+  const promoterRoles = ["WORKER", "AGENT", "ASSISTANT", "PROMOTER"];
+  const roleLabel = promoterRoles.includes(userRole) ? "Promoter" : "Admin";
 
   return (
     <div className="min-h-full px-4 pt-6 pb-32 space-y-4">
@@ -77,7 +80,7 @@ export default function MobileDashboard() {
           {identity.bypassGeofence && (
             <div className="bg-yellow-500/20 px-3 py-1 rounded-full flex items-center gap-1">
               <Shield size={14} />
-              <span className="text-xs font-medium">Admin</span>
+              <span className="text-xs font-medium">{roleLabel}</span>
             </div>
           )}
         </div>
@@ -240,13 +243,14 @@ export default function MobileDashboard() {
         </button>
       </div>
 
-      {/* GPS DISCLAIMER FOR ADMINS */}
+      {/* GPS DISCLAIMER FOR OVERRIDE */}
       {identity.bypassGeofence && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
           <div className="flex gap-3">
             <Shield size={20} className="text-yellow-600 flex-shrink-0" />
             <div>
-              <p className="text-sm font-medium text-yellow-900 mb-1">Admin Mode Active</p>
+              <p className="text-sm font-medium text-yellow-900 mb-1">Override Mode Active</p>
+              <p className="text-[11px] font-semibold text-yellow-800 mb-1">Role: {roleLabel}</p>
               <p className="text-xs text-yellow-700">
                 GPS restrictions are bypassed. You can make sales from any location.
               </p>

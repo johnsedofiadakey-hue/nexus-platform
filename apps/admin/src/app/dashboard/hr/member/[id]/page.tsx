@@ -50,6 +50,8 @@ export default function MemberPortal() {
   const [showMap, setShowMap] = useState(true); // Default to visible
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState('OVERVIEW');
+  const [attendanceFrom, setAttendanceFrom] = useState(() => new Date().toISOString().split('T')[0]);
+  const [attendanceTo, setAttendanceTo] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Hardened Form State for Edit Modal
   const [formState, setFormState] = useState({
@@ -77,6 +79,16 @@ export default function MemberPortal() {
     try {
       const timestamp = Date.now();
 
+      const safeJson = async (response: Response) => {
+        const text = await response.text();
+        if (!text || !text.trim()) return null;
+        try {
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      };
+
       if (full) {
         const [uRes, sRes, mRes, aRes, tRes] = await Promise.all([
           fetch(`/api/hr/member/${staffId}?t=${timestamp}`),
@@ -86,19 +98,21 @@ export default function MemberPortal() {
           fetch(`/api/targets?userId=${staffId}&includeHistory=true&t=${timestamp}`)
         ]);
 
-        const userData = await uRes.json();
-        const shopData = await sRes.json();
-        const aiData = await aRes.json();
-        const targetsData = await tRes.json();
+        const [userData, shopData, aiData, targetsData] = await Promise.all([
+          safeJson(uRes),
+          safeJson(sRes),
+          safeJson(aRes),
+          safeJson(tRes),
+        ]);
 
         // Unwrap ok() wrapper: { success, data } → data
         const user = userData?.data ?? userData;
         const targetsRaw = targetsData?.data ?? targetsData;
 
-        if (user.error) {
+        if (!user || user.error) {
           // Include additional error details if available
-          const errorDetails = user.details || user.hint || '';
-          const fullError = errorDetails ? `${user.error}: ${errorDetails}` : user.error;
+          const errorDetails = user?.details || user?.hint || '';
+          const fullError = user?.error ? (errorDetails ? `${user.error}: ${errorDetails}` : user.error) : 'Member data unavailable';
           throw new Error(fullError);
         }
 
@@ -125,11 +139,12 @@ export default function MemberPortal() {
         });
       } else {
         // LIGHT UPDATE: Quietly refresh position and targets without blocking UI
-        fetch(`/api/hr/member/${staffId}?light=true&t=${timestamp}`).then(r => r.json()).then(userData => {
-          if (userData && !userData.error) {
+        fetch(`/api/hr/member/${staffId}?light=true&t=${timestamp}`).then(safeJson).then(userData => {
+          const user = userData?.data ?? userData;
+          if (user && !user.error) {
             setData((prev: any) => ({
               ...prev,
-              ...userData,
+              ...user,
               // Keep existing heavy data if not provided in light mode
               sales: prev?.sales || [],
               dailyReports: prev?.dailyReports || [],
@@ -141,9 +156,9 @@ export default function MemberPortal() {
             }));
           }
         });
-        fetch(`/api/ai/performance-insight?userId=${staffId}&t=${timestamp}`).then(r => r.json()).then(aiData => {
+        fetch(`/api/ai/performance-insight?userId=${staffId}&t=${timestamp}`).then(safeJson).then(aiData => {
           if (aiData && !aiData.error) {
-            setAiInsight(aiData);
+            setAiInsight(aiData?.data ?? aiData);
           }
         });
       }
@@ -182,6 +197,12 @@ export default function MemberPortal() {
     window.open(`/api/hr/member/${staffId}/export`, '_blank');
   };
 
+  const handleDownloadAttendanceRegistry = () => {
+    const from = attendanceFrom || new Date().toISOString().split('T')[0];
+    const to = attendanceTo || from;
+    window.open(`/api/hr/member/${staffId}/export?type=attendance_registry&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, '_blank');
+  };
+
   // --- SYSTEM ACTIONS ---
   const exec = async (action: string, payload: any) => {
     const t = toast.loading(`Processing Protocol...`);
@@ -210,8 +231,14 @@ export default function MemberPortal() {
           setFormState(prev => ({ ...prev, password: "" }));
         }
       } else {
-        const err = await res.json();
-        throw new Error(err.error || "Request Rejected");
+        const text = await res.text();
+        let err: any = null;
+        try {
+          err = text ? JSON.parse(text) : null;
+        } catch {
+          err = null;
+        }
+        throw new Error(err?.error || err?.message || "Request Rejected");
       }
     } catch (e: any) { toast.error(e.message || "Action Failed", { id: t }); }
   };
@@ -268,6 +295,29 @@ export default function MemberPortal() {
 
   const assignedShop = data?.shop || shops.find(s => s.id === data?.shopId);
   const isOnline = data?.lastLat && data?.lastLng;
+
+  const aiRecommendations = Array.isArray(aiInsight?.recommendations) ? aiInsight.recommendations : [];
+  const aiMetrics = aiInsight?.metrics || {};
+
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const attendanceToday = Array.isArray(data?.attendance)
+    ? data.attendance.filter((entry: any) => entry?.checkIn && new Date(entry.checkIn) >= startOfToday)
+    : [];
+  const onSiteSecondsToday = attendanceToday.reduce((sum: number, entry: any) => {
+    const checkIn = new Date(entry.checkIn).getTime();
+    const checkOut = entry?.checkOut ? new Date(entry.checkOut).getTime() : now.getTime();
+    return sum + Math.max(0, Math.floor((checkOut - checkIn) / 1000));
+  }, 0);
+  const dayElapsedSeconds = Math.max(0, Math.floor((now.getTime() - startOfToday.getTime()) / 1000));
+  const offSiteSecondsToday = Math.max(0, dayElapsedSeconds - onSiteSecondsToday);
+  const formatHours = (seconds: number) => {
+    const safeSeconds = Math.max(0, Number(seconds || 0));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20 selection:bg-blue-100">
@@ -436,6 +486,59 @@ export default function MemberPortal() {
                 </div>
               )}
 
+              <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200"><Clock size={18} /></div>
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-900">Smart Attendance Daily Report</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Visible daily on-site/off-site summary</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{now.toLocaleDateString()}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 mb-6">
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 h-10">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">From</span>
+                    <input
+                      type="date"
+                      value={attendanceFrom}
+                      onChange={(e) => setAttendanceFrom(e.target.value)}
+                      className="text-[11px] font-bold text-slate-700 bg-transparent outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 h-10">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">To</span>
+                    <input
+                      type="date"
+                      value={attendanceTo}
+                      onChange={(e) => setAttendanceTo(e.target.value)}
+                      className="text-[11px] font-bold text-slate-700 bg-transparent outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handleDownloadAttendanceRegistry}
+                    className="h-10 px-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                  >
+                    Export Attendance Registry
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">On-Site Today</p>
+                    <p className="text-2xl font-black text-emerald-700 mt-1">{formatHours(onSiteSecondsToday)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-rose-600">Off-Site Today</p>
+                    <p className="text-2xl font-black text-rose-700 mt-1">{formatHours(offSiteSecondsToday)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Attendance Sessions</p>
+                    <p className="text-2xl font-black text-slate-800 mt-1">{attendanceToday.length}</p>
+                  </div>
+                </div>
+              </div>
+
               {/* 🧠 NEXUS INTELLIGENCE (AI ASSISTANT) */}
               {aiInsight && (
                 <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-1 shadow-xl shadow-blue-200/50 group">
@@ -465,7 +568,7 @@ export default function MemberPortal() {
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 space-y-4">
                           <p className="text-sm font-medium text-slate-700 leading-relaxed italic">
-                            "{aiInsight.briefing}"
+                            "{aiInsight?.briefing || 'No AI briefing available yet.'}"
                           </p>
 
                           <div className="pt-4 border-t border-slate-100">
@@ -473,12 +576,16 @@ export default function MemberPortal() {
                               <TrendingUp size={12} className="text-blue-600" /> Key Recommendations
                             </h4>
                             <div className="flex flex-wrap gap-2">
-                              {aiInsight.recommendations.map((rec: string, i: number) => (
+                              {aiRecommendations.length > 0 ? aiRecommendations.map((rec: string, i: number) => (
                                 <div key={i} className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold text-slate-600 hover:bg-white hover:border-blue-200 transition-all cursor-default flex items-center gap-2">
                                   <div className="w-1 h-1 bg-blue-400 rounded-full" />
                                   {rec}
                                 </div>
-                              ))}
+                              )) : (
+                                <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold text-slate-500">
+                                  No recommendations available
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -487,24 +594,24 @@ export default function MemberPortal() {
                           <div className="flex justify-between items-end">
                             <div>
                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consistency</p>
-                              <p className="text-2xl font-black text-slate-900">{aiInsight.metrics.consistencyScore}%</p>
+                              <p className="text-2xl font-black text-slate-900">{Number(aiMetrics.consistencyScore || 0)}%</p>
                             </div>
                             <div className="flex flex-col items-end">
                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Target Progress</p>
-                              <p className="text-2xl font-black text-blue-600">{(aiInsight.metrics.revenueProgress || 0).toFixed(1)}%</p>
+                              <p className="text-2xl font-black text-blue-600">{Number(aiMetrics.revenueProgress || 0).toFixed(1)}%</p>
                             </div>
                           </div>
 
                           <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
                             <div
                               className="h-full bg-blue-600 transition-all duration-1000"
-                              style={{ width: `${aiInsight.metrics.revenueProgress || 0}%` }}
+                              style={{ width: `${Number(aiMetrics.revenueProgress || 0)}%` }}
                             />
                           </div>
 
                           <div className="flex justify-between mt-2">
                             <p className="text-[9px] font-bold text-slate-400">AVG Ticket Value</p>
-                            <p className="text-[10px] font-black text-slate-900">₵{aiInsight.metrics.avgOrderValue.toLocaleString()}</p>
+                            <p className="text-[10px] font-black text-slate-900">₵{Number(aiMetrics.avgOrderValue || 0).toLocaleString()}</p>
                           </div>
                         </div>
                       </div>

@@ -35,6 +35,13 @@ export default function AgentsPage() {
         (a.shopName || '').toLowerCase().includes(search.toLowerCase())
     );
 
+    const formatHours = (seconds: number) => {
+        const safeSeconds = Math.max(0, Number(seconds || 0));
+        const hours = Math.floor(safeSeconds / 3600);
+        const minutes = Math.floor((safeSeconds % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+    };
+
     return (
         <div className="p-6 md:p-10 min-h-screen bg-slate-50/50">
             <div className="max-w-7xl mx-auto space-y-8">
@@ -100,13 +107,16 @@ export default function AgentsPage() {
                                     </div>
                                     <div className="flex items-center justify-between text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
                                         <span className="text-slate-500 font-bold flex items-center gap-2"><Clock size={12} /> Shift</span>
-                                        <span className={`font-bold ${agent.attendanceStatus === 'CLOCKED_IN' ? 'text-emerald-600' :
-                                                agent.attendanceStatus === 'ABSENT' ? 'text-rose-500' : 'text-slate-500'
+                                        <span className={`font-bold ${agent.attendanceStatus === 'ON_SITE' ? 'text-emerald-600' : 'text-rose-500'
                                             }`}>
-                                            {agent.attendanceStatus === 'CLOCKED_IN'
+                                            {agent.attendanceStatus === 'ON_SITE'
                                                 ? `On Duty (${new Date(agent.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
-                                                : agent.attendanceStatus}
+                                                : 'OFF_SITE'}
                                         </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                        <span className="text-slate-500 font-bold">On-Site Hours</span>
+                                        <span className="font-bold text-slate-900">{formatHours(agent.totalOnSiteSecondsToday)}</span>
                                     </div>
                                 </div>
 

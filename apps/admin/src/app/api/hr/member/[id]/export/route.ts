@@ -1,8 +1,39 @@
+import { z } from "zod";
 import { withTenantProtection } from "@/lib/platform/tenant-protection";
 import { withApiErrorHandling } from "@/lib/platform/error-handler";
 import { fail } from "@/lib/platform/api-response";
+import { parseQuery } from "@/lib/platform/validation";
 
 export const dynamic = "force-dynamic";
+
+const exportQuerySchema = z
+    .object({
+        type: z.enum(["full", "attendance_registry"]).optional(),
+        from: z.string().optional(),
+        to: z.string().optional(),
+    })
+    .strip();
+
+function escapeCsv(value: unknown): string {
+    const raw = String(value ?? "");
+    if (raw.includes(",") || raw.includes("\n") || raw.includes("\"")) {
+        return `"${raw.replace(/\"/g, '""')}"`;
+    }
+    return raw;
+}
+
+function resolveRange(from?: string, to?: string) {
+    if (!from && !to) return null;
+
+    const fromDate = from ? new Date(from) : new Date(0);
+    const toDateBase = to ? new Date(to) : new Date();
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDateBase.getTime())) return null;
+
+    fromDate.setHours(0, 0, 0, 0);
+    const toDate = new Date(toDateBase);
+    toDate.setHours(23, 59, 59, 999);
+    return { fromDate, toDate };
+}
 
 export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
     const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
@@ -17,6 +48,10 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
                 rateLimit: { keyPrefix: "hr-member-export", max: 20, windowMs: 60_000 },
             },
             async (_request, ctx) => {
+                const query = parseQuery(new URL(req.url), exportQuerySchema);
+                const exportType = query.type || "full";
+                const range = resolveRange(query.from, query.to);
+
                 const whereClause: any = { id };
                 if (ctx.sessionUser.role !== "SUPER_ADMIN" && ctx.orgId) {
                     whereClause.organizationId = ctx.orgId;
@@ -34,6 +69,57 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
                 if (!user) {
                     return fail("NOT_FOUND", "User not found", 404);
+                }
+
+                if (exportType === "attendance_registry") {
+                    const attendanceRows = (user.attendance || []).filter((entry: any) => {
+                        if (!range) return true;
+                        const d = new Date(entry.date);
+                        return d >= range.fromDate && d <= range.toDate;
+                    });
+
+                    const rows: string[] = [];
+                    rows.push([
+                        "Date",
+                        "Promoter",
+                        "Email",
+                        "Status",
+                        "Check In",
+                        "Check Out",
+                        "On-Site Hours",
+                        "Session Type"
+                    ].join(","));
+
+                    attendanceRows.forEach((attendance: any) => {
+                        const checkIn = new Date(attendance.checkIn);
+                        const checkOut = attendance.checkOut ? new Date(attendance.checkOut) : null;
+                        const endPoint = checkOut ?? new Date();
+                        const durationHours = Math.max(0, (endPoint.getTime() - checkIn.getTime()) / (1000 * 60 * 60));
+                        const sessionType = attendance.note?.includes("AUTO_CLOCK") ? "AUTO_GEOFENCE" : "MANUAL";
+
+                        rows.push([
+                            escapeCsv(new Date(attendance.date).toLocaleDateString()),
+                            escapeCsv(user.name || "Unknown"),
+                            escapeCsv(user.email || ""),
+                            escapeCsv(attendance.status || ""),
+                            escapeCsv(checkIn.toLocaleTimeString()),
+                            escapeCsv(checkOut ? checkOut.toLocaleTimeString() : "-"),
+                            escapeCsv(durationHours.toFixed(2)),
+                            escapeCsv(sessionType),
+                        ].join(","));
+                    });
+
+                    const fromLabel = range?.fromDate.toISOString().split("T")[0];
+                    const toLabel = range?.toDate.toISOString().split("T")[0];
+                    const rangeSuffix = fromLabel && toLabel ? `${fromLabel}_to_${toLabel}` : new Date().toISOString().split("T")[0];
+
+                    return new Response(rows.join("\n"), {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "text/csv",
+                            "Content-Disposition": `attachment; filename=\"attendance_registry_${(user.name || "promoter").replace(/\s+/g, "_")}_${rangeSuffix}.csv\"`,
+                        },
+                    });
                 }
 
                 const rows: Array<Array<string | number>> = [];

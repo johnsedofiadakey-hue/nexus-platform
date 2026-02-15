@@ -24,11 +24,11 @@ const protectedGet = withTenantProtection(
                 name: true,
                 role: true,
                 lastSeen: true,
+                isInsideZone: true,
                 shop: { select: { name: true } },
                 attendance: {
                     where: { date: { gte: today } },
                     orderBy: { checkIn: "desc" },
-                    take: 1,
                     select: { checkIn: true, checkOut: true },
                 },
             },
@@ -49,7 +49,12 @@ const protectedGet = withTenantProtection(
 
         const formatted = agents.map((agent) => {
             const isOnline = agent.lastSeen ? agent.lastSeen > fiveMinutesAgo : false;
-            const lastAttendance = agent.attendance[0];
+            const activeAttendance = agent.attendance.find((entry) => !entry.checkOut) || null;
+            const totalOnSiteSecondsToday = agent.attendance.reduce((total, entry) => {
+                const end = entry.checkOut || new Date();
+                const seconds = Math.max(0, Math.floor((end.getTime() - entry.checkIn.getTime()) / 1000));
+                return total + seconds;
+            }, 0);
 
             return {
                 id: agent.id,
@@ -59,8 +64,9 @@ const protectedGet = withTenantProtection(
                 isOnline,
                 lastSeen: agent.lastSeen,
                 salesToday: salesMap.get(agent.id) || 0,
-                attendanceStatus: lastAttendance ? (lastAttendance.checkOut ? "CLOCKED_OUT" : "CLOCKED_IN") : "ABSENT",
-                clockInTime: lastAttendance?.checkIn || null,
+                attendanceStatus: agent.isInsideZone ? "ON_SITE" : "OFF_SITE",
+                clockInTime: activeAttendance?.checkIn || null,
+                totalOnSiteSecondsToday,
             };
         });
 

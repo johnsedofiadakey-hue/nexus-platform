@@ -67,17 +67,52 @@ const protectedPost = withTenantProtection(
     }
 
     const previousInside = Boolean(agent.isInsideZone);
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
 
     await ctx.scopedPrisma.user.update({
       where: { id: agent.id },
       data: {
         lastLat: body.lat,
         lastLng: body.lng,
-        lastSeen: new Date(),
+        lastSeen: now,
         isInsideZone: isInside,
         status: "ACTIVE",
       },
     });
+
+    const activeAttendance = await ctx.scopedPrisma.attendance.findFirst({
+      where: {
+        userId: agent.id,
+        checkOut: null,
+        date: { gte: startOfToday },
+      },
+      orderBy: { checkIn: "desc" },
+    });
+
+    if (isInside && !activeAttendance) {
+      await ctx.scopedPrisma.attendance.create({
+        data: {
+          userId: agent.id,
+          checkIn: now,
+          date: now,
+          status: "PRESENT",
+          note: "AUTO_CLOCK_IN_GEOFENCE",
+        },
+      });
+    }
+
+    if (!isInside && activeAttendance) {
+      await ctx.scopedPrisma.attendance.update({
+        where: { id: activeAttendance.id },
+        data: {
+          checkOut: now,
+          status: "OFF_SITE",
+          note: "AUTO_CLOCK_OUT_GEOFENCE",
+        },
+      });
+    }
 
     const gpsReliable = body.accuracy === undefined || body.accuracy <= 50;
     const transitionedOut = previousInside && !isInside;
@@ -117,7 +152,24 @@ const protectedPost = withTenantProtection(
       });
     }
 
-    return ok({ isInside, transitioned: previousInside !== isInside });
+    const todaysAttendance = await ctx.scopedPrisma.attendance.findMany({
+      where: { userId: agent.id, date: { gte: startOfToday } },
+      select: { checkIn: true, checkOut: true },
+      orderBy: { checkIn: "asc" },
+    });
+
+    const totalOnSiteSeconds = todaysAttendance.reduce((total, entry) => {
+      const end = entry.checkOut ?? now;
+      const seconds = Math.max(0, Math.floor((end.getTime() - entry.checkIn.getTime()) / 1000));
+      return total + seconds;
+    }, 0);
+
+    return ok({
+      isInside,
+      transitioned: previousInside !== isInside,
+      strictStatus: isInside ? "ON_SITE" : "OFF_SITE",
+      totalOnSiteSeconds,
+    });
   }
 );
 

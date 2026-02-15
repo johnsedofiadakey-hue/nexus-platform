@@ -101,15 +101,55 @@ const protectedGet = withTenantProtection(
         rateLimit: { keyPrefix: "mobile-attendance-read", max: 120, windowMs: 60_000 },
     },
     async (_req, ctx) => {
-        const active = await ctx.scopedPrisma.attendance.findFirst({
-            where: {
-                userId: ctx.sessionUser.id,
-                checkOut: null,
-                date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-            },
-        });
+        const now = new Date();
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
 
-        return ok({ status: active ? "CLOCKED_IN" : "CLOCKED_OUT" });
+        const [user, active, todayRecords] = await Promise.all([
+            ctx.scopedPrisma.user.findUnique({
+                where: { id: ctx.sessionUser.id },
+                select: { isInsideZone: true, lastSeen: true },
+            }),
+            ctx.scopedPrisma.attendance.findFirst({
+                where: {
+                    userId: ctx.sessionUser.id,
+                    checkOut: null,
+                    date: { gte: startOfToday },
+                },
+                orderBy: { checkIn: "desc" },
+            }),
+            ctx.scopedPrisma.attendance.findMany({
+                where: {
+                    userId: ctx.sessionUser.id,
+                    date: { gte: startOfToday },
+                },
+                select: { checkIn: true, checkOut: true },
+            }),
+        ]);
+
+        const totalOnSiteSeconds = todayRecords.reduce((total, entry) => {
+            const end = entry.checkOut ?? now;
+            const seconds = Math.max(0, Math.floor((end.getTime() - entry.checkIn.getTime()) / 1000));
+            return total + seconds;
+        }, 0);
+
+        const dayElapsedSeconds = Math.max(0, Math.floor((now.getTime() - startOfToday.getTime()) / 1000));
+        const totalOffSiteSeconds = Math.max(0, dayElapsedSeconds - totalOnSiteSeconds);
+
+        const currentSessionSeconds = active
+            ? Math.max(0, Math.floor((now.getTime() - active.checkIn.getTime()) / 1000))
+            : 0;
+
+        return ok({
+            status: user?.isInsideZone ? "ON_SITE" : "OFF_SITE",
+            hasActiveShift: Boolean(active),
+            clockInTime: active?.checkIn ?? null,
+            currentSessionSeconds,
+            totalOnSiteSeconds,
+            totalOffSiteSeconds,
+            isInsideZone: Boolean(user?.isInsideZone),
+            lastSeen: user?.lastSeen ?? null,
+        });
     }
 );
 

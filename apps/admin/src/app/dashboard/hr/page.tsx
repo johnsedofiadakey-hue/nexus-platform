@@ -3,24 +3,79 @@
 import React, { useEffect, useState } from "react";
 import {
   Users, UserPlus, Mail, ChevronRight, Loader2, Navigation, Search,
-  Shield, Activity, UserCircle, RefreshCcw, MapPin
+  Shield, Activity, UserCircle, RefreshCcw, MapPin, Download, Calendar
 } from "lucide-react";
 import Link from "next/link";
 
 export default function TeamPage() {
   const [staff, setStaff] = useState<any[]>([]);
+  const [strictStatus, setStrictStatus] = useState({ onSite: 0, offSite: 0, totalOnSiteHours: "0h 0m" });
+  const [strictStatusByUserId, setStrictStatusByUserId] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [registryDate, setRegistryDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [registryFrom, setRegistryFrom] = useState(() => new Date().toISOString().split("T")[0]);
+  const [registryTo, setRegistryTo] = useState(() => new Date().toISOString().split("T")[0]);
 
   const [fetchError, setFetchError] = useState(false);
+
+  const formatHours = (seconds: number) => {
+    const safeSeconds = Math.max(0, Number(seconds || 0));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const exportAttendanceRegistry = () => {
+    const from = registryFrom || registryDate || new Date().toISOString().split("T")[0];
+    const to = registryTo || registryDate || from;
+    window.open(`/api/hr/attendance/export?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, "_blank");
+  };
+
+  const setToday = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setRegistryDate(today);
+    setRegistryFrom(today);
+    setRegistryTo(today);
+  };
+
+  const setThisWeek = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const offsetToMonday = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - offsetToMonday);
+    monday.setHours(0, 0, 0, 0);
+    const from = monday.toISOString().split("T")[0];
+    const to = now.toISOString().split("T")[0];
+    setRegistryFrom(from);
+    setRegistryTo(to);
+    setRegistryDate(to);
+  };
+
+  const setThisMonth = () => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const from = monthStart.toISOString().split("T")[0];
+    const to = now.toISOString().split("T")[0];
+    setRegistryFrom(from);
+    setRegistryTo(to);
+    setRegistryDate(to);
+  };
 
   const fetchStaff = async (retryCount = 0) => {
     try {
       setFetchError(false);
-      const res = await fetch(`/api/hr/team/list?t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' },
-      });
+      const [res, agentsRes] = await Promise.all([
+        fetch(`/api/hr/team/list?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        }),
+        fetch(`/api/dashboard/agents?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        }),
+      ]);
 
       if (!res.ok) {
         // Server returned error — retry if transient (503 = pool desync)
@@ -41,6 +96,24 @@ export default function TeamPage() {
       );
 
       setStaff(agentsOnly);
+
+      if (agentsRes.ok) {
+        const agentsPayload = await agentsRes.json();
+        const list = agentsPayload?.data ?? agentsPayload ?? [];
+        const agents = Array.isArray(list) ? list : [];
+        const onSite = agents.filter((agent: any) => agent.attendanceStatus === 'ON_SITE').length;
+        const offSite = agents.length - onSite;
+        const totalSeconds = agents.reduce((sum: number, agent: any) => sum + Number(agent.totalOnSiteSecondsToday || 0), 0);
+        setStrictStatus({ onSite, offSite, totalOnSiteHours: formatHours(totalSeconds) });
+
+        const statusMap = agents.reduce((acc: Record<string, string>, agent: any) => {
+          if (agent?.id) {
+            acc[agent.id] = agent.attendanceStatus === 'ON_SITE' ? 'ON_SITE' : 'OFF_SITE';
+          }
+          return acc;
+        }, {});
+        setStrictStatusByUserId(statusMap);
+      }
     } catch (e) {
       console.error("System Error: Team data unavailable.", e);
       setFetchError(true);
@@ -95,6 +168,57 @@ export default function TeamPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 h-11 shadow-sm">
+            <Calendar size={14} className="text-slate-400" />
+            <input
+              type="date"
+              value={registryDate}
+              onChange={(e) => setRegistryDate(e.target.value)}
+              className="text-[11px] font-bold text-slate-700 bg-transparent outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 h-11 shadow-sm">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">From</span>
+            <input
+              type="date"
+              value={registryFrom}
+              onChange={(e) => setRegistryFrom(e.target.value)}
+              className="text-[11px] font-bold text-slate-700 bg-transparent outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 h-11 shadow-sm">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">To</span>
+            <input
+              type="date"
+              value={registryTo}
+              onChange={(e) => setRegistryTo(e.target.value)}
+              className="text-[11px] font-bold text-slate-700 bg-transparent outline-none"
+            />
+          </div>
+          <button
+            onClick={setToday}
+            className="h-11 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+          >
+            Today
+          </button>
+          <button
+            onClick={setThisWeek}
+            className="h-11 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+          >
+            This Week
+          </button>
+          <button
+            onClick={setThisMonth}
+            className="h-11 px-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+          >
+            This Month
+          </button>
+          <button
+            onClick={exportAttendanceRegistry}
+            className="h-11 px-5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm"
+          >
+            <Download size={14} /> Export Registry
+          </button>
           <Link
             href="/dashboard/hr/enrollment"
             className="h-11 px-6 bg-slate-900 text-white rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center gap-3 hover:bg-blue-600 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-0.5"
@@ -130,6 +254,27 @@ export default function TeamPage() {
             <StatCard label="Field Health" value={`${stats.activePercent}%`} icon={Activity} color="text-indigo-600" bg="bg-indigo-50" />
           </div>
 
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin size={16} className="text-blue-600" />
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Strict Status View</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">On Site</p>
+                <p className="text-2xl font-black text-emerald-700 mt-1">{strictStatus.onSite}</p>
+              </div>
+              <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-rose-600">Off Site</p>
+                <p className="text-2xl font-black text-rose-700 mt-1">{strictStatus.offSite}</p>
+              </div>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">Total On-Site Hours</p>
+                <p className="text-2xl font-black text-blue-700 mt-1">{strictStatus.totalOnSiteHours}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="mb-8 flex items-center bg-white p-2 rounded-2xl border border-slate-200 shadow-sm max-w-lg">
             <div className="w-12 h-12 flex items-center justify-center text-slate-400">
               <Search size={20} />
@@ -159,11 +304,19 @@ export default function TeamPage() {
                 >
                   <div className="p-6 pb-0 flex-1">
                     <div className="flex justify-between items-start mb-6">
-                      <div className={`pl-2 pr-3 py-1 rounded-full flex items-center gap-2 border ${person.isOnline ? 'bg-emerald-50 border-emerald-100/50 text-emerald-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                        <div className={`w-2 h-2 rounded-full ${person.isOnline ? 'bg-emerald-500 animate-pulse ring-4 ring-emerald-100' : 'bg-slate-300'}`} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">
-                          {person.isOnline ? 'Live' : 'Offline'}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <div className={`pl-2 pr-3 py-1 rounded-full flex items-center gap-2 border ${person.isOnline ? 'bg-emerald-50 border-emerald-100/50 text-emerald-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                          <div className={`w-2 h-2 rounded-full ${person.isOnline ? 'bg-emerald-500 animate-pulse ring-4 ring-emerald-100' : 'bg-slate-300'}`} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">
+                            {person.isOnline ? 'Live' : 'Offline'}
+                          </span>
+                        </div>
+                        <Link
+                          href={`/dashboard/hr/member/${person.id}`}
+                          className={`pl-2 pr-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest hover:opacity-80 transition-opacity ${strictStatusByUserId[person.id] === 'ON_SITE' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}
+                        >
+                          {strictStatusByUserId[person.id] === 'ON_SITE' ? 'ON_SITE' : 'OFF_SITE'}
+                        </Link>
                       </div>
                     </div>
 

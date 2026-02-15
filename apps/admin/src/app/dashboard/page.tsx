@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Users, TrendingUp, ShoppingBag, Store,
   Activity, Target, Loader2, RefreshCw,
-  ChevronRight, ArrowUpRight, BarChart3, PieChart
+  ChevronRight, ArrowUpRight, BarChart3, PieChart, Clock, MapPin
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
@@ -36,14 +36,23 @@ export default function DashboardPage() {
   const [stats, setStats] = useState(defaultStats);
   const [pulseData, setPulseData] = useState([]);
   const [adminTarget, setAdminTarget] = useState(null);
+  const [strictStatus, setStrictStatus] = useState({ onSite: 0, offSite: 0, totalOnSiteHours: "0h 0m" });
   const [loading, setLoading] = useState(true);
+
+  const formatHours = (seconds: number) => {
+    const safeSeconds = Math.max(0, Number(seconds || 0));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
 
   const fetchData = async () => {
     try {
-      const [statsRes, pulseRes, targetsRes] = await Promise.all([
+      const [statsRes, pulseRes, targetsRes, agentsRes] = await Promise.all([
         fetch('/api/dashboard/stats'),
         fetch('/api/operations/pulse-feed'),
-        fetch('/api/targets?targetType=ADMIN')
+        fetch('/api/targets?targetType=ADMIN'),
+        fetch('/api/dashboard/agents')
       ]);
 
       if (statsRes.ok) {
@@ -60,6 +69,16 @@ export default function DashboardPage() {
         const targetsPayload = await targetsRes.json();
         const targets = targetsPayload?.data || targetsPayload || [];
         setAdminTarget(targets[0] || null);
+      }
+
+      if (agentsRes.ok) {
+        const agentsPayload = await agentsRes.json();
+        const list = agentsPayload?.data ?? agentsPayload ?? [];
+        const agents = Array.isArray(list) ? list : [];
+        const onSite = agents.filter((agent: any) => agent.attendanceStatus === 'ON_SITE').length;
+        const offSite = agents.length - onSite;
+        const totalSeconds = agents.reduce((sum: number, agent: any) => sum + Number(agent.totalOnSiteSecondsToday || 0), 0);
+        setStrictStatus({ onSite, offSite, totalOnSiteHours: formatHours(totalSeconds) });
       }
     } catch (e) {
       console.error("Dashboard Sync Error:", e);
@@ -164,6 +183,32 @@ export default function DashboardPage() {
           bg="bg-rose-50"
           trend="Stable"
         />
+      </div>
+
+      {/* STRICT STATUS VIEW */}
+      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <MapPin size={14} className="text-blue-500" /> Strict Status View
+          </h3>
+          <Link href="/dashboard/agents" className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700">
+            Open Agents →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">On Site</p>
+            <p className="text-2xl font-black text-emerald-700 mt-1">{strictStatus.onSite}</p>
+          </div>
+          <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-rose-600">Off Site</p>
+            <p className="text-2xl font-black text-rose-700 mt-1">{strictStatus.offSite}</p>
+          </div>
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1"><Clock size={12} /> Total On-Site Hours</p>
+            <p className="text-2xl font-black text-blue-700 mt-1">{strictStatus.totalOnSiteHours}</p>
+          </div>
+        </div>
       </div>
 
       {/* MISSION CRITICAL GRID */}

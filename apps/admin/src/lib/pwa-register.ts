@@ -5,9 +5,31 @@ export function registerServiceWorker() {
 
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw.js')
+      .register('/sw.js?v=2')
       .then((registration) => {
         console.log('✅ Service Worker registered:', registration.scope);
+
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+
+        registration.addEventListener('updatefound', () => {
+          const worker = registration.installing;
+          if (!worker) return;
+
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              worker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+
+        let hasReloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (hasReloaded) return;
+          hasReloaded = true;
+          window.location.reload();
+        });
 
         // Check for updates every 60 seconds
         setInterval(() => {

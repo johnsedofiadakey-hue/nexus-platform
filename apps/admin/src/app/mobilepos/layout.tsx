@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { SessionProvider as AuthProvider } from "@/components/providers/SessionProvider";
 import { MobileThemeProvider, useMobileTheme } from "@/context/MobileThemeContext";
 import { MobileDataProvider } from "@/context/MobileDataContext";
+import { useMobileData } from "@/context/MobileDataContext";
 import LocationGuard from "@/components/auth/LocationGuard";
 import SyncManager from "@/components/mobile/SyncManager";
 import LeaveLockout from "@/components/mobile/LeaveLockout";
@@ -23,15 +24,23 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { themeClasses } = useMobileTheme();
   const [lockout, setLockout] = useState<{ active: boolean; returnDate?: string }>({ active: false });
-  const [geoConfig, setGeoConfig] = useState<{ lat: number; lng: number; radius: number; bypass: boolean } | null>(null);
+  const { identity } = useMobileData();
+
+  const geoConfig = identity?.shopLat && identity?.shopLng
+    ? {
+        lat: identity.shopLat,
+        lng: identity.shopLng,
+        radius: identity.radius || 100,
+        bypass: Boolean(identity.bypassGeofence),
+      }
+    : null;
 
   useEffect(() => {
     // 🚀 Register PWA service worker
     registerServiceWorker();
     requestPersistentStorage();
 
-    // Note: Init data now comes from MobileDataContext
-    // We just need to setup geo config from the context
+    // Init data comes from MobileDataContext
   }, []);
 
   // ✅ FIX: lockout is now initialized to {active: false} instead of null
