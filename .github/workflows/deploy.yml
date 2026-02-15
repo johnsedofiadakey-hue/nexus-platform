@@ -61,17 +61,14 @@ jobs:
       - name: Link Control Vercel Project
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel link --yes --scope john-dakeys-projects --project nexus-control --token=${{ env.VERCEL_TOKEN }}
-        working-directory: apps/control
 
       - name: Pull Control Vercel Environment
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
-        working-directory: apps/control
 
       - name: Deploy Control to Vercel
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel deploy --archive=tgz --prod --yes --token=${{ env.VERCEL_TOKEN }}
-        working-directory: apps/control
 
       - name: Admin Vercel Secrets Missing (Deploy Skipped)
         if: github.event_name == 'push' && env.VERCEL_TOKEN == ''
