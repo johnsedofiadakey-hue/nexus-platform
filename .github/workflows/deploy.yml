@@ -56,14 +56,9 @@ jobs:
         run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/admin
 
-      - name: Build Admin Artifacts
+      - name: Deploy Admin to Vercel
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
-        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
-        working-directory: apps/admin
-
-      - name: Deploy Admin Artifacts to Vercel
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
-        run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
+        run: vercel deploy --prod --yes --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/admin
 
       - name: Link Control Vercel Project
@@ -76,14 +71,9 @@ jobs:
         run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/control
 
-      - name: Build Control Artifacts
+      - name: Deploy Control to Vercel
         if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
-        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
-        working-directory: apps/control
-
-      - name: Deploy Control Artifacts to Vercel
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
-        run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
+        run: vercel deploy --prod --yes --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/control
 
       - name: Admin Vercel Secrets Missing (Deploy Skipped)
