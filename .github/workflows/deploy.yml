@@ -10,9 +10,6 @@ on:
 
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID_ADMIN: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
-  VERCEL_PROJECT_ID_CONTROL: ${{ secrets.VERCEL_PROJECT_ID_CONTROL }}
 
 jobs:
   deploy:
@@ -46,55 +43,53 @@ jobs:
         run: pnpm test
 
       - name: Install Vercel CLI
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != ''
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: pnpm add -g vercel@latest
 
+      - name: Link Admin Vercel Project
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
+        run: vercel link --yes --scope john-dakeys-projects --project nexus-admin --token=${{ env.VERCEL_TOKEN }}
+        working-directory: apps/admin
+
       - name: Pull Admin Vercel Environment
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID_ADMIN != ''
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/admin
-        env:
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID_ADMIN }}
 
       - name: Build Admin Artifacts
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID_ADMIN != ''
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/admin
-        env:
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID_ADMIN }}
 
       - name: Deploy Admin Artifacts to Vercel
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID_ADMIN != ''
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/admin
-        env:
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID_ADMIN }}
+
+      - name: Link Control Vercel Project
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
+        run: vercel link --yes --scope john-dakeys-projects --project nexus-agent --token=${{ env.VERCEL_TOKEN }}
+        working-directory: apps/control
 
       - name: Pull Control Vercel Environment
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID_CONTROL != ''
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/control
-        env:
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID_CONTROL }}
 
       - name: Build Control Artifacts
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID_CONTROL != ''
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/control
-        env:
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID_CONTROL }}
 
       - name: Deploy Control Artifacts to Vercel
-        if: github.event_name == 'push' && env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID_CONTROL != ''
+        if: github.event_name == 'push' && env.VERCEL_TOKEN != ''
         run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
         working-directory: apps/control
-        env:
-          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID_CONTROL }}
 
       - name: Admin Vercel Secrets Missing (Deploy Skipped)
-        if: github.event_name == 'push' && env.VERCEL_PROJECT_ID_ADMIN == ''
-        run: 'echo "Admin deploy skipped. Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_ADMIN."'
+        if: github.event_name == 'push' && env.VERCEL_TOKEN == ''
+        run: 'echo "Admin deploy skipped. Required secret: VERCEL_TOKEN."'
 
       - name: Control Vercel Secrets Missing (Deploy Skipped)
-        if: github.event_name == 'push' && env.VERCEL_PROJECT_ID_CONTROL == ''
-        run: 'echo "Control deploy skipped. Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID_CONTROL."'
+        if: github.event_name == 'push' && env.VERCEL_TOKEN == ''
+        run: 'echo "Control deploy skipped. Required secret: VERCEL_TOKEN."'
